@@ -38,6 +38,7 @@
   </Folder>
   <Folder Name="/src/Modules/MeterMinder/Presentation/">
     <Project Path="src/Modules/MeterMinder/Sergin.MeterMinder.Presentation.WebApi/Sergin.MeterMinder.Presentation.WebApi.csproj" />
+    <Project Path="src/Modules/MeterMinder/Sergin.MeterMinder.Presentation.Blazor/Sergin.MeterMinder.Presentation.Blazor.csproj" />
   </Folder>
   <Folder Name="/src/Modules/UserAccess/">
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Application/Sergin.UserAccess.Application.csproj" />
