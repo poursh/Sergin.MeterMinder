@@ -39,6 +39,7 @@ internal sealed class DeviceQueryRepository(
 
             SELECT id, device_id AS deviceId, manufacturer_id AS manufacturerId
             FROM mm.device
+            ORDER BY id
             LIMIT @PageSize OFFSET @Offset;
             """;
 
