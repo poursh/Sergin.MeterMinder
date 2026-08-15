@@ -48,6 +48,7 @@
   </Folder>
   <Folder Name="/src/Modules/UserAccess/Presentation/">
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Presentation.WebApi/Sergin.UserAccess.Presentation.WebApi.csproj" />
+    <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Presentation.Blazor/Sergin.UserAccess.Presentation.Blazor.csproj" />
   </Folder>
   <Folder Name="/src/SharedKernel/">
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Application/Sergin.SharedKernel.Application.csproj" />
