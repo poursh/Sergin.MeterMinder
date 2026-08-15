@@ -22,6 +22,7 @@
 		<PackageVersion Include="Microsoft.Extensions.Options" Version="9.0.7" />
 		<PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.7.0" />
 		<PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+		<PackageVersion Include="MudBlazor" Version="9.8.0" />
 		<PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.2" />
 		<PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.16.0" />
 		<PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.16.0" />
