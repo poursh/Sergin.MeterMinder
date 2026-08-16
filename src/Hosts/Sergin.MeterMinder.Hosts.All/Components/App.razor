@@ -1,3 +1,5 @@
+@inject IHostEnvironment HostEnvironment
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -7,6 +9,15 @@
     <base href="/" />
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["_content/MudBlazor/MudBlazor.min.css"]" />
+    @if (HostEnvironment.IsDevelopment())
+    {
+        @* Styles for the Development-only theme manager drawer (SerginMainLayout), plus the font
+           families its typography picker offers — without them, picking one previews the wrong face. *@
+        <link rel="stylesheet" href="@Assets["_content/MudBlazor.ThemeManager/MudBlazorThemeManager.css"]" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@@300;400;500;700&display=swap" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@@400;500;600;700&display=swap" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@@300;400;500;700&display=swap" />
+    }
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <ImportMap />
     <HeadOutlet @rendermode="InteractiveServer" />
