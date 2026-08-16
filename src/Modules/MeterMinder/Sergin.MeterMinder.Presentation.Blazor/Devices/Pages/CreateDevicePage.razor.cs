@@ -27,6 +27,9 @@ public sealed partial class CreateDevicePage
 
     protected override async Task OnInitializedAsync()
     {
+        // One page of 200 fills the picker. There is no server-side search to fall back on
+        // (the list repositories ignore Term/Filtering/Sorting), so beyond 200 manufacturers
+        // the tail is silently unreachable here and this needs an autocomplete instead.
         ErrorOr<ListQueryResponse<GetManufacturerListItem>> result =
             await Dispatcher.SendListAsync<GetManufacturerListItem>(200, 1);
 
