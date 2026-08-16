@@ -46,15 +46,18 @@ There is **one** test project, integration-only — xUnit + `Testcontainers.Post
 `Microsoft.AspNetCore.Mvc.Testing`, exercising a real host end-to-end against a disposable container rather
 than mocks. There are no unit test projects yet.
 
-- `tests/Sergin.MeterMinder.IntegrationTests.All` — drives `Sergin.MeterMinder.Hosts.All`, asserting
-  that each module's pages render server-side, that they render *interactively* rather than falling back
-  to static SSR, and that the shell composed nav entries from both modules (`Shell/ModulePageRenderingTests.cs`).
+- `tests/Sergin.MeterMinder.IntegrationTests.All` — drives `Sergin.MeterMinder.Hosts.All`. Two shapes:
+  - `Shell/ModulePageRenderingTests.cs` asserts each module's pages render server-side, that they render
+    *interactively* rather than falling back to static SSR, that the shell composed nav entries from both
+    modules, and that the configured `Sergin:ApplicationName` reaches the app bar.
+  - `Users/CreateAndGetUserTests.cs` is the only **write**-path test: command handler → domain factory →
+    EF repository → `SaveChangesAsync` → raw-SQL list read.
 
-**Known coverage gap**: dropping the API host also dropped `CreateAndGetUserTests`, which was the only test
-exercising a **write** path end-to-end (POST create → repository → `SaveChangesAsync` → raw-SQL list read).
-Nothing covers that today — the surviving suite only asserts pages render. Closing it means a test that resolves
-`ISender` from the host's `IServiceProvider` and sends `CreateUserCommand` directly, since there is no HTTP
-surface left to drive.
+**Write-path tests dispatch in-process, not over HTTP.** With no API host there is no endpoint to POST to, so
+`CreateAndGetUserTests` resolves `ISerginUiDispatcher` from `factory.Services` and sends `CreateUserCommand`
+the same way a Blazor page does. Use that shape for new write coverage rather than reaching for `HttpClient`.
+Dispatching (not raw `ISender`) matters: it opens a fresh DI scope per send, so the read genuinely round-trips
+through Postgres instead of being served from the writing `DbContext`'s change tracker.
 
 **If a second host is ever added back, its test suite must be a separate project.** Each host ends its
 `Program.cs` with `public partial class Program;` in the *global* namespace (so `WebApplicationFactory<Program>`
