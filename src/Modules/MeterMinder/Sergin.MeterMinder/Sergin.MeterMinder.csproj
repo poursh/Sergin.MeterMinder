@@ -3,6 +3,7 @@
 		<ProjectReference Include="..\..\..\SharedKernel\Sergin.SharedKernel.Modules\Sergin.SharedKernel.Modules.csproj" />
 		<ProjectReference Include="..\Sergin.MeterMinder.Infrastructure\Sergin.MeterMinder.Infrastructure.csproj" />
 		<ProjectReference Include="..\Sergin.MeterMinder.Presentation.WebApi\Sergin.MeterMinder.Presentation.WebApi.csproj" />
+		<ProjectReference Include="..\Sergin.MeterMinder.Presentation.Blazor\Sergin.MeterMinder.Presentation.Blazor.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<FrameworkReference Include="Microsoft.AspNetCore.App" />

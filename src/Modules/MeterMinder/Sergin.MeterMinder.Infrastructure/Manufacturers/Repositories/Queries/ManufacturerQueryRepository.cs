@@ -39,6 +39,7 @@ internal sealed class ManufacturerQueryRepository(
 
             SELECT id, name, address
             FROM mm.manufacturer
+            ORDER BY id
             LIMIT @PageSize OFFSET @Offset;
             """;
 

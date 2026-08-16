@@ -13,14 +13,14 @@ WORKDIR /src
 # references the module/SharedKernel projects and relies on Directory.Build.props,
 # so a restore needs every referenced .csproj present.
 COPY . .
-RUN dotnet restore "src/Hosts/Sergin.MeterMinder.Hosts.WebApi.All/Sergin.MeterMinder.Hosts.WebApi.All.csproj"
-RUN dotnet build "src/Hosts/Sergin.MeterMinder.Hosts.WebApi.All/Sergin.MeterMinder.Hosts.WebApi.All.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet restore "src/Hosts/Sergin.MeterMinder.Hosts.All/Sergin.MeterMinder.Hosts.All.csproj"
+RUN dotnet build "src/Hosts/Sergin.MeterMinder.Hosts.All/Sergin.MeterMinder.Hosts.All.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "src/Hosts/Sergin.MeterMinder.Hosts.WebApi.All/Sergin.MeterMinder.Hosts.WebApi.All.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "src/Hosts/Sergin.MeterMinder.Hosts.All/Sergin.MeterMinder.Hosts.All.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "Sergin.MeterMinder.Hosts.WebApi.All.dll"]
+ENTRYPOINT ["dotnet", "Sergin.MeterMinder.Hosts.All.dll"]

@@ -405,3 +405,15 @@ dotnet_style_operator_placement_when_wrapping = beginning_of_line
 tab_width = 4
 indent_size = 4
 end_of_line = crlf
+
+# Razor: `.razor` files carry markup only; all C# lives in `.razor.cs` code-behind, which the
+# `[*.cs]` sections above already analyze in full. Razor source-generator output needs no
+# `generated_code` exemption — a MudBlazor RCL with @page, EditForm, [Parameter] and code-behind
+# was measured against this repo's AnalysisMode=All + SonarAnalyzer + TreatWarningsAsErrors
+# configuration and produced zero diagnostics.
+
+[*.razor]
+indent_size = 4
+indent_style = space
+end_of_line = crlf
+insert_final_newline = true

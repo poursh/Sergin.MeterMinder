@@ -4,7 +4,7 @@
       "commandName": "DockerCompose",
       "commandVersion": "1.0",
       "serviceActions": {
-        "sergin.hosts-all": "StartDebugging"
+        "sergin.meter-minder.hosts-all": "StartDebugging"
       }
     }
   }

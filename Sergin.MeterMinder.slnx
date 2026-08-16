@@ -26,7 +26,7 @@
   </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/Hosts/">
-    <Project Path="src/Hosts/Sergin.MeterMinder.Hosts.WebApi.All/Sergin.MeterMinder.Hosts.WebApi.All.csproj" />
+    <Project Path="src/Hosts/Sergin.MeterMinder.Hosts.All/Sergin.MeterMinder.Hosts.All.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/MeterMinder/">
@@ -38,6 +38,7 @@
   </Folder>
   <Folder Name="/src/Modules/MeterMinder/Presentation/">
     <Project Path="src/Modules/MeterMinder/Sergin.MeterMinder.Presentation.WebApi/Sergin.MeterMinder.Presentation.WebApi.csproj" />
+    <Project Path="src/Modules/MeterMinder/Sergin.MeterMinder.Presentation.Blazor/Sergin.MeterMinder.Presentation.Blazor.csproj" />
   </Folder>
   <Folder Name="/src/Modules/UserAccess/">
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Application/Sergin.UserAccess.Application.csproj" />
@@ -48,6 +49,7 @@
   </Folder>
   <Folder Name="/src/Modules/UserAccess/Presentation/">
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Presentation.WebApi/Sergin.UserAccess.Presentation.WebApi.csproj" />
+    <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Presentation.Blazor/Sergin.UserAccess.Presentation.Blazor.csproj" />
   </Folder>
   <Folder Name="/src/SharedKernel/">
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Application/Sergin.SharedKernel.Application.csproj" />
@@ -58,6 +60,7 @@
   <Folder Name="/src/SharedKernel/Hosts/">
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Hosts/Sergin.SharedKernel.Hosts.csproj" />
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Hosts.WebApi/Sergin.SharedKernel.Hosts.WebApi.csproj" />
+    <Project Path="src/SharedKernel/Sergin.SharedKernel.Hosts.WebUi/Sergin.SharedKernel.Hosts.WebUi.csproj" />
   </Folder>
   <Folder Name="/src/SharedKernel/Infrastracture/">
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Infrastracture.Data/Sergin.SharedKernel.Infrastracture.Data.csproj" />
@@ -66,11 +69,12 @@
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Infrastructure/Sergin.SharedKernel.Infrastructure.csproj" />
   </Folder>
   <Folder Name="/src/SharedKernel/Presentation/">
+    <Project Path="src/SharedKernel/Sergin.SharedKernel.Presentation.Blazor/Sergin.SharedKernel.Presentation.Blazor.csproj" />
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Presentation.WebApi/Sergin.SharedKernel.Presentation.WebApi.csproj" />
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Presentation/Sergin.SharedKernel.Presentation.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Sergin.MeterMinder.IntegrationTests.WebApi.All/Sergin.MeterMinder.IntegrationTests.WebApi.All.csproj" />
+    <Project Path="tests/Sergin.MeterMinder.IntegrationTests.All/Sergin.MeterMinder.IntegrationTests.All.csproj" />
   </Folder>
   <Project Path="docker-compose/docker-compose.dcproj">
     <Platform Project="AnyCPU" />
