@@ -76,6 +76,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Sergin.MeterMinder.IntegrationTests.WebApi.All/Sergin.MeterMinder.IntegrationTests.WebApi.All.csproj" />
+    <Project Path="tests/Sergin.MeterMinder.IntegrationTests.WebUi.All/Sergin.MeterMinder.IntegrationTests.WebUi.All.csproj" />
   </Folder>
   <Project Path="docker-compose/docker-compose.dcproj">
     <Platform Project="AnyCPU" />
