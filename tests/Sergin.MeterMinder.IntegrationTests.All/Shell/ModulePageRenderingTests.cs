@@ -1,9 +1,12 @@
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.IntegrationTests;
+using Sergin.SharedKernel.Presentation;
 
-namespace Sergin.MeterMinder.IntegrationTests.WebUi.All.Shell;
+namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 
-[Collection(nameof(WebUiIntegrationTestCollection))]
+[Collection(nameof(IntegrationTestCollection))]
 public sealed class ModulePageRenderingTests(SerginWebApiFactory<Program> factory)
 {
     [Theory]
@@ -45,6 +48,31 @@ public sealed class ModulePageRenderingTests(SerginWebApiFactory<Program> factor
         // callback is never invoked and every grid renders permanently empty. Asserting 200 alone
         // cannot see that, which is exactly how it reached review once already.
         Assert.Contains("\"type\":\"server\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Shell_RendersConfiguredApplicationName_InAppBar()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync("/mm/devices");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        string html = await response.Content.ReadAsStringAsync();
+
+        // Read the expected value out of the host's own configuration rather than hard-coding it, so
+        // renaming the application in appsettings.json doesn't break this test. The app bar hard-coded
+        // "Sergin" before this was configurable, so finding the *configured* value proves the whole chain:
+        // the option bound off the Sergin section, survived validation, and reached SerginMainLayout.
+        string configuredName = factory.Services
+            .GetRequiredService<IOptions<SerginApplicationOptions>>().Value.ApplicationName;
+
+        Assert.Contains(configuredName, html, StringComparison.Ordinal);
+
+        // SerginMainLayout also supplies a default <PageTitle>, but it must stay a *fallback* — a page that
+        // declares its own title still wins, because HeadOutlet keeps the last one rendered.
+        Assert.Contains("<title>Devices</title>", html, StringComparison.Ordinal);
     }
 
     [Fact]

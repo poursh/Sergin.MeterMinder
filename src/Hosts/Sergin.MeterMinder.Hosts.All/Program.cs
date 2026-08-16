@@ -1,4 +1,5 @@
 using Sergin.MeterMinder;
+using Sergin.MeterMinder.Hosts.All.Components;
 using Sergin.SharedKernel.Modules;
 using Sergin.UserAccess;
 
@@ -8,11 +9,11 @@ builder.AddServiceDefaults("sergin-all");
 
 IReadOnlyCollection<ISerginModule> modules = [new MeterMinderModule(), new UserAccessModule()];
 
-builder.AddSerginWebApi(modules);
+builder.AddSerginWebUi(modules);
 
 WebApplication app = builder.Build();
 
-await app.UseSerginWebApiAsync(modules);
+await app.UseSerginWebUiAsync<App>(modules);
 
 await app.RunAsync();
 

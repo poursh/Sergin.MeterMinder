@@ -21,23 +21,27 @@ The solution follows modern architecture practices to keep domain logic clear an
 .
 ├── src/
 │   ├── Hosts/
-│   │   ├── Sergin.MeterMinder.Hosts.WebApi.All/  # Runnable all-in-one Web API (composition root)
-│   │   └── Sergin.MeterMinder.Hosts.WebUi.All/   # Runnable all-in-one Blazor Server UI (Development only)
+│   │   └── Sergin.MeterMinder.Hosts.All/         # Runnable all-in-one Blazor Server UI (Development only)
 │   ├── Modules/
 │   │   ├── MeterMinder/                          # Head-End System (HES) for smart meters
 │   │   └── UserAccess/                           # Identity & access module (git submodule)
 │   └── SharedKernel/                             # Framework-level building blocks (git submodule)
 │       ├── Sergin.SharedKernel.Hosts             # Aspire service defaults + AddSerginCore
-│       ├── Sergin.SharedKernel.Hosts.WebApi      # Sergin WebApi bootstrap (OpenAPI, endpoints)
+│       ├── Sergin.SharedKernel.Hosts.WebApi      # Sergin WebApi bootstrap (OpenAPI, endpoints) — currently unhosted
 │       ├── Sergin.SharedKernel.Hosts.WebUi       # Sergin Blazor bootstrap (Razor components, dev user)
 │       └── ...                                   # Other framework-level building blocks
 ├── tests/
-│   ├── Sergin.MeterMinder.IntegrationTests.WebApi.All/  # xUnit + Testcontainers, exercises the real API host
-│   └── Sergin.MeterMinder.IntegrationTests.WebUi.All/   # ... and the real UI host (server-side page rendering)
-└── docker-compose/                               # API + UI + postgres:17 + Aspire dashboard
+│   └── Sergin.MeterMinder.IntegrationTests.All/  # xUnit + Testcontainers, exercises the real host
+└── docker-compose/                               # App + postgres:17 + Aspire dashboard
 ```
 
-Each module is split into `.Domain`, `.Application`, `.Infrastructure`, `.Infrastructure.Data` (DbContext + migrations), `.Presentation.WebApi` (minimal-API endpoints), and optionally `.Presentation.Blazor` (a Razor Class Library of MudBlazor pages), plus a composition project that wires it into the hosts. Each module owns its own `DbContext`, migrations, and PostgreSQL schema.
+Each module is split into `.Domain`, `.Application`, `.Infrastructure`, `.Infrastructure.Data` (DbContext + migrations), `.Presentation.WebApi` (minimal-API endpoints), and optionally `.Presentation.Blazor` (a Razor Class Library of MudBlazor pages), plus a composition project that wires it into the host. Each module owns its own `DbContext`, migrations, and PostgreSQL schema.
+
+> **There is no Web API host right now.** It was dropped deliberately; the Blazor UI calls its module
+> handlers in-process through MediatR and never needed the HTTP hop. The API *capability* is fully
+> intact and still compiles — each module still implements `ISerginWebApiModule` and still ships its
+> `.Presentation.WebApi` endpoints, and `Sergin.SharedKernel.Hosts.WebApi` still builds — so restoring
+> an API host is a new ~20-line `Program.cs`, not a rewrite.
 
 ## 📌 Key Features
 
@@ -58,7 +62,7 @@ Each module is split into `.Domain`, `.Application`, `.Infrastructure`, `.Infras
 - **PostgreSQL** – Relational database backend (per-module schemas)
 - **MediatR** – In-process messaging for CQRS and decoupled communication
 - **FluentValidation** – Strongly-typed, fluent request validation
-- **ErrorOr** – Result/error modeling for handlers, mapped to ProblemDetails at the API edge
+- **ErrorOr** – Result/error modeling for handlers, rendered in the UI through a shared `SerginProblem` mapper
 
 ## 🚀 Getting Started
 
@@ -75,32 +79,25 @@ git submodule update --init --recursive
 dotnet build Sergin.MeterMinder.slnx
 ```
 
-### Run the API
+### Run it
 
 ```bash
 # Directly on the host — the Development profile applies EF migrations on startup.
 # Needs a Sergin:ConnectionStrings:Database connection string, e.g. as a user secret
 # (the host declares a UserSecretsId) pointing at a Postgres instance you have running.
-dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.WebApi.All
-# → http://localhost:5000, Scalar UI at /scalar/v1
+# Landing page is /mm/devices.
+dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.All
+# → http://localhost:5002
 
-# ...or run everything in Docker (API + UI + postgres:17 + Aspire dashboard) — no secrets
+# ...or run everything in Docker (app + postgres:17 + Aspire dashboard) — no secrets
 # needed, the connection string is set via environment variable in docker-compose.yml.
 # NB: submodules must be initialized first (above) — the Docker build context
 # copies the whole working tree, submodule content included.
 docker compose -f docker-compose/docker-compose.yml up --build
-# → API at http://localhost:5000, UI at http://localhost:5002, Aspire dashboard at http://localhost:18888
+# → UI at http://localhost:5002, Aspire dashboard at http://localhost:18888
 ```
 
-### Run the Blazor UI
-
-```bash
-# Same connection-string requirement as the API. Landing page is /mm/devices.
-dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.WebUi.All
-# → http://localhost:5002
-```
-
-> **The UI host is Development-only.** It has no authentication yet — every request runs as the single
+> **The host is Development-only.** It has no authentication yet — every request runs as the single
 > user configured under `Sergin:DevUser` in its `appsettings.json` — so it deliberately throws at startup
 > in any other environment rather than serving unauthenticated pages.
 
@@ -108,7 +105,6 @@ dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.WebUi.All
 
 | Port | Service |
 |---|---|
-| 5000 / 5001 | Web API host (http / https) |
 | 5002 / 5003 | Blazor UI host (http / https) |
 | 5432 | PostgreSQL |
 | 18888 | Aspire dashboard |
@@ -118,8 +114,8 @@ dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.WebUi.All
 
 If you use **Visual Studio** (17.13+), open `Sergin.MeterMinder.slnx`, set **`docker-compose`**
 (`docker-compose/docker-compose.dcproj`) as the startup project, and press **F5**.
-Visual Studio builds the images and launches the full stack (API + UI + `postgres:17` +
-Aspire dashboard) via Docker Compose, then attaches the debugger to the API.
+Visual Studio builds the images and launches the full stack (app + `postgres:17` +
+Aspire dashboard) via Docker Compose, then attaches the debugger.
 
 ### EF Core migrations
 
@@ -128,7 +124,7 @@ Each module owns its own `DbContext` and migrations. Example for the MeterMinder
 ```bash
 dotnet ef migrations add <Name> \
   --project src/Modules/MeterMinder/Sergin.MeterMinder.Infrastructure.Data \
-  --startup-project src/Hosts/Sergin.MeterMinder.Hosts.WebApi.All
+  --startup-project src/Hosts/Sergin.MeterMinder.Hosts.All
 ```
 
 Migrations are applied automatically at startup **only in the Development environment**.
@@ -136,9 +132,8 @@ Migrations are applied automatically at startup **only in the Development enviro
 ### Run the integration tests
 
 ```bash
-# Need Docker — each spins up a real postgres:17 via Testcontainers
-dotnet test tests/Sergin.MeterMinder.IntegrationTests.WebApi.All/Sergin.MeterMinder.IntegrationTests.WebApi.All.csproj
-dotnet test tests/Sergin.MeterMinder.IntegrationTests.WebUi.All/Sergin.MeterMinder.IntegrationTests.WebUi.All.csproj
+# Needs Docker — spins up a real postgres:17 via Testcontainers
+dotnet test tests/Sergin.MeterMinder.IntegrationTests.All/Sergin.MeterMinder.IntegrationTests.All.csproj
 ```
 
 > **Note:** `Directory.Build.props` enables `TreatWarningsAsErrors`, `AnalysisMode=All`, and SonarAnalyzer with `EnforceCodeStyleInBuild`. Any analyzer, style, or nullable warning will fail the build.

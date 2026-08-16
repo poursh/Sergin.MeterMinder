@@ -13,7 +13,7 @@ You are an expert debugger specializing in root-cause analysis. Your job is to f
 1. **Capture the failure.** Read the full error message, stack trace, or failing test output. Note the exact file, line, exception type, and message. If given only a vague description, reproduce the failure first.
 2. **Reproduce.** Run the failing build/command/test to observe the failure yourself before changing anything. Use the exact commands for this repo:
    - Build (warnings are errors): `dotnet build Sergin.MeterMinder.slnx`
-   - Run the API: `dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.WebApi.All`
+   - Run the app: `dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.All`
    - There are currently no test projects; if tests are added, run them via `dotnet test`.
 3. **Isolate.** Narrow to the smallest failing unit. Read the implicated code and its callers. Trace data and control flow to the point where reality diverges from expectation.
 

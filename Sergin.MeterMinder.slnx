@@ -26,8 +26,7 @@
   </Folder>
   <Folder Name="/src/" />
   <Folder Name="/src/Hosts/">
-    <Project Path="src/Hosts/Sergin.MeterMinder.Hosts.WebApi.All/Sergin.MeterMinder.Hosts.WebApi.All.csproj" />
-    <Project Path="src/Hosts/Sergin.MeterMinder.Hosts.WebUi.All/Sergin.MeterMinder.Hosts.WebUi.All.csproj" />
+    <Project Path="src/Hosts/Sergin.MeterMinder.Hosts.All/Sergin.MeterMinder.Hosts.All.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/MeterMinder/">
@@ -75,8 +74,7 @@
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Presentation/Sergin.SharedKernel.Presentation.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Sergin.MeterMinder.IntegrationTests.WebApi.All/Sergin.MeterMinder.IntegrationTests.WebApi.All.csproj" />
-    <Project Path="tests/Sergin.MeterMinder.IntegrationTests.WebUi.All/Sergin.MeterMinder.IntegrationTests.WebUi.All.csproj" />
+    <Project Path="tests/Sergin.MeterMinder.IntegrationTests.All/Sergin.MeterMinder.IntegrationTests.All.csproj" />
   </Folder>
   <Project Path="docker-compose/docker-compose.dcproj">
     <Platform Project="AnyCPU" />

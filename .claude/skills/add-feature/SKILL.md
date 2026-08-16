@@ -78,21 +78,23 @@ Two calls, both returning `ErrorOr<T>`:
 1. Add a `SerginNavItem` to `<Module>Navigation.Items` for the **list** page (detail/create pages are reached by navigation, not the menu). Existing entries: `new SerginNavItem("Devices", "/mm/devices", Icons.Material.Filled.Router, Order: 100)` and `new SerginNavItem("Users", "/ua/users", Icons.Material.Filled.People, Order: 200)`.
 2. Add any new `@using` for the feature's Application namespace to the project's `_Imports.razor` (not to individual `.razor` files). The `.razor.cs` files use ordinary `using` statements on top of that project's `GlobalUsings.cs`.
 
-If the query behind a page carries `[RequiredPermissions]`, add that permission string to `Sergin:DevUser:Permissions` in `src/Hosts/Sergin.MeterMinder.Hosts.WebUi.All/appsettings.json` — the UI host has no real authentication and runs every request as that one configured user. An invalid entry fails startup naming the exact key and value.
+If the query behind a page carries `[RequiredPermissions]`, add that permission string to `Sergin:DevUser:Permissions` in `src/Hosts/Sergin.MeterMinder.Hosts.All/appsettings.json` — the host has no real authentication and runs every request as that one configured user. An invalid entry fails startup naming the exact key and value.
 
 ## After scaffolding
 
 1. Check each new project's `GlobalUsings.cs` before adding `using` statements — many namespaces (`ErrorOr`, `Sergin.SharedKernel.*`) are already global. In `.Presentation.Blazor` check `_Imports.razor` as well — it covers the markup, `GlobalUsings.cs` covers the code-behind.
 2. If the feature needs new/changed columns, add or update the `IEntityTypeConfiguration` in `Sergin.<Module>.Infrastructure.Data`, then generate a migration:
    ```
-   dotnet ef migrations add <Name> --project src/Modules/<Module>/Sergin.<Module>.Infrastructure.Data --startup-project src/Hosts/Sergin.MeterMinder.Hosts.WebApi.All
+   dotnet ef migrations add <Name> --project src/Modules/<Module>/Sergin.<Module>.Infrastructure.Data --startup-project src/Hosts/Sergin.MeterMinder.Hosts.All
    ```
 3. Build to confirm it compiles cleanly — this repo treats every analyzer/style warning as a build error:
    ```
    dotnet build Sergin.MeterMinder.slnx
    ```
-4. If the slice added a UI page, run the UI host and hit the new route — the route-prefix guard and `Sergin:DevUser` validation both fail at startup, before a port opens, so "it starts" is itself a meaningful check:
+4. If the slice added a UI page, run the host and hit the new route — the route-prefix guard and `Sergin:DevUser` validation both fail at startup, before a port opens, so "it starts" is itself a meaningful check:
    ```
-   dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.WebUi.All   # http://localhost:5002
+   dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.All   # http://localhost:5002
    ```
-   The WebUi integration suite (`tests/Sergin.MeterMinder.IntegrationTests.WebUi.All`) asserts pages render server-side; add an `[InlineData]` route to `Shell/ModulePageRenderingTests.cs` for a new list or create page.
+   The integration suite (`tests/Sergin.MeterMinder.IntegrationTests.All`) asserts pages render server-side; add an `[InlineData]` route to `Shell/ModulePageRenderingTests.cs` for a new list or create page.
+
+**Still write the endpoint even though no API host runs it.** `Sergin.MeterMinder.Hosts.WebApi.All` was dropped, so nothing calls `MapEndpoints` right now — but both modules still implement `ISerginWebApiModule` and the endpoint layer still compiles, precisely so an API host can be re-added as a ~20-line `Program.cs`. A slice that ships a page but no endpoint quietly breaks that. Its cost is one small file; skipping it costs the whole property.
