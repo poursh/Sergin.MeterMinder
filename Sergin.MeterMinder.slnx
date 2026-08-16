@@ -27,6 +27,7 @@
   <Folder Name="/src/" />
   <Folder Name="/src/Hosts/">
     <Project Path="src/Hosts/Sergin.MeterMinder.Hosts.WebApi.All/Sergin.MeterMinder.Hosts.WebApi.All.csproj" />
+    <Project Path="src/Hosts/Sergin.MeterMinder.Hosts.WebUi.All/Sergin.MeterMinder.Hosts.WebUi.All.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/MeterMinder/">
