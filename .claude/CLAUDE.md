@@ -220,3 +220,24 @@ These apply to every `.Presentation.Blazor` project and to the shared components
 - **`src/Modules/UserAccess/`** ([Sergin.UserAccess](https://github.com/poursh/Sergin.UserAccess)) — the UserAccess module. **Embed-only**: that repo deliberately has no solution file or `Directory.Build.props`/`Directory.Packages.props` of its own — it only compiles once mounted here (or in any other host that also provides a `Sergin.SharedKernel` submodule at a matching relative path). This is why `git submodule update --init --recursive` is required before `dotnet build Sergin.MeterMinder.slnx` works from a fresh clone. See its own `.claude/CLAUDE.md` for module-specific conventions.
 
 Both are mounted at the *same relative paths* they occupied before the split (`src/SharedKernel/`, `src/Modules/UserAccess/`), which is what lets every `ProjectReference` in this repo and in UserAccess's own `.csproj` files resolve without any path rewrites — MSBuild's `Directory.Build.props`/`Directory.Packages.props` auto-discovery walks up the physical directory tree and doesn't care that a submodule boundary sits partway up.
+# graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+**The graph is not committed — a fresh clone has none, and every rule below silently does nothing until you build it.** Only `graphify-out/cache/semantic/` is tracked (28 files); `graph.json`, `graph.html`, `GRAPH_REPORT.md`, the AST cache, and the manifests are all gitignored, because they re-derive from source in seconds while `graph.json` alone is 2.3 MB that churns on every code edit and reshuffles node ids on rebuild, making it unmergeable in practice. Build it on first clone with:
+
+```bash
+graphify update .                                          # rebuilds from source; the committed semantic cache replays, so this costs zero tokens
+python .claude/skills/graphify/scripts/graphify_repair.py   # re-adds the edges the extractor cannot produce (see below)
+```
+
+The tracked cache is keyed by a hash of `.claude/skills/graphify/references/extraction-spec.md`. Editing that file invalidates every entry, and the next build re-runs the LLM extraction (~510K input tokens across parallel subagents) instead of replaying it — so treat the spec as expensive to change, and commit the regenerated cache alongside any edit to it.
+
+Rules:
+- **graphify** (`.claude/skills/graphify/SKILL.md`) - any input to knowledge graph. Trigger: `/graphify`
+When the user types `/graphify`, use the installed graphify skill or instructions before doing anything else.
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+- **Then run `python .claude/skills/graphify/scripts/graphify_repair.py`** from the repo root. Every rebuild — full `/graphify` or incremental `graphify update .` — drops two sets of edges the extractor cannot produce, and the repair script adds them back deterministically (no LLM, no cost, idempotent, safe to re-run). Without it: the doc-extracted nodes and the code nodes form two disjoint graphs, so no query can reach a Markdown explanation from the code it describes; and C# extension-method calls resolve to nothing, so `AddSerginCore`, `ToApiResult`, `AddModuleDbContext` and the rest of the host-composition spine appear to have no callers. The script's docstring explains both gaps. It deliberately leaves community assignments alone, so curated community names survive a repair.
