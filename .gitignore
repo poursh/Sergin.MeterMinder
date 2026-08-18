@@ -489,3 +489,17 @@ docker-compose/.containers
 
 # Claude Code local user settings (keep shared settings.json / CLAUDE.md / agents tracked)
 .claude/settings.local.json
+
+# graphify knowledge graph (see the graphify section in .claude/CLAUDE.md)
+# Everything here is generated. The one exception is the semantic extraction cache:
+# it is the only part that cost LLM tokens to produce, and committing it lets any
+# clone rebuild the full graph for free. Everything else re-derives from source in
+# seconds, and graph.json in particular churns on every code edit and reshuffles
+# node ids on rebuild, which makes it unmergeable in practice.
+graphify-out/*
+!graphify-out/cache/
+graphify-out/cache/*
+!graphify-out/cache/semantic/
+
+# graphify installer backup of .claude/settings.json
+.claude/settings.json.graphify-bak
