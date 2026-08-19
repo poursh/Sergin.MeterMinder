@@ -96,6 +96,8 @@ Migrations are applied automatically at startup **only in the Development enviro
 ## Git conventions
 
 - **Commit authorship**: Never add a `Co-Authored-By: Claude` trailer or otherwise attribute commits to Claude/the assistant. Commit under the user's configured git identity only.
+- **Work in a git worktree by default.** Create one — without asking — for a new feature, a refactor, an experiment, any change spanning more than a couple of files or more than one session, when the main working tree has uncommitted changes the new work shouldn't mix with, or when two or more agents will run in parallel against this repo (dispatch those with `isolation: "worktree"` so each gets its own copy). Stay in the main working tree for read-only tasks (questions, code search, review), for a single small fix on the branch already checked out, or when the user asks to work in place. State the decision in one line at the start of the task and proceed.
+  - **A fresh worktree checks out `src/SharedKernel` and `src/Modules/UserAccess` empty**, because both are submodules. Run `git submodule update --init --recursive` inside the worktree before `dotnet build Sergin.MeterMinder.slnx` or `dotnet test`, or the build fails on unresolvable `ProjectReference`s. `graphify-out/graph.json` is gitignored and likewise absent — rebuild it there (`graphify update .`, then `python .claude/skills/graphify/scripts/graphify_repair.py`) only if the work actually needs graph queries.
 
 ## Critical build constraint
 
