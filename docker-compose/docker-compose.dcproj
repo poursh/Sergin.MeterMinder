@@ -6,7 +6,7 @@
 		<DockerPublishLocally>False</DockerPublishLocally>
 		<ProjectGuid>b66fa1ea-4952-11f0-aae1-1c7eb69145b4</ProjectGuid>
 		<DockerLaunchAction>LaunchBrowser</DockerLaunchAction>
-		<DockerServiceUrl>{Scheme}://localhost:{ServicePort}/mm/devices</DockerServiceUrl>
+		<DockerServiceUrl>{Scheme}://localhost:{ServicePort}</DockerServiceUrl>
 		<DockerServiceName>sergin.meter-minder.hosts-all</DockerServiceName>
 		<DockerComposeProjectName>sergin-meter-minder-stack</DockerComposeProjectName>
 	</PropertyGroup>
