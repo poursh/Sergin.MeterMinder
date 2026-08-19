@@ -9,7 +9,7 @@ services:
       - 5002:8080
       - 5003:8081
     environment:
-      # Mandatory here, not merely convenient: AddSerginWebUi throws outside Development
+      # Mandatory here, not merely convenient: AddSerginBlazorApp throws outside Development
       # because this host has no real authentication (every request runs as Sergin:DevUser).
       # Development also applies EF migrations on startup.
       ASPNETCORE_ENVIRONMENT: Development

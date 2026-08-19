@@ -86,7 +86,7 @@ dotnet build Sergin.MeterMinder.slnx
 # Needs a Sergin:ConnectionStrings:Database connection string, e.g. as a user secret
 # (the host declares a UserSecretsId) pointing at a Postgres instance you have running.
 # Landing page is / — the home slot, filled here by Components/MeterMinderHome.razor
-# (registered in Program.cs via AddSerginWebUi's configureHome).
+# (registered in Program.cs via AddSerginBlazorApp's configureHome).
 dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.All
 # → http://localhost:5002
 

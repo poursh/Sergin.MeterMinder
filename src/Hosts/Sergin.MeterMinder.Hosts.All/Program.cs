@@ -9,7 +9,7 @@ builder.AddServiceDefaults("sergin-all");
 
 IReadOnlyCollection<ISerginModule> modules = [new MeterMinderModule(), new UserAccessModule()];
 
-builder.AddSerginWebUi(modules, configureHome: home => home.UseComponent<MeterMinderHome>());
+builder.AddSerginBlazorApp(modules, configureHome: home => home.UseComponent<MeterMinderHome>());
 
 WebApplication app = builder.Build();
 

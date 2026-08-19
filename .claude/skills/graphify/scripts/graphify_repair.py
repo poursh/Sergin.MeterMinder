@@ -18,7 +18,7 @@ Two gaps are repaired:
    a static helper class and never on the receiver's type, so `res.ToApiResult()`
    and `builder.AddSerginCore(modules)` resolve to nothing and no `calls` edge is
    emitted. That erases the whole host-composition spine
-   (Program.cs -> AddSerginWebUi -> AddSerginCore -> module.AddServices). This pass
+   (Program.cs -> AddSerginBlazorApp -> AddSerginCore -> module.AddServices). This pass
    scans for `static ... Name(this T ...)` declarations, finds the call sites, and
    attributes each one to the enclosing method.
 
