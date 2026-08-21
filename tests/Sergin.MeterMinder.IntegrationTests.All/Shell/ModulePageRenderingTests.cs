@@ -19,9 +19,9 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
 
     [Theory]
     [InlineData("/")]
-    [InlineData("/mm/devices")]
+    [InlineData("/dm/devices")]
     [InlineData("/ua/users")]
-    [InlineData("/mm/devices/new")]
+    [InlineData("/dm/devices/new")]
     [InlineData("/ua/users/new")]
     public async Task Page_RendersServerSide_WithNavFromBothModules(string path)
     {
@@ -34,12 +34,12 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
         string html = await response.Content.ReadAsStringAsync();
 
         // Both modules contributed nav entries, so the shell composed them.
-        Assert.Contains("/mm/devices", html, StringComparison.Ordinal);
+        Assert.Contains("/dm/devices", html, StringComparison.Ordinal);
         Assert.Contains("/ua/users", html, StringComparison.Ordinal);
     }
 
     [Theory]
-    [InlineData("/mm/devices")]
+    [InlineData("/dm/devices")]
     [InlineData("/ua/users")]
     public async Task ModulePage_IsInteractive_NotStaticallyRenderedOnly(string path)
     {
@@ -89,7 +89,7 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
     {
         HttpClient client = factory.CreateClient();
 
-        HttpResponseMessage response = await client.GetAsync("/mm/devices");
+        HttpResponseMessage response = await client.GetAsync("/dm/devices");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
@@ -110,7 +110,7 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
     {
         HttpClient client = factory.CreateClient();
 
-        HttpResponseMessage response = await client.GetAsync("/mm/devices");
+        HttpResponseMessage response = await client.GetAsync("/dm/devices");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 

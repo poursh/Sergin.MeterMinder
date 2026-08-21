@@ -1,6 +1,0 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <ProjectReference Include="..\..\..\SharedKernel\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
-    <ProjectReference Include="..\Sergin.MeterMinder.Domain\Sergin.MeterMinder.Domain.csproj" />
-  </ItemGroup>
-</Project>

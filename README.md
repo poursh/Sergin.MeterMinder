@@ -2,7 +2,7 @@
 
 A .NET 10 **modular monolith** platform, built with Domain-Driven Design (DDD), Clean Architecture, and per-feature vertical slices. PostgreSQL is the storage; Docker Compose orchestrates locally, with .NET Aspire providing service defaults (OpenTelemetry, health checks) and an observability dashboard.
 
-The central component is the **MeterMinder** module — a Head-End System (HES) for smart electricity/gas/water meters, the primary entry point for IoT device communication, data processing, and integration with other subsystems — alongside a **UserAccess** module for identity and access concerns. Both are composed into two runnable hosts: a **Web API** and a **Blazor Server UI**.
+The central component is the **DeviceManagement** module — a Head-End System (HES) for smart electricity/gas/water meters, the primary entry point for IoT device communication, data processing, and integration with other subsystems — alongside a **UserAccess** module for identity and access concerns. Both are composed into two runnable hosts: a **Web API** and a **Blazor Server UI**.
 
 This repo (`Sergin.MeterMinder`) is the root/hostable repo of a three-repo split — **`src/SharedKernel/`** and **`src/Modules/UserAccess/`** are git submodules pointing at their own repos, [Sergin.SharedKernel](https://github.com/poursh/Sergin.SharedKernel) and [Sergin.UserAccess](https://github.com/poursh/Sergin.UserAccess). See "Getting Started" below for the clone step this requires.
 
@@ -12,7 +12,7 @@ The solution follows modern architecture practices to keep domain logic clear an
 
 - **Domain-Driven Design (DDD)** – Rich domain model with aggregates, strongly-typed IDs, domain events, and clear boundaries.
 - **Clean Architecture** – Strict dependency direction across `Domain → Application → Infrastructure / Presentation`.
-- **Modular Monolith** – Independent, self-contained modules (`MeterMinder`, `UserAccess`) that can later be decomposed into services.
+- **Modular Monolith** – Independent, self-contained modules (`DeviceManagement`, `UserAccess`) that can later be decomposed into services.
 - **CQRS** – Writes flow through MediatR commands to EF Core repositories; reads use dedicated query repositories backed by raw SQL for performance.
 
 ## 🧱 Solution Structure
@@ -23,7 +23,7 @@ The solution follows modern architecture practices to keep domain logic clear an
 │   ├── Hosts/
 │   │   └── Sergin.MeterMinder.Hosts.All/         # Runnable all-in-one Blazor Server UI (Development only)
 │   ├── Modules/
-│   │   ├── MeterMinder/                          # Head-End System (HES) for smart meters
+│   │   ├── DeviceManagement/                     # Head-End System (HES) for smart meters
 │   │   └── UserAccess/                           # Identity & access module (git submodule)
 │   └── SharedKernel/                             # Framework-level building blocks (git submodule)
 │       ├── Sergin.SharedKernel.Hosts             # Aspire service defaults + AddSerginCore
@@ -45,7 +45,7 @@ Each module is split into `.Domain`, `.Application`, `.Infrastructure`, `.Infras
 
 ## 📌 Key Features
 
-- **MeterMinder**, a Head-End System (HES) for smart meter device and data management, plus a **UserAccess** module for users and permissions.
+- **DeviceManagement**, a Head-End System (HES) for smart meter device and data management, plus a **UserAccess** module for users and permissions.
 - Clean separation between domain, application, and infrastructure layers, enforced by project dependencies.
 - CQRS with MediatR pipeline behaviors for permission checks and validation.
 - Domain-event infrastructure on `AggregateRoot`, dispatched on `SaveChanges` via an EF Core interceptor (wired and ready; no aggregate raises an event yet).
@@ -120,11 +120,11 @@ Aspire dashboard) via Docker Compose, then attaches the debugger.
 
 ### EF Core migrations
 
-Each module owns its own `DbContext` and migrations. Example for the MeterMinder module:
+Each module owns its own `DbContext` and migrations. Example for the DeviceManagement module:
 
 ```bash
 dotnet ef migrations add <Name> \
-  --project src/Modules/MeterMinder/Sergin.MeterMinder.Infrastructure.Data \
+  --project src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Infrastructure.Data \
   --startup-project src/Hosts/Sergin.MeterMinder.Hosts.All
 ```
 

@@ -6,7 +6,7 @@ disable-model-invocation: false
 
 Scaffold a new module for: $ARGUMENTS
 
-Expected input: `<ModuleName> <SchemaName>`, e.g. `/add-module Billing bil`. Ask the user for whatever is missing — don't guess the module name or Postgres schema code. Schema codes in use so far: `mm` (MeterMinder), `ua` (UserAccess) — pick something short and distinct.
+Expected input: `<ModuleName> <SchemaName>`, e.g. `/add-module Billing bil`. Ask the user for whatever is missing — don't guess the module name or Postgres schema code. Schema codes in use so far: `dm` (DeviceManagement), `ua` (UserAccess) — pick something short and distinct.
 
 Also ask whether the module needs a **Blazor UI surface**. A module can expose the Web API only (`ISerginWebApiModule`), the Blazor UI only (`ISerginWebUiModule`), or both — both existing modules do both. The UI parts of this skill (project 7 in step 1, the `ISerginWebUiModule` members in step 4, the UI host wiring in step 5) are optional and marked as such; skip them for an API-only module.
 
@@ -112,7 +112,7 @@ Don't add an aggregate-specific `<Aggregate>InstallationExtensions.cs` (like `Us
 
 There is only **one** host — `src/Hosts/Sergin.MeterMinder.Hosts.All/`, the Blazor Server UI. (The Web API host was dropped; see the repo `CLAUDE.md`. Implement `ISerginWebApiModule` on the module class anyway — nothing calls `MapEndpoints` today, but keeping the capability whole is what makes re-adding an API host a ~20-line `Program.cs`.)
 
-- `Program.cs` — add `using Sergin.<Module>;` and one element to the modules collection: `IReadOnlyCollection<ISerginModule> modules = [new MeterMinderModule(), new UserAccessModule(), new <Module>Module()];` — nothing else. `AddSerginBlazorApp`/`UseSerginWebUiAsync<App>` pick up the new `ISerginWebUiModule` automatically: its `UiAssembly` joins `AddAdditionalAssemblies`, its `NavItems` join the shared nav menu, and the bootstrap loops handle MediatR, DI, and migrations.
+- `Program.cs` — add `using Sergin.<Module>;` and one element to the modules collection: `IReadOnlyCollection<ISerginModule> modules = [new DeviceManagementModule(), new UserAccessModule(), new <Module>Module()];` — nothing else. `AddSerginBlazorApp`/`UseSerginWebUiAsync<App>` pick up the new `ISerginWebUiModule` automatically: its `UiAssembly` joins `AddAdditionalAssemblies`, its `NavItems` join the shared nav menu, and the bootstrap loops handle MediatR, DI, and migrations.
 - csproj — add `<ProjectReference Include="..\..\Modules\<Module>\Sergin.<Module>\Sergin.<Module>.csproj" />`. If the module has a UI, add a **second** reference to `Sergin.<Module>.Presentation.Blazor` directly. The second looks redundant and is not. Static web assets (`_content/...`) propagate only through projects importing `Microsoft.NET.Sdk.StaticWebAssets`; the composition root is a plain `Microsoft.NET.Sdk`, so the chain host → composition root → RCL breaks silently at the middle hop (`ResolveReferencedProjectsStaticWebAssetsConfiguration` probes with `SkipNonexistentTargets="true"`, so nothing warns — the CSS just 404s at runtime and the UI renders unstyled). The existing csproj carries a comment saying exactly this; add the new reference next to it.
 - The host is Development-only and has no authentication: every request runs as the user configured under `Sergin:DevUser` in its `appsettings.json`. If the new module's slices carry `[RequiredPermissions]`, **add those permission strings to that `Permissions` array** or the pages will render a Forbidden problem panel. An invalid entry there fails startup by design, naming the exact key and value.
 
@@ -120,7 +120,7 @@ Route templates in the new module's pages must start with `/<schema>/` — a sta
 
 ## 6. Register in `Sergin.MeterMinder.slnx`
 
-Add a new `<Folder Name="/src/Modules/<Module>/">` (mirroring the MeterMinder/UserAccess folders) listing the five non-Presentation projects, plus a `<Folder Name="/src/Modules/<Module>/Presentation/">` for the presentation projects — both `.Presentation.WebApi` and (if present) `.Presentation.Blazor`. That split (presentation projects sit in their own subfolder) matches both existing modules.
+Add a new `<Folder Name="/src/Modules/<Module>/">` (mirroring the DeviceManagement/UserAccess folders) listing the five non-Presentation projects, plus a `<Folder Name="/src/Modules/<Module>/Presentation/">` for the presentation projects — both `.Presentation.WebApi` and (if present) `.Presentation.Blazor`. That split (presentation projects sit in their own subfolder) matches both existing modules.
 
 ## After scaffolding
 

@@ -1,0 +1,18 @@
+@page "/dm/devices/{Id:guid}"
+
+<PageTitle>Device</PageTitle>
+
+<MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Href="/dm/devices" Class="mb-4">Back to devices</MudButton>
+
+<SerginProblemPanel Problem="problem" />
+
+@if (device is not null)
+{
+    <MudCard>
+        <MudCardContent>
+            <MudText Typo="Typo.h5">@device.DeviceId</MudText>
+            <MudText Typo="Typo.body2">Manufacturer: @device.ManufacturerId</MudText>
+            <MudText Typo="Typo.body2">@device.Id</MudText>
+        </MudCardContent>
+    </MudCard>
+}

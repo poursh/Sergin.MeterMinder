@@ -1,0 +1,9 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<ItemGroup>		
+		<ProjectReference Include="..\..\..\SharedKernel\Sergin.SharedKernel.Infrastructure\Sergin.SharedKernel.Infrastructure.csproj" />
+		<ProjectReference Include="..\Sergin.MeterMinder.DeviceManagement.Application\Sergin.MeterMinder.DeviceManagement.Application.csproj" />
+		<ProjectReference Include="..\Sergin.MeterMinder.DeviceManagement.Infrastructure.Data\Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.csproj" />
+	</ItemGroup>
+	
+</Project>

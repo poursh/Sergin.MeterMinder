@@ -1,0 +1,11 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\SharedKernel\Sergin.SharedKernel.Modules\Sergin.SharedKernel.Modules.csproj" />
+		<ProjectReference Include="..\Sergin.MeterMinder.DeviceManagement.Infrastructure\Sergin.MeterMinder.DeviceManagement.Infrastructure.csproj" />
+		<ProjectReference Include="..\Sergin.MeterMinder.DeviceManagement.Presentation.WebApi\Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.csproj" />
+		<ProjectReference Include="..\Sergin.MeterMinder.DeviceManagement.Presentation.Blazor\Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.csproj" />
+	</ItemGroup>
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+</Project>
