@@ -30,7 +30,7 @@ Ask whether the feature also needs a **Blazor page**. Skip this whole section if
 
 Reference implementations to read before writing — cite these, don't improvise:
 - `src/Modules/UserAccess/Sergin.UserAccess.Presentation.Blazor/Users/Pages/` — `UserListPage`, `UserDetailPage` (which also carries a mutate action), `CreateUserPage`, each a `.razor` + `.razor.cs` pair.
-- `src/Modules/MeterMinder/Sergin.MeterMinder.Presentation.Blazor/Devices/Pages/` — `DeviceListPage`, `DeviceDetailPage`, `CreateDevicePage` (whose `OnInitializedAsync` loads a second list to populate a picker).
+- `src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Presentation.Blazor/Devices/Pages/` — `DeviceListPage`, `DeviceDetailPage`, `CreateDevicePage` (whose `OnInitializedAsync` loads a second list to populate a picker).
 - Form models: `Users/Models/NewUserFormModel.cs`, `Devices/Models/NewDeviceFormModel.cs`.
 
 **Layout** — `src/Modules/<Module>/Sergin.<Module>.Presentation.Blazor/<Aggregate>/`:
@@ -75,7 +75,7 @@ Two calls, both returning `ErrorOr<T>`:
 **Markup conventions** (copy from the reference pages): list page = `<MudTable T="TItem" ServerData="LoadAsync" OnRowClick="@(args => Open(args.Item))" RowsPerPage="10">` with `<MudTablePager />`; create page = `<EditForm Model="model" OnValidSubmit="SubmitAsync">` + `<DataAnnotationsValidator />` + `MudTextField @bind-Value="model.X" For="@(() => model.X)"`, with the submit button `Disabled="submitting"` against a `private bool submitting;` field. **Don't add sort/filter/search controls** — `ListQuery` carries `Term`/`Filtering`/`Sorting` fields, but `SendListAsync` forwards none of them and no query repository reads them, so such a control would silently do nothing. Wiring them through is a read-side feature of its own.
 
 **Registration** — pages need no DI registration; the module's `UiAssembly` is already scanned. Two follow-ups only:
-1. Add a `SerginNavItem` to `<Module>Navigation.Items` for the **list** page (detail/create pages are reached by navigation, not the menu). Existing entries: `new SerginNavItem("Devices", "/mm/devices", Icons.Material.Filled.Router, Order: 100)` and `new SerginNavItem("Users", "/ua/users", Icons.Material.Filled.People, Order: 200)`.
+1. Add a `SerginNavItem` to `<Module>Navigation.Items` for the **list** page (detail/create pages are reached by navigation, not the menu). Existing entries: `new SerginNavItem("Devices", "/dm/devices", Icons.Material.Filled.Router, Order: 100)` and `new SerginNavItem("Users", "/ua/users", Icons.Material.Filled.People, Order: 200)`.
 2. Add any new `@using` for the feature's Application namespace to the project's `_Imports.razor` (not to individual `.razor` files). The `.razor.cs` files use ordinary `using` statements on top of that project's `GlobalUsings.cs`.
 
 If the query behind a page carries `[RequiredPermissions]`, add that permission string to `Sergin:DevUser:Permissions` in `src/Hosts/Sergin.MeterMinder.Hosts.All/appsettings.json` — the host has no real authentication and runs every request as that one configured user. An invalid entry fails startup naming the exact key and value.

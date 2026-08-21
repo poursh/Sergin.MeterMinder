@@ -8,19 +8,19 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\Modules\MeterMinder\Sergin.MeterMinder\Sergin.MeterMinder.csproj" />
+		<ProjectReference Include="..\..\Modules\DeviceManagement\Sergin.MeterMinder.DeviceManagement\Sergin.MeterMinder.DeviceManagement.csproj" />
 		<ProjectReference Include="..\..\Modules\UserAccess\Sergin.UserAccess\Sergin.UserAccess.csproj" />
 		<ProjectReference Include="..\..\SharedKernel\Sergin.SharedKernel.Hosts.WebUi\Sergin.SharedKernel.Hosts.WebUi.csproj" />
 
 		<!--
 			These two look redundant against the module composition roots above and are NOT.
 			Static web assets propagate only through projects that import Microsoft.NET.Sdk.StaticWebAssets.
-			Sergin.MeterMinder and Sergin.UserAccess are plain Microsoft.NET.Sdk, so the chain
+			Sergin.MeterMinder.DeviceManagement and Sergin.UserAccess are plain Microsoft.NET.Sdk, so the chain
 			host -> composition root -> RCL is silently broken at the middle hop
 			(ResolveReferencedProjectsStaticWebAssetsConfiguration probes with SkipNonexistentTargets="true").
 			Referencing the RCLs directly restores their _content/ assets.
 		-->
-		<ProjectReference Include="..\..\Modules\MeterMinder\Sergin.MeterMinder.Presentation.Blazor\Sergin.MeterMinder.Presentation.Blazor.csproj" />
+		<ProjectReference Include="..\..\Modules\DeviceManagement\Sergin.MeterMinder.DeviceManagement.Presentation.Blazor\Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.csproj" />
 		<ProjectReference Include="..\..\Modules\UserAccess\Sergin.UserAccess.Presentation.Blazor\Sergin.UserAccess.Presentation.Blazor.csproj" />
 	</ItemGroup>
 

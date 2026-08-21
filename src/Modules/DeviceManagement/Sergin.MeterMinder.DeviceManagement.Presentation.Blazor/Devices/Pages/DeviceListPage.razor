@@ -1,0 +1,26 @@
+@page "/dm/devices"
+
+<PageTitle>Devices</PageTitle>
+
+<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Devices</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add" Href="/dm/devices/new">New device</MudButton>
+</MudStack>
+
+<MudTable T="GetDeviceListItem" ServerData="LoadAsync" Hover="true" Striped="true"
+          OnRowClick="@(args => OpenDevice(args.Item))" RowsPerPage="10">
+    <HeaderContent>
+        <MudTh>Device ID</MudTh>
+        <MudTh>Manufacturer</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Device ID">@context.DeviceId</MudTd>
+        <MudTd DataLabel="Manufacturer">@context.ManufacturerId</MudTd>
+    </RowTemplate>
+    <PagerContent>
+        <MudTablePager />
+    </PagerContent>
+</MudTable>
+
+<MudText Typo="Typo.caption">Server-side sorting and filtering are not implemented yet.</MudText>

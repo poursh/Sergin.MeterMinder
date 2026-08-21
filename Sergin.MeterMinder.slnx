@@ -29,16 +29,16 @@
     <Project Path="src/Hosts/Sergin.MeterMinder.Hosts.All/Sergin.MeterMinder.Hosts.All.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
-  <Folder Name="/src/Modules/MeterMinder/">
-    <Project Path="src/Modules/MeterMinder/Sergin.MeterMinder.Application/Sergin.MeterMinder.Application.csproj" />
-    <Project Path="src/Modules/MeterMinder/Sergin.MeterMinder.Domain/Sergin.MeterMinder.Domain.csproj" />
-    <Project Path="src/Modules/MeterMinder/Sergin.MeterMinder.Infrastructure.Data/Sergin.MeterMinder.Infrastructure.Data.csproj" />
-    <Project Path="src/Modules/MeterMinder/Sergin.MeterMinder.Infrastructure/Sergin.MeterMinder.Infrastructure.csproj" />
-    <Project Path="src/Modules/MeterMinder/Sergin.MeterMinder/Sergin.MeterMinder.csproj" />
+  <Folder Name="/src/Modules/DeviceManagement/">
+    <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Application/Sergin.MeterMinder.DeviceManagement.Application.csproj" />
+    <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Domain/Sergin.MeterMinder.DeviceManagement.Domain.csproj" />
+    <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Infrastructure.Data/Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.csproj" />
+    <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Infrastructure/Sergin.MeterMinder.DeviceManagement.Infrastructure.csproj" />
+    <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement/Sergin.MeterMinder.DeviceManagement.csproj" />
   </Folder>
-  <Folder Name="/src/Modules/MeterMinder/Presentation/">
-    <Project Path="src/Modules/MeterMinder/Sergin.MeterMinder.Presentation.WebApi/Sergin.MeterMinder.Presentation.WebApi.csproj" />
-    <Project Path="src/Modules/MeterMinder/Sergin.MeterMinder.Presentation.Blazor/Sergin.MeterMinder.Presentation.Blazor.csproj" />
+  <Folder Name="/src/Modules/DeviceManagement/Presentation/">
+    <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Presentation.WebApi/Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.csproj" />
+    <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Presentation.Blazor/Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.csproj" />
   </Folder>
   <Folder Name="/src/Modules/UserAccess/">
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Application/Sergin.UserAccess.Application.csproj" />
