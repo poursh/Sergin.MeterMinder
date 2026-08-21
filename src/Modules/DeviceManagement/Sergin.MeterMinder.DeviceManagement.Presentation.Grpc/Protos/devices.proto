@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package sergin.devicemanagement;
+
+option csharp_namespace = "Sergin.MeterMinder.DeviceManagement.Presentation.Grpc";
+
+import "error.proto";
+
+service DeviceService {
+  rpc GetDeviceById (GetDeviceByIdRequest) returns (GetDeviceByIdReply);
+}
+
+message GetDeviceByIdRequest {
+  string id = 1;
+}
+
+message GetDeviceByIdReply {
+  oneof result {
+    DeviceData success = 1;
+    sergin.shared.ErrorReply error = 2;
+  }
+}
+
+// Named DeviceData, not DeviceQueryResponse: the Application-layer type with that exact name
+// (Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne.DeviceQueryResponse) is
+// referenced in the same files as this generated type — an identical name would be ambiguous.
+message DeviceData {
+  string id = 1;
+  string device_id = 2;
+  string manufacturer_id = 3;
+}
