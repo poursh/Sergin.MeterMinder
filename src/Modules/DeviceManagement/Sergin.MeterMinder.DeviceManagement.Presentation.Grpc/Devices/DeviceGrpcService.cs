@@ -10,7 +10,15 @@ namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
 /// Same MediatR pipeline (PermissionCheckPipelineBehavior, ValidationPipelineBehavior) runs here as it
 /// does for every other ISender.Send call in the process this service lives in.
 /// </summary>
-internal sealed class DeviceGrpcService(ISender sender) : DeviceService.DeviceServiceBase
+/// <remarks>
+/// Public, not internal: no production composition root wires this into a real host yet (see the
+/// DeviceManagement module's CLAUDE.md/task notes — Task 5 added the contract, nothing maps it into
+/// DeviceManagementModule so far), and its one current cross-assembly call site is
+/// DeviceGrpcRoundTripTests' own from-scratch Kestrel host in the outer test project. Same reasoning
+/// ModuleDispatchRouteResolver documents: an InternalsVisibleTo for one call site costs more than the
+/// encapsulation it buys.
+/// </remarks>
+public sealed class DeviceGrpcService(ISender sender) : DeviceService.DeviceServiceBase
 {
     public override async Task<GetDeviceByIdReply> GetDeviceById(
         GetDeviceByIdRequest request, ServerCallContext context)

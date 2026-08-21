@@ -4,7 +4,12 @@ using Sergin.SharedKernel.Presentation.Grpc.Errors;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
 
-internal sealed class GetDeviceByIdGrpcInvoker(DeviceService.DeviceServiceClient client)
+/// <remarks>
+/// Public, not internal: same reasoning as <see cref="DeviceGrpcService"/> — no production composition
+/// root registers this yet, and its one current cross-assembly call site is DeviceGrpcRoundTripTests'
+/// own DI container in the outer test project.
+/// </remarks>
+public sealed class GetDeviceByIdGrpcInvoker(DeviceService.DeviceServiceClient client)
     : IRemoteInvoker<GetDeviceByIdQueryCommand, DeviceQueryResponse>
 {
     public async Task<ErrorOr<DeviceQueryResponse>> InvokeAsync(

@@ -8,7 +8,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!--
+      Needed for DeviceGrpcRoundTripTests.cs, which spins up its own from-scratch WebApplication/Kestrel
+      host on a loopback port. Not transitively supplied by the ProjectReferences below: Hosts.All is
+      Microsoft.NET.Sdk.Web (implicit reference, not transitive to a plain Microsoft.NET.Sdk consumer),
+      and DeviceManagement.Presentation.Grpc's own FrameworkReference does not propagate either.
+    -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Grpc.Net.Client" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
@@ -21,6 +32,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Hosts\Sergin.MeterMinder.Hosts.All\Sergin.MeterMinder.Hosts.All.csproj" />
     <ProjectReference Include="..\..\src\SharedKernel\Sergin.SharedKernel.IntegrationTests\Sergin.SharedKernel.IntegrationTests.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DeviceManagement\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.csproj" />
   </ItemGroup>
 
   <ItemGroup>
