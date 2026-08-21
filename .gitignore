@@ -503,3 +503,6 @@ graphify-out/cache/*
 
 # graphify installer backup of .claude/settings.json
 .claude/settings.json.graphify-bak
+
+# git worktrees created inside the repo
+.claude/worktrees/
