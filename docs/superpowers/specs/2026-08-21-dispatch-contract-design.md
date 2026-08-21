@@ -17,12 +17,13 @@ Today `ISerginUiDispatcher.SendAsync<TResponse>(IRequest<ErrorOr<TResponse>>)` r
 5. **One rpc method per feature** (`CreateDevice`, `GetDeviceById`, `GetDeviceList`, …), not a single generic `Dispatch(envelope)` rpc. Chosen because it kills the list-query discriminator problem structurally, and it turned out to also be the shape that makes decision 6 cheap.
 6. **Dev/prod switch is per module, not global.** DeviceManagement can run Local while UserAccess runs Remote, or any combination. The page call site (`Dispatcher.SendAsync(new CreateDeviceCommand(...))`) must be identical in both modes — this is the requirement that shapes the whole design below. It falls out of decision 5 almost for free: a request-type → strategy registry can point any given type at either a local MediatR send or a remote gRPC call independently, so per-module (or even per-feature) granularity costs nothing extra once the registry exists.
 7. **Routing approach: per-request-type route registry** (one small adapter per feature, matching the repo's existing "one interface, one `AddTransient`, per feature" convention) — chosen over a central switch-statement dispatcher (grows unbounded, fights the "feature folder owns its slice" convention used everywhere else in this codebase) and over keeping a generic envelope on the wire (reopens the discriminator problem decision 5 just closed, abandons contract-first).
+8. **MediatR/`ISender` stays the single gateway into the Application layer, regardless of transport.** Application is the core; every Presentation adapter — Blazor's dispatcher, `.Presentation.WebApi`'s `IEndpoint`s, and now `.Presentation.Grpc`'s server-side services — is a thin translator that ends in `ISender.Send(...)`, never a second path into a handler. `IRemoteInvoker<TRequest,TResponse>` (decision 7) is a **client-side** stub only, used because the UI process has no handler for a Remote module's requests loaded locally. It is not a bypass of MediatR — see §3.
 
 ## Non-goals
 
 - **Does not add authentication.** No auth exists in this repo today (see the linked investigation, §02) and this spec does not add any. It carries minimal identity in gRPC metadata for the remote side to log/assert against — not a trust boundary.
 - **Does not decide whether cross-module transactions are needed.** The investigation found none exist today; this spec doesn't change that.
-- **Does not implement Remote-mode test coverage.** Flagged as follow-up (see Testing section).
+- **Does not implement Remote-mode test coverage.** Flagged as follow-up (see §8, Testing).
 - **Does not turn on real service discovery infrastructure beyond what Remote mode strictly needs** — it uncomments and configures the existing `AddServiceDiscovery()`/`AddStandardResilienceHandler()` calls in `AddServiceDefaults`, nothing more.
 
 ## Architecture
@@ -33,6 +34,7 @@ Today `ISerginUiDispatcher.SendAsync<TResponse>(IRequest<ErrorOr<TResponse>>)` r
 | `IRemoteInvoker<TRequest, TResponse>` implementations | same `.Presentation.Grpc` project | One per feature — maps request → proto, calls generated client, maps `oneof` reply → `ErrorOr<TResponse>` |
 | `Error` proto message + `ToErrorOr()`/`ToErrorReply()` | **new** `Sergin.SharedKernel.Presentation.Grpc` | Shared `{Code, Description, Type}` mapping, written once, reused by every invoker |
 | `RoutingSerginUiDispatcher`, `IDispatchRouteResolver` | `Sergin.SharedKernel.Presentation.Blazor.Dispatching` | Replaces `ScopedSerginUiDispatcher` as the `ISerginUiDispatcher` implementation |
+| `<Aggregate>GrpcService : <Aggregate>Service.<Aggregate>ServiceBase` | same `.Presentation.Grpc` project, **server-side** | Runs inside the module's own process when Remote. Proto request → Application command/query → `ISender.Send(...)` → `ErrorOr<T>` → proto reply. Structurally the same adapter shape as `IEndpoint`, just a different transport |
 | `DispatchModeOptions`, `DispatchModeOptionsValidator` | `Sergin.SharedKernel.Hosts` | Per-module (schema-keyed) Local/Remote config, validated like `DevUserOptions` |
 | `<Module>Module` split into Backend half + Shell half | each module's composition root | `Schema`/`UiAssembly`/`NavItems` always registered; `AddServices`/`MigrateAsync`/`ApplicationAssembly` only wired when that module's mode is Local |
 
@@ -133,7 +135,35 @@ internal sealed class RoutingSerginUiDispatcher(
 
 `IDispatchRouteResolver.IsRemote(Type requestType)` maps the request type's declaring assembly to a module schema (same reflection style the `@page` prefix guard already uses at startup) and looks up that schema in `DispatchModeOptions`.
 
-## 3. Mode selection, per module
+## 3. Module-side gRPC adapter — the third Presentation adapter
+
+`IRemoteInvoker<TRequest,TResponse>` (§2) lives on the **caller's** side — the UI process, which under Remote mode never loads that module's `.Application`/`.Domain` assemblies and therefore has no handler to send to locally. It is a client stub, nothing more.
+
+Inside the module's own process (wherever it actually runs when configured Remote), the picture is unchanged from today: `ISender`/MediatR is still the only way into a handler. The new piece is a server-side gRPC service, one per aggregate, in the same `.Presentation.Grpc` project, structurally identical to an `IEndpoint` in `.Presentation.WebApi` — just a different transport wrapping the same call:
+
+```csharp
+// src/Modules/DeviceManagement/.../Presentation.Grpc/Devices/DeviceGrpcService.cs
+internal sealed class DeviceGrpcService(ISender sender) : DeviceService.DeviceServiceBase
+{
+    public override async Task<CreateDeviceReply> CreateDevice(
+        CreateDeviceRequest request, ServerCallContext context)
+    {
+        ErrorOr<CreateDeviceCommandResponse> result = await sender.Send(
+            new CreateDeviceCommand(
+                new DeviceId(request.DeviceId),
+                new ManufacturerId(Guid.Parse(request.ManufacturerId))),
+            context.CancellationToken);
+
+        return result.Match(
+            response => new CreateDeviceReply { Success = new() { Id = response.Id.ToString() } },
+            errors => new CreateDeviceReply { Error = errors[0].ToErrorReply() });
+    }
+}
+```
+
+Same MediatR pipeline behaviors run either way — `PermissionCheckPipelineBehavior`, `ValidationPipelineBehavior` — because both paths converge on the same `ISender.Send`. Local mode's `RoutingSerginUiDispatcher` and Remote mode's `DeviceGrpcService` are two doors into the same gateway; Application never has to know or care which one was used. This is the same relationship `IEndpoint` already has to `ISender` today — gRPC does not introduce a second kind of entry point into this codebase, it adds a second *transport* for the one that already exists.
+
+## 4. Mode selection, per module
 
 ```csharp
 public sealed class DispatchModeOptions
@@ -155,39 +185,40 @@ Bound and validated the same way `DevUserOptions` is (`.Bind(...).ValidateOnStar
 
 This is the concrete answer to the investigation's Q5/Q6: `<Module>Module` splits into a **Backend half** (`AddServices`, `MigrateAsync`, `ApplicationAssembly` — wired only under Local) and an always-present **Shell half** (`Schema`, `UiAssembly`, `NavItems`). `Schema` moves off the internal `DeviceManagementDbContext` const onto the composition root itself as a plain string constant, so it is readable without loading Infrastructure — required for Remote mode to satisfy the `@page` prefix guard without ever touching the DbContext.
 
-## 4. Identity / permission propagation
+## 5. Identity / permission propagation
 
 `PermissionCheckPipelineBehavior` only runs inside the MediatR pipeline — Local only. For Remote, the same check (reflect `[RequiredPermissionsAttribute]` off the request type, evaluate against `IUserContext.HasPermission`) moves into `RoutingSerginUiDispatcher`, run before either branch, reusing the `IUserContext` already resolved per circuit. Local mode then checks twice — once in the dispatcher, once in the pipeline — a deliberate, cheap redundancy that keeps both paths honest rather than trusting Remote's ambient service to be the only enforcement point.
 
 Stated plainly: this does not solve authentication. No token, claims principal, or session exists anywhere in this repo today, and this spec does not introduce one. `RoutingSerginUiDispatcher` attaches `UserId` and the resolved `Permissions` set to the gRPC call's metadata headers for the remote side to log or assert against — an audit aid, not a security boundary. Real cross-process trust is out of scope here and stays an open problem.
 
-## 5. Error mapping
+## 6. Error mapping
 
-`Error` is `{Code, Description, Type}` — `ErrorType` maps 1:1 to a proto enum. One shared mapping, in `Sergin.SharedKernel.Presentation.Grpc`:
+`Error` is `{Code, Description, Type}` — `ErrorType` maps 1:1 to a proto enum. The mapping runs both directions — client-side `IRemoteInvoker`s decode a reply's error (§2), server-side `<Aggregate>GrpcService`s encode one (§3) — so it is written once, in `Sergin.SharedKernel.Presentation.Grpc`, and referenced by every module's invokers and services rather than reimplemented per feature:
 
 ```csharp
 public static class ErrorReplyExtensions
 {
     public static ErrorOr<T> ToErrorOr<T>(this ErrorReply error) =>
         Error.Custom((int)error.Type.ToErrorType(), error.Code, error.Description);
+
+    public static ErrorReply ToErrorReply(this Error error) =>
+        new() { Code = error.Code, Description = error.Description, Type = error.Type.ToProtoErrorType() };
 }
 ```
 
-Written once, referenced by every module's invokers — not reimplemented per feature.
+## 7. List-query fallout
 
-## 6. List-query fallout
-
-Decision 5/6 solve the discriminator, but force a real scope question into the open: Remote mode needs a feature-specific list-query proto message (`GetDeviceListRequest`, `GetUserListRequest`) per feature, where today there is no `GetUserListQueryCommand` C# type at all — `GetUserListQueryCommandHandler` implements `IListQueryHandler<GetUserListItem>` directly against the shared generic `ListQuery<GetUserListItem>`. For Local/Remote symmetry (the same request type must work down either branch of the router), this spec recommends introducing real per-feature list-query command types and retiring the shared generic `ListQuery<T>` handler pattern — the CQRS structural gap CLAUDE.md already names, forced open by this work rather than deferred further.
+Decisions 5/6 solve the discriminator, but force a real scope question into the open: Remote mode needs a feature-specific list-query proto message (`GetDeviceListRequest`, `GetUserListRequest`) per feature, where today there is no `GetUserListQueryCommand` C# type at all — `GetUserListQueryCommandHandler` implements `IListQueryHandler<GetUserListItem>` directly against the shared generic `ListQuery<GetUserListItem>`. For Local/Remote symmetry (the same request type must work down either branch of the router), this spec recommends introducing real per-feature list-query command types and retiring the shared generic `ListQuery<T>` handler pattern — the CQRS structural gap CLAUDE.md already names, forced open by this work rather than deferred further.
 
 `Filtering`/`Sorting` — already dead plumbing per CLAUDE.md (`ListQueryRequestModel.ToListQuery<T>()` forwards `Term` but not these; no query repository reads them) — are dropped from the proto messages entirely rather than carried across a network boundary to nowhere.
 
-## 7. Testing
+## 8. Testing
 
 `CreateAndGetUserTests` resolves `ISerginUiDispatcher` from `factory.Services` and sends `CreateUserCommand` today; this keeps working unchanged as long as the test host configures UserAccess as `Local` in `DispatchModeOptions` — same real in-process round trip through Postgres the existing CLAUDE.md guidance calls for. Remote-mode coverage (a gRPC server via Testcontainers or an in-memory channel) is new work, not addressed here — flagged as follow-up, not silently assumed to be free.
 
 ## Open follow-ups (explicitly out of scope for this spec)
 
-- Real authentication/trust boundary for Remote mode (§4).
-- Retiring `ListQuery<T>` and introducing per-feature list-query types (§6) — a CQRS-layer change, not purely a dispatch-contract one; likely its own spec.
-- Remote-mode integration test infrastructure (§7).
+- Real authentication/trust boundary for Remote mode (§5).
+- Retiring `ListQuery<T>` and introducing per-feature list-query types (§7) — a CQRS-layer change, not purely a dispatch-contract one; likely its own spec.
+- Remote-mode integration test infrastructure (§8).
 - Which repo builds and ships each module's service image once UserAccess (embed-only, no standalone `.slnx`) needs to run as its own Remote-mode process — flagged in the investigation's Cross-cutting section, unresolved here.
