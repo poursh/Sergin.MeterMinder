@@ -18,6 +18,8 @@ Implemented feature slices (`Devices/Commands/<Feature>/` in Application, mirror
 | `GetOne` | query | `GET /dm/devices/{deviceId:guid}` | `permission.dm.devices.read` |
 | `GetList` | query | `GET /dm/devices` (`[AsParameters] ListQueryRequestModel`) | none |
 
+`GetOne` also has a second transport, alongside its WebApi endpoint above: `Sergin.MeterMinder.DeviceManagement.Presentation.Grpc` (`GetDeviceByIdGrpcInvoker` client-side, `DeviceGrpcService` server-side) implements the same `GetDeviceByIdQueryCommand` over gRPC — the one real proof slice for the platform's dual-mode (MediatR/gRPC) dispatch mechanism documented in the root `CLAUDE.md` under `Sergin:Dispatch:Modules`. Both still end in `ISender.Send(GetDeviceByIdQueryCommand)`; only the transport in front of it differs. **Live-but-unhosted**: nothing maps `DeviceGrpcService` into a running host today (the real host's `Sergin:Dispatch:Modules:dm` stays `Local`), so this project is exercised only by `DeviceGrpcRoundTripTests` in the outer test project, which hosts it on its own loopback Kestrel server.
+
 ## `Manufacturers` aggregate
 
 `Sergin.MeterMinder.DeviceManagement.Domain/Manufacturers/Manufacturer.cs` — `AggregateRoot<ManufacturerId>`, private ctor + `static Create(ManufacturerName, ManufacturerAddress?)` factory. `Name` is mandatory, `Address` is optional (nullable value object, nullable `ManufacturerAddressConverter`). `Device.ManufacturerId` is a required FK to this aggregate (`dm.device.manufacturer_id` → `dm.manufacturer.id`, configured via `HasOne<Manufacturer>().WithMany()` in `DeviceEntityTypeConfiguration` — no navigation property either direction, matching the rest of this module's style).

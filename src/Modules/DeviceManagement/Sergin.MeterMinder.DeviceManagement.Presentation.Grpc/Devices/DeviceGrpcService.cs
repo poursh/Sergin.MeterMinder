@@ -11,12 +11,12 @@ namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
 /// does for every other ISender.Send call in the process this service lives in.
 /// </summary>
 /// <remarks>
-/// Public, not internal: no production composition root wires this into a real host yet (see the
-/// DeviceManagement module's CLAUDE.md/task notes — Task 5 added the contract, nothing maps it into
-/// DeviceManagementModule so far), and its one current cross-assembly call site is
-/// DeviceGrpcRoundTripTests' own from-scratch Kestrel host in the outer test project. Same reasoning
-/// ModuleDispatchRouteResolver documents: an InternalsVisibleTo for one call site costs more than the
-/// encapsulation it buys.
+/// Public, not internal: no production composition root wires this into a real host yet — see
+/// <c>src/Modules/DeviceManagement/CLAUDE.md</c>'s "gRPC dispatch slice" note, which explains this is
+/// live-but-unhosted (the real host's <c>Sergin:Dispatch:Modules:dm</c> stays <c>Local</c>). Its one
+/// current cross-assembly call site is <c>DeviceGrpcRoundTripTests</c>' own from-scratch Kestrel host in
+/// the outer test project. Same reasoning <c>ModuleDispatchRouteResolver</c> documents: an
+/// <c>InternalsVisibleTo</c> for one call site costs more than the encapsulation it buys.
 /// </remarks>
 public sealed class DeviceGrpcService(ISender sender) : DeviceService.DeviceServiceBase
 {

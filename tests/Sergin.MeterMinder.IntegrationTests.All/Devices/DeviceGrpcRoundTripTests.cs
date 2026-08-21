@@ -101,11 +101,12 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         ISerginUiDispatcher remoteDispatcher = BuildDispatcher(remote: true, permissions: [DevicesReadPermission]);
         ErrorOr<DeviceQueryResponse> remoteResult = await remoteDispatcher.SendAsync(command);
 
-        // "Local" comparison goes through the real MediatR pipeline the server app already wired in
-        // InitializeAsync (ISender -> PermissionCheckPipelineBehavior -> GetDeviceByIdQueryCommandHandler),
-        // not a hand-constructed handler — GetDeviceByIdQueryCommandHandler is internal to the
-        // Application project, and this is the more faithful comparison anyway: the exact same
-        // in-process path RoutingSerginUiDispatcher's Local branch takes in production.
+        // "Local" comparison goes through the server app's own bespoke MediatR setup wired in
+        // InitializeAsync: ISender -> GetDeviceByIdQueryCommandHandler, with no pipeline behaviors
+        // registered (see the comment there for why PermissionCheckPipelineBehavior/
+        // ValidationPipelineBehavior can't be added from this outer-repo test project) — not a
+        // hand-constructed handler, since GetDeviceByIdQueryCommandHandler is internal to the
+        // Application project.
         ISender localSender = server.Services.GetRequiredService<ISender>();
         ErrorOr<DeviceQueryResponse> localResult = await localSender.Send(command);
 
