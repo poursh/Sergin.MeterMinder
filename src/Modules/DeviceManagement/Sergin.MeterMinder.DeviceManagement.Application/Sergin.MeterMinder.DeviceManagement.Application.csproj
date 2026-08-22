@@ -2,5 +2,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\..\SharedKernel\Sergin.SharedKernel.Application\Sergin.SharedKernel.Application.csproj" />
     <ProjectReference Include="..\Sergin.MeterMinder.DeviceManagement.Domain\Sergin.MeterMinder.DeviceManagement.Domain.csproj" />
+    <ProjectReference Include="..\Sergin.MeterMinder.DeviceManagement.Application.Contracts\Sergin.MeterMinder.DeviceManagement.Application.Contracts.csproj" />
   </ItemGroup>
 </Project>
