@@ -43,6 +43,7 @@
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.csproj" />
   </Folder>
   <Folder Name="/src/Modules/UserAccess/">
+    <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Application.Contracts/Sergin.UserAccess.Application.Contracts.csproj" />
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Application/Sergin.UserAccess.Application.csproj" />
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Domain/Sergin.UserAccess.Domain.csproj" />
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Infrastructure.Data/Sergin.UserAccess.Infrastructure.Data.csproj" />

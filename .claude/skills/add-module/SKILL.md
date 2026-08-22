@@ -19,10 +19,11 @@ The six below are plain `Microsoft.NET.Sdk` (not `.Web`) class libraries — `Di
 | Project | References | GlobalUsings.cs |
 |---|---|---|
 | `Sergin.<Module>.Domain` | `SharedKernel.Domain` | `global using ErrorOr;` / `global using Ardalis.GuardClauses;` |
-| `Sergin.<Module>.Application` | `SharedKernel.Application`, `<Module>.Domain` | `global using ErrorOr;` / `Sergin.SharedKernel.Domain` / `Sergin.SharedKernel.Application` — **not** `Sergin.<Module>.Domain` yet (see note below) |
+| `Sergin.<Module>.Application.Contracts` | `SharedKernel.Application`, `<Module>.Domain` | `global using ErrorOr;` / `Sergin.SharedKernel.Domain` / `Sergin.SharedKernel.Application` — **not** `Sergin.<Module>.Domain` yet (see note below) |
+| `Sergin.<Module>.Application` | `SharedKernel.Application`, `<Module>.Domain`, `<Module>.Application.Contracts` | same globals as `.Application.Contracts`, since handlers need the same domain/SharedKernel imports plus the request/response types `.Application.Contracts` now holds |
 | `Sergin.<Module>.Infrastructure` | `SharedKernel.Infrastructure`, `<Module>.Application`, `<Module>.Infrastructure.Data` | `global using Dapper;` / `global using static Dapper.SqlMapper;` |
 | `Sergin.<Module>.Infrastructure.Data` | `SharedKernel.Infrastructure.Data.EFCore`, `<Module>.Application` | (none needed yet — add if EF namespaces get noisy) |
-| `Sergin.<Module>.Presentation.WebApi` | `SharedKernel.Presentation.WebApi`, `<Module>.Application` | `global using ErrorOr;` / `MediatR` / `Sergin.SharedKernel.Presentation` / `Sergin.SharedKernel.Presentation.WebApi` / `Sergin.SharedKernel.Presentation.WebApi.Endpoints` |
+| `Sergin.<Module>.Presentation.WebApi` | `SharedKernel.Presentation.WebApi`, `<Module>.Application.Contracts` | `global using ErrorOr;` / `MediatR` / `Sergin.SharedKernel.Presentation` / `Sergin.SharedKernel.Presentation.WebApi` / `Sergin.SharedKernel.Presentation.WebApi.Endpoints` |
 | `Sergin.<Module>` (composition root, no suffix) | `<Module>.Infrastructure`, `<Module>.Presentation.WebApi`, `SharedKernel.Modules` (+ `<Module>.Presentation.Blazor` if the module has a UI) | (none) |
 
 The composition root's csproj also needs:
@@ -46,12 +47,12 @@ The composition root's csproj also needs:
 	<ItemGroup>
 		<ProjectReference Include="..\..\..\SharedKernel\Sergin.SharedKernel.Modules\Sergin.SharedKernel.Modules.csproj" />
 		<ProjectReference Include="..\..\..\SharedKernel\Sergin.SharedKernel.Presentation.Blazor\Sergin.SharedKernel.Presentation.Blazor.csproj" />
-		<ProjectReference Include="..\Sergin.<Module>.Application\Sergin.<Module>.Application.csproj" />
+		<ProjectReference Include="..\Sergin.<Module>.Application.Contracts\Sergin.<Module>.Application.Contracts.csproj" />
 	</ItemGroup>
 </Project>
 ```
 
-It references the module's `.Application` and **never** its `.Infrastructure` — pages reach handlers through MediatR only. It needs **two** import files, both copied from UserAccess:
+It references the module's `.Application.Contracts` (never `.Application` directly, and never `.Infrastructure`) — pages reach handlers through MediatR only, and only need the request/response record shapes `.Application.Contracts` holds. It needs **two** import files, both copied from UserAccess:
 - `GlobalUsings.cs` — `global using ErrorOr;` / `MediatR` / `Sergin.SharedKernel.Application` (covers the `.razor.cs` code-behind).
 - `_Imports.razor` — `Microsoft.AspNetCore.Components{,.Forms,.Routing,.Web}`, `MudBlazor`, `Sergin.SharedKernel.Application`, `Sergin.SharedKernel.Presentation.Blazor.Dispatching`, `Sergin.SharedKernel.Presentation.Blazor.Errors`, plus one line per feature namespace as pages get added (covers the markup).
 
@@ -70,6 +71,9 @@ Two small files complete the shell, both copied from `Sergin.UserAccess.Presenta
 In `Sergin.<Module>.Application/`:
 - `<Module>AssemblyReference.cs` — note the actual class name is **`<Module>ApplicationAssemblyReference`** (matches `UserAccessApplicationAssemblyReference`, not just `UserAccessAssemblyReference`), wrapping `typeof(...).Assembly` for MediatR scanning.
 - `I<Module>UnitOfWork.cs` — `public interface I<Module>UnitOfWork : IUnitOfWork;` (from `Sergin.SharedKernel.Application`).
+
+In `Sergin.<Module>.Application.Contracts/`:
+- `<Module>ApplicationContractsAssemblyReference.cs` — `public static class <Module>ApplicationContractsAssemblyReference { public static readonly Assembly Assembly = typeof(<Module>ApplicationContractsAssemblyReference).Assembly; }`, wrapping `typeof(...).Assembly` for `ISerginModule.ContractsAssembly`. **Note this is a third, separate assembly-reference type from both `<Module>ApplicationAssemblyReference` and `<Module>BlazorAssemblyReference`** — don't conflate any of the three.
 
 ## 3. Infrastructure.Data: DbContext, design-time factory, schema
 
@@ -99,7 +103,7 @@ In `Sergin.<Module>.Infrastructure.Data/`:
 Create `Sergin.<Module>/<Module>Module.cs` — copy `Sergin.UserAccess/UserAccessModule.cs` exactly, renaming `UserAccess` → `<Module>` and swapping the schema/DbContext/assembly-reference types:
 
 - `public sealed class <Module>Module : ISerginWebApiModule, ISerginWebUiModule` (both from `Sergin.SharedKernel.Modules`; drop `ISerginWebUiModule` for an API-only module). Both interfaces extend the core `ISerginModule` — **one class per module implements every capability the module exposes**, and each host picks the ones it cares about.
-- `Schema` → `<Module>DbContext.Schema`; `ApplicationAssembly` → `<Module>ApplicationAssemblyReference.Assembly`.
+- `Schema` → `<Module>DbContext.Schema`; `ApplicationAssembly` → `<Module>ApplicationAssemblyReference.Assembly`; `ContractsAssembly` → `<Module>ApplicationContractsAssemblyReference.Assembly`.
 - `AddServices` → `services.AddModuleDbContext<<Module>DbContext, I<Module>DbContext, I<Module>UnitOfWork>(configuration, <Module>DbContext.Schema);` plus per-aggregate `Add<X>Dependencies()` calls (none yet on a fresh module).
 - `MigrateAsync` → `services.MigrateDbContextAsync<<Module>DbContext>();`
 - `MapEndpoints` → per-aggregate `Map<X>Endpoints()` calls (empty method body on a fresh module). *(`ISerginWebApiModule`)*
