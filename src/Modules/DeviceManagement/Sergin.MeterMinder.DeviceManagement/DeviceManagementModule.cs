@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Application;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts;
 using Sergin.MeterMinder.DeviceManagement.Devices;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
 using Sergin.MeterMinder.DeviceManagement.Manufacturers;
@@ -17,6 +18,8 @@ public sealed class DeviceManagementModule : ISerginWebApiModule, ISerginWebUiMo
     public string Schema => DeviceManagementDbContext.Schema;
 
     public Assembly ApplicationAssembly => DeviceManagementApplicationAssemblyReference.Assembly;
+
+    public Assembly ContractsAssembly => DeviceManagementApplicationContractsAssemblyReference.Assembly;
 
     public Assembly UiAssembly => DeviceManagementBlazorAssemblyReference.Assembly;
 

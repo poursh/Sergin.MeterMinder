@@ -10,7 +10,7 @@ See the root `.claude/CLAUDE.md` for cross-module conventions (layering, CQRS sp
 
 **`DeviceModel` is an unfinished, dangling piece**: `Sergin.MeterMinder.DeviceManagement.Domain/DeviceModels/DeviceModel.cs` defines a `DeviceModel` aggregate, and `Device.cs` has a commented-out `ModelId`/`Model` relationship and a commented-out `Create(DeviceModelInternalId)` factory overload. Neither is wired into anything — no repository, no Application slice, no endpoint, no EF configuration. Don't build a new feature on top of this relationship without checking with the user first; if you need device-model data, treat `DeviceModel` as a bare aggregate stub, not an established pattern. This is unrelated to the (fully wired) `Manufacturers` relationship below.
 
-Implemented feature slices (`Devices/Commands/<Feature>/` in Application, mirrored in Infrastructure/Presentation):
+Implemented feature slices (`Devices/Commands/<Feature>/` in Application, mirrored in Infrastructure/Presentation; the command/query request and response records for this aggregate live in `Sergin.MeterMinder.DeviceManagement.Application.Contracts`, not `.Application`):
 
 | Feature | Kind | Route | Permission |
 |---|---|---|---|
@@ -24,7 +24,7 @@ Implemented feature slices (`Devices/Commands/<Feature>/` in Application, mirror
 
 `Sergin.MeterMinder.DeviceManagement.Domain/Manufacturers/Manufacturer.cs` — `AggregateRoot<ManufacturerId>`, private ctor + `static Create(ManufacturerName, ManufacturerAddress?)` factory. `Name` is mandatory, `Address` is optional (nullable value object, nullable `ManufacturerAddressConverter`). `Device.ManufacturerId` is a required FK to this aggregate (`dm.device.manufacturer_id` → `dm.manufacturer.id`, configured via `HasOne<Manufacturer>().WithMany()` in `DeviceEntityTypeConfiguration` — no navigation property either direction, matching the rest of this module's style).
 
-Implemented feature slices (`Manufacturers/Commands/<Feature>/` in Application, mirrored in Infrastructure/Presentation):
+Implemented feature slices (`Manufacturers/Commands/<Feature>/` in Application, mirrored in Infrastructure/Presentation; the command/query request and response records for this aggregate also live in `Sergin.MeterMinder.DeviceManagement.Application.Contracts`, not `.Application`):
 
 | Feature | Kind | Route | Permission |
 |---|---|---|---|
