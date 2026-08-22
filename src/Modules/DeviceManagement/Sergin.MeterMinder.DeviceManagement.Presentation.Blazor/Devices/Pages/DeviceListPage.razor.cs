@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetList;
+using Sergin.SharedKernel.Application.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 
@@ -9,7 +10,7 @@ namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Pages;
 public sealed partial class DeviceListPage
 {
     [Inject]
-    private ISerginUiDispatcher Dispatcher { get; set; } = default!;
+    private ISerginSender Sender { get; set; } = default!;
 
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
@@ -21,7 +22,7 @@ public sealed partial class DeviceListPage
     {
         // MudBlazor's TableState.Page is 0-based; Sergin's PageIndex is 1-based.
         ErrorOr<ListQueryResponse<GetDeviceListItem>> result =
-            await Dispatcher.SendListAsync<GetDeviceListItem>(state.PageSize, state.Page + 1, cancellationToken);
+            await Sender.SendListAsync<GetDeviceListItem>(state.PageSize, state.Page + 1, cancellationToken);
 
         if (result.IsError)
         {
