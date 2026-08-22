@@ -30,6 +30,7 @@
   </Folder>
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/DeviceManagement/">
+    <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Application.Contracts/Sergin.MeterMinder.DeviceManagement.Application.Contracts.csproj" />
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Application/Sergin.MeterMinder.DeviceManagement.Application.csproj" />
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Domain/Sergin.MeterMinder.DeviceManagement.Domain.csproj" />
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Infrastructure.Data/Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.csproj" />
