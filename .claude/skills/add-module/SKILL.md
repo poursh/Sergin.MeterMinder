@@ -12,9 +12,9 @@ Also ask whether the module needs a **Blazor UI surface**. A module can expose t
 
 This is a much bigger, more error-prone scaffold than a single feature slice (see `/add-feature` for that). Use `src/Modules/UserAccess/**` as the reference implementation for every file below — read the matching file there before writing the new one, and match its style exactly (sealed/internal where UserAccess is sealed/internal, primary constructors, no comments). Do **not** add a first aggregate/feature as part of this skill — that's a separate `/add-feature` step once the module shell builds.
 
-## 1. Create six projects under `src/Modules/<Module>/` (seven with a UI)
+## 1. Create seven projects under `src/Modules/<Module>/` (eight with a UI)
 
-The six below are plain `Microsoft.NET.Sdk` (not `.Web`) class libraries — `Directory.Build.props` at the repo root already supplies `TargetFramework`, `Nullable`, analyzers, etc., so none of these csproj files need a `PropertyGroup`. (The optional seventh, `.Presentation.Blazor`, is `Microsoft.NET.Sdk.Razor` — see below.)
+The seven below are plain `Microsoft.NET.Sdk` (not `.Web`) class libraries — `Directory.Build.props` at the repo root already supplies `TargetFramework`, `Nullable`, analyzers, etc., so none of these csproj files need a `PropertyGroup`. (The optional seventh, `.Presentation.Blazor`, is `Microsoft.NET.Sdk.Razor` — see below.)
 
 | Project | References | GlobalUsings.cs |
 |---|---|---|
