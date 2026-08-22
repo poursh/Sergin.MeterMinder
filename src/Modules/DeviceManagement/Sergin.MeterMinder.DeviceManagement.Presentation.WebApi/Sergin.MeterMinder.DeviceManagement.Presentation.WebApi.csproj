@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\..\..\SharedKernel\Sergin.SharedKernel.Presentation.WebApi\Sergin.SharedKernel.Presentation.WebApi.csproj" />
-    <ProjectReference Include="..\Sergin.MeterMinder.DeviceManagement.Application\Sergin.MeterMinder.DeviceManagement.Application.csproj" />
+    <ProjectReference Include="..\Sergin.MeterMinder.DeviceManagement.Application.Contracts\Sergin.MeterMinder.DeviceManagement.Application.Contracts.csproj" />
   </ItemGroup>
 </Project>
