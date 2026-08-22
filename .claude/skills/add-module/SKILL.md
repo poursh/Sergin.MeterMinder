@@ -14,7 +14,7 @@ This is a much bigger, more error-prone scaffold than a single feature slice (se
 
 ## 1. Create seven projects under `src/Modules/<Module>/` (eight with a UI)
 
-The seven below are plain `Microsoft.NET.Sdk` (not `.Web`) class libraries — `Directory.Build.props` at the repo root already supplies `TargetFramework`, `Nullable`, analyzers, etc., so none of these csproj files need a `PropertyGroup`. (The optional seventh, `.Presentation.Blazor`, is `Microsoft.NET.Sdk.Razor` — see below.)
+The seven below are plain `Microsoft.NET.Sdk` (not `.Web`) class libraries — `Directory.Build.props` at the repo root already supplies `TargetFramework`, `Nullable`, analyzers, etc., so none of these csproj files need a `PropertyGroup`. (The optional eighth, `.Presentation.Blazor`, is `Microsoft.NET.Sdk.Razor` — see below.)
 
 | Project | References | GlobalUsings.cs |
 |---|---|---|
@@ -34,7 +34,7 @@ The composition root's csproj also needs:
 ```
 (copy `Sergin.UserAccess.csproj` verbatim as the template — its `ProjectReference`s + this `FrameworkReference`. Note it now carries **four** `ProjectReference`s, not three: `.Infrastructure`, `.Presentation.WebApi`, `.Presentation.Blazor`, and `SharedKernel.Modules`. Drop the `.Presentation.Blazor` one for an API-only module; keep it otherwise, because `<Module>Module` needs the assembly-reference and navigation classes from it.)
 
-**Optional 7th project — `Sergin.<Module>.Presentation.Blazor`** (skip for an API-only module). Copy `Sergin.UserAccess.Presentation.Blazor.csproj` verbatim; it is a Razor Class Library, not a plain class library:
+**Optional 8th project — `Sergin.<Module>.Presentation.Blazor`** (skip for an API-only module). Copy `Sergin.UserAccess.Presentation.Blazor.csproj` verbatim; it is a Razor Class Library, not a plain class library:
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk.Razor">
