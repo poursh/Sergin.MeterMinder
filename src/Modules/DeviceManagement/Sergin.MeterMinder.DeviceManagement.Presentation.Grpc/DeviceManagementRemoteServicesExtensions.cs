@@ -10,15 +10,23 @@ namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc;
 
 public static class DeviceManagementRemoteServicesExtensions
 {
+    // Must match DeviceManagementRemoteModule.Schema ("dm"). Duplicated, not shared, for the same
+    // isolation reason documented there: this project must not reference .Infrastructure.Data.
+    private const string Schema = "dm";
+
     public static IServiceCollection AddDeviceManagementRemoteServices(
         this IServiceCollection services, IConfigurationSection configuration)
     {
-        string address = configuration["GrpcAddress"]
+        string address = configuration.GetSection(Schema)["GrpcAddress"]
             ?? throw new InvalidOperationException(
-                "Missing 'GrpcAddress' under the 'dm' section — required when the DeviceManagement module is registered Remote.");
+                $"Missing 'GrpcAddress' under the '{Schema}' section — required when the DeviceManagement module is registered Remote.");
 
-        services.AddSingleton(_ => GrpcChannel.ForAddress(address));
-        services.AddSingleton(p => new DeviceService.DeviceServiceClient(p.GetRequiredService<GrpcChannel>()));
+        // Build the channel once and capture it in the client factory's closure, rather than registering
+        // GrpcChannel itself as a shared singleton service — a bare GrpcChannel registration would collide
+        // across multiple remote modules, with whichever module registers last winning any
+        // GetRequiredService<GrpcChannel>() call from an unrelated module's client.
+        var channel = GrpcChannel.ForAddress(address);
+        services.AddSingleton(_ => new DeviceService.DeviceServiceClient(channel));
 
         services.AddTransient<IRemoteInvoker<GetDeviceByIdQueryCommand, DeviceQueryResponse>, GetDeviceByIdGrpcInvoker>();
         services.AddTransient<

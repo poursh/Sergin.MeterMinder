@@ -197,7 +197,7 @@ Use the **`/add-feature`** skill (`.claude/skills/add-feature/SKILL.md`) to scaf
 ### Cross-cutting conventions
 
 - **Results**: handlers return `ErrorOr<T>` (the `ErrorOr` library, global-imported). Endpoints call `.ToApiResult()` to convert to an `IResult`/ProblemDetails.
-- **MediatR pipeline behaviors** (registered in `Sergin.SharedKernel.Hosts.WebApi`'s `AddSerginWebApi`, order matters):
+- **MediatR pipeline behaviors** (registered in `Sergin.SharedKernel.Hosts`'s `AddSerginCore`, as `AddOpenBehavior` calls inside its `AddMediatR` call, order matters):
   1. `PermissionCheckPipelineBehavior` — enforces `[RequiredPermissionsAttribute]` on any `IBaseCommand` (covers both commands and queries) against `IUserContext`.
   2. `ValidationPipelineBehavior` — runs an optional FluentValidation `IValidator<TRequest>` if one is registered.
 - **Permissions**: apply `[RequiredPermissions("permission.<schema>.<resource>.<action>")]` to a command/query record when it needs authorization, e.g. `"permission.ua.users.read"`, `"permission.dm.devices.read"`. This is opt-in per slice, not universally applied today — most commands have no attribute yet, so don't assume its absence on an existing handler is an oversight to fix incidentally.
