@@ -41,7 +41,7 @@
 | `SerginDispatcherExtensions` (the `SendListAsync<TItem>` helper) | `Sergin.SharedKernel.Presentation.Blazor/Dispatching/`, renamed from `SerginSenderExtensions` | Now extends `ISerginDispatcher` instead of `ISerginSender` |
 | `RemoteForwardingHandler<TRequest,TResponse>` | **new**, `Sergin.SharedKernel.Infrastructure/Dispatching/` | Generic `IRequestHandler<TRequest, ErrorOr<TResponse>>` wrapping `IRemoteInvoker<TRequest,TResponse>` |
 | `ISerginRemoteModule` | **new**, `Sergin.SharedKernel.Modules/` | `Schema`, `ContractsAssembly`, `AddRemoteServices(IServiceCollection, IConfigurationSection)` — no `ApplicationAssembly`, no `MigrateAsync` |
-| `<Module>.Presentation.Grpc` (per module) | unchanged project, one new file | Gains `Add<Module>RemoteServices` — registers the gRPC channel/client, the existing `IRemoteInvoker` impls, and one `RemoteForwardingHandler` registration line per remote-enabled feature |
+| `<Module>.Presentation.Grpc` (per module) | unchanged project, two new files, one new `ProjectReference` | Gains `Add<Module>RemoteServices` (registers the gRPC channel/client, the existing `IRemoteInvoker` impls, and one `RemoteForwardingHandler` registration line per remote-enabled feature) and `<Module>RemoteModule : ISerginRemoteModule` (the class a gateway host actually references — kept out of the composition root on purpose, see §5). New `ProjectReference` to `Sergin.SharedKernel.Infrastructure` for `RemoteForwardingHandler<,>` |
 | `AddSerginCore` | `Sergin.SharedKernel.Hosts` | Signature gains `remoteModules` parameter; loses all `DispatchModeOptions`/`IDispatchRouteResolver`/`ISerginSender` registration; duplicate-schema guard now spans both collections |
 | `AddSerginBlazorKit` | `Sergin.SharedKernel.Presentation.Blazor` | Regains `ISerginDispatcher`/`ScopedSerginDispatcher` registration (this is where it lived before `2026-08-22-sergin-sender-design.md` moved it out) |
 | WebApi endpoints (10, both modules) | `.Presentation.WebApi` per module | Revert `ISerginSender sender` → `ISender sender`, `.SendAsync(` → `.Send(` |
@@ -137,7 +137,24 @@ public static class DeviceManagementRemoteServicesExtensions
 }
 ```
 
-`DeviceManagementModule` (the composition root) implements the new `ISerginRemoteModule` alongside its existing interfaces, delegating `AddRemoteServices` to this extension — same shape as how it already delegates `AddServices`. One registration pair (`IRemoteInvoker` + `RemoteForwardingHandler`) per remote-enabled feature; today that's the single `GetDeviceById` slice, matching what already exists.
+**`ISerginRemoteModule` is implemented by a new, separate class living inside `.Presentation.Grpc` itself — `DeviceManagementRemoteModule` — not by `DeviceManagementModule`.** `DeviceManagementModule` (the composition root, `Sergin.MeterMinder.DeviceManagement`) references `.Infrastructure`, `.Presentation.WebApi`, and `.Presentation.Blazor` — all of which transitively pull in `.Application`. If `DeviceManagementModule` itself implemented `ISerginRemoteModule`, a gateway host would have to reference the whole composition root just to reach that one capability, defeating Decision 5's isolation claim before it's ever used. `DeviceManagementRemoteModule` instead lives where `.Presentation.Grpc` already is — isolated by construction:
+
+```csharp
+// Sergin.MeterMinder.DeviceManagement.Presentation.Grpc/DeviceManagementRemoteModule.cs
+public sealed class DeviceManagementRemoteModule : ISerginRemoteModule
+{
+    // Must match DeviceManagementDbContext.Schema ("dm"). Duplicated, not shared, because
+    // .Presentation.Grpc must not reference .Infrastructure.Data — that's the whole point.
+    public string Schema => "dm";
+
+    public Assembly ContractsAssembly => DeviceManagementApplicationContractsAssemblyReference.Assembly;
+
+    public void AddRemoteServices(IServiceCollection services, IConfigurationSection configuration)
+        => services.AddDeviceManagementRemoteServices(configuration);
+}
+```
+
+One registration pair (`IRemoteInvoker` + `RemoteForwardingHandler`) per remote-enabled feature; today that's the single `GetDeviceById` slice, matching what already exists. `.Presentation.Grpc`'s `.csproj` gains one new `ProjectReference` to `Sergin.SharedKernel.Infrastructure` (for `RemoteForwardingHandler<,>`) — safe: `SharedKernel.Infrastructure` has no upward reference to any module, so this can't create a cycle, and it doesn't pull in `DeviceManagement.Application`/`.Infrastructure`, so isolation holds.
 
 ## 6. `AddSerginCore` (`Sergin.SharedKernel.Hosts/SerginCoreExtensions.cs`)
 
@@ -224,7 +241,7 @@ No assembly scan for `remoteModules` — a remote module's handlers are explicit
 7. Update `AddSerginCore`: new `remoteModules` parameter, duplicate-schema guard spans both collections, delete all `DispatchModeOptions`/`IDispatchRouteResolver`/`ISerginSender` registration, add the `remoteModules` loop calling `AddRemoteServices`.
 8. Update `AddSerginBlazorKit()` to register `ISerginDispatcher`/`ScopedSerginDispatcher`.
 9. Add `[assembly: InternalsVisibleTo("Sergin.MeterMinder.IntegrationTests.All")]` to `Sergin.SharedKernel.Application/Properties/AssemblyInfo.cs`.
-10. Add `Add<Module>RemoteServices` to `DeviceManagement.Presentation.Grpc` (the one module with a real remote-enabled feature today: `GetDeviceById`); have `DeviceManagementModule` implement `ISerginRemoteModule`.
+10. Add `Add<Module>RemoteServices` and `DeviceManagementRemoteModule : ISerginRemoteModule` to `DeviceManagement.Presentation.Grpc` (the one module with a real remote-enabled feature today: `GetDeviceById`) — **not** to `DeviceManagementModule`, per §5. Add the project's new `ProjectReference` to `Sergin.SharedKernel.Infrastructure`.
 11. Revert all 10 WebApi endpoint classes (`ISerginSender`→`ISender`, `.SendAsync(`→`.Send(`).
 12. Revert all 6 Blazor page code-behinds (`ISerginSender Sender`→`ISerginDispatcher Dispatcher`) and their `_Imports.razor`/`GlobalUsings.cs` entries.
 13. Update `CreateAndGetUserTests` to resolve `ISerginDispatcher`.
