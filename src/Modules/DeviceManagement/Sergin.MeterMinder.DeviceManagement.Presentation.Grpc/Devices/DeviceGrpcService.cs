@@ -5,10 +5,13 @@ using Sergin.SharedKernel.Presentation.Grpc.Errors;
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
 
 /// <summary>
-/// Runs in the module's own process when Remote. Structurally the same shape as GetDeviceEndpoint
-/// (Presentation.WebApi) — proto request in, ISender.Send, ErrorOr out — just a different transport.
-/// Same MediatR pipeline (PermissionCheckPipelineBehavior, ValidationPipelineBehavior) runs here as it
-/// does for every other ISender.Send call in the process this service lives in.
+/// Runs in the module's own process when Remote. Proto request in, dispatched the same way
+/// GetDeviceEndpoint (Presentation.WebApi) dispatches via ISerginSender (which itself still ends in
+/// ISender.Send inside its own scope), ErrorOr out — just a different transport in front. This service
+/// itself stays on raw ISender.Send by construction: it *is* the Local side of Remote dispatch, so routing
+/// it through ISerginSender would risk a Remote→Remote loop. Same MediatR pipeline
+/// (PermissionCheckPipelineBehavior, ValidationPipelineBehavior) runs here as it does for every other
+/// ISender.Send call in the process this service lives in.
 /// </summary>
 /// <remarks>
 /// Public, not internal: no production composition root wires this into a real host yet — see
