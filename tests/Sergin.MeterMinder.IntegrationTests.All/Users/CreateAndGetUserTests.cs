@@ -21,21 +21,21 @@ public sealed class CreateAndGetUserTests(SerginWebApiFactory<Program> factory)
     [Fact]
     public async Task CreateUser_ThenListUsers_IncludesCreatedUser()
     {
-        // ISerginUiDispatcher opens a fresh DI scope per send, so the write and the read run in separate
-        // scopes — the list genuinely round-trips through Postgres rather than being served out of the
-        // writing DbContext's change tracker. Resolving it from the root provider is correct: it is a
-        // singleton holding only IServiceScopeFactory.
-        ISerginUiDispatcher dispatcher = factory.Services.GetRequiredService<ISerginUiDispatcher>();
+        // ISerginDispatcher (ScopedSerginDispatcher) opens a fresh DI scope per send, so the write and the
+        // read run in separate scopes — the list genuinely round-trips through Postgres rather than being
+        // served out of the writing DbContext's change tracker. Resolving it from the root provider is
+        // correct: it is a singleton holding only IServiceScopeFactory.
+        ISerginDispatcher sender = factory.Services.GetRequiredService<ISerginDispatcher>();
 
         string userName = $"integration-test-{Guid.CreateVersion7()}";
 
         ErrorOr<CreateUserCommandResponse> created =
-            await dispatcher.SendAsync(new CreateUserCommand(new UserName(userName)));
+            await sender.SendAsync(new CreateUserCommand(new UserName(userName)));
 
         Assert.False(created.IsError, created.IsError ? created.FirstError.Description : string.Empty);
 
         ErrorOr<ListQueryResponse<GetUserListItem>> list =
-            await dispatcher.SendListAsync<GetUserListItem>(pageSize: 100, pageIndex: 1);
+            await sender.SendListAsync<GetUserListItem>(pageSize: 100, pageIndex: 1);
 
         Assert.False(list.IsError, list.IsError ? list.FirstError.Description : string.Empty);
 

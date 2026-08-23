@@ -17,7 +17,7 @@ This repo has no scaffolding CLI; slices are hand-authored following a strict, r
 2. `.../<Feature>/<Feature>CommandResponse.cs` (same `.Application.Contracts` project) — `public sealed record <Feature>CommandResponse(...);`
 3. `src/Modules/<Module>/Sergin.<Module>.Application/<Aggregate>/Commands/<Feature>/<Feature>CommandHandler.cs` (note: this file — the handler — stays in `.Application`, not `.Application.Contracts`; only the request/response records from steps 1–2 live in `.Application.Contracts`) — `internal sealed class` implementing `ICommandHandler<TCommand, TResponse>`, primary-constructor-injects `I<Module>UnitOfWork` + the domain repository, calls a domain factory/behavior method, calls `unitOfWork.SaveChangesAsync`, returns the response.
 4. If the domain aggregate needs a new factory method or behavior (e.g. `User.Deactivate()`), add it to the aggregate class in `Sergin.<Module>.Domain`. Don't add public setters — mutate via methods on the aggregate.
-5. Presentation: `src/Modules/<Module>/Sergin.<Module>.Presentation.WebApi/<Aggregate>/Endpoints/<Feature>/<Feature>Endpoint.cs` implementing `IEndpoint.MapEndpoint`, mapping the appropriate HTTP verb, binding a request model (add one alongside the endpoint if the command needs a body, e.g. `New<X>Model.cs`), sending via `ISender`, returning `res.ToApiResult()`.
+5. Presentation: `src/Modules/<Module>/Sergin.<Module>.Presentation.WebApi/<Aggregate>/Endpoints/<Feature>/<Feature>Endpoint.cs` implementing `IEndpoint.MapEndpoint`, mapping the appropriate HTTP verb, binding a request model (add one alongside the endpoint if the command needs a body, e.g. `New<X>Model.cs`), sending via `ISender` (`sender.Send(...)`), returning `res.ToApiResult()`.
 6. Register the endpoint in the module's `<Aggregate>InstallationExtensions.Map<Aggregate>Endpoints` (e.g. `UserInstallationExtensions.MapUserEndpoints`) — instantiate and call `.MapEndpoint(routeBuilder)`. For a brand-new aggregate, create that file first (copy `UserInstallationExtensions.cs`) and wire it into the module class: `services.Add<Aggregate>Dependencies()` in `<Module>Module.AddServices` and `group.Map<Aggregate>Endpoints()` in `<Module>Module.MapEndpoints`.
 7. If a new repository interface/dependency is needed, register it in the same file's `Add<Aggregate>Dependencies` (`services.AddTransient<IFoo, Foo>()`).
 
@@ -26,7 +26,7 @@ Same shape but under `Commands/<Feature>/` still (this repo keeps queries in the
 
 ## Optional: the UI slice
 
-Ask whether the feature also needs a **Blazor page**. Skip this whole section if not — plenty of slices are API-only, and the module's `.Presentation.Blazor` project may not exist at all (it's optional; see `/add-module`). The slice above is complete and shippable without it: pages consume the same MediatR handlers through `ISerginUiDispatcher`, so nothing in Application/Infrastructure changes.
+Ask whether the feature also needs a **Blazor page**. Skip this whole section if not — plenty of slices are API-only, and the module's `.Presentation.Blazor` project may not exist at all (it's optional; see `/add-module`). The slice above is complete and shippable without it: pages consume the same MediatR handlers through `ISerginDispatcher`, so nothing in Application/Infrastructure changes.
 
 Reference implementations to read before writing — cite these, don't improvise:
 - `src/Modules/UserAccess/Sergin.UserAccess.Presentation.Blazor/Users/Pages/` — `UserListPage`, `UserDetailPage` (which also carries a mutate action), `CreateUserPage`, each a `.razor` + `.razor.cs` pair.
@@ -50,7 +50,7 @@ Reference implementations to read before writing — cite these, don't improvise
 
 ```csharp
 [Inject]
-private ISerginUiDispatcher Dispatcher { get; set; } = default!;
+private ISerginDispatcher Dispatcher { get; set; } = default!;
 
 [Inject]
 private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
@@ -62,7 +62,7 @@ private NavigationManager Navigation { get; set; } = default!;   // only if the 
 public Guid Id { get; set; }                                     // detail pages only
 ```
 
-**Inject `ISerginUiDispatcher`, never `ISender`/`IMediator`.** In Blazor Server "scoped" is the SignalR circuit's lifetime, not a request's, so a directly resolved `ISender` would share one `DbContext` for as long as the tab is open — unbounded change tracker, stale first-level-cache reads, and "a second operation was started on this context" on parallel renders. `ScopedSerginUiDispatcher` opens a fresh scope per send.
+**Inject `ISerginDispatcher`, never `ISender`/`IMediator`.** In Blazor Server "scoped" is the SignalR circuit's lifetime, not a request's, so a directly resolved `ISender` would share one `DbContext` for as long as the tab is open — unbounded change tracker, stale first-level-cache reads, and "a second operation was started on this context" on parallel renders. `ScopedSerginDispatcher` (`Sergin.SharedKernel.Presentation.Blazor.Dispatching`) opens a fresh scope per send and resolves `ISender` inside it — nothing else; it doesn't pre-check `[RequiredPermissions]` or branch Local/Remote itself, both of which are `PermissionCheckPipelineBehavior`'s job inside the MediatR pipeline (that pipeline covers a Remote module's calls too, via `RemoteForwardingHandler`). `ISerginDispatcher` is Blazor-only — WebApi endpoints inject `ISender` directly instead (see the endpoint template above).
 
 Two calls, both returning `ErrorOr<T>`:
 - `await Dispatcher.SendAsync(new Get<Aggregate>ByIdQueryCommand(Id))` → `ErrorOr<<Aggregate>QueryResponse>`; same call for commands → `ErrorOr<<Feature>CommandResponse>`.

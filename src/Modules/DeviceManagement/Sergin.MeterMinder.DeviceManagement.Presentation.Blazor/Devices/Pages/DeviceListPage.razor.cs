@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetList;
-using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Pages;
@@ -9,7 +8,7 @@ namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Pages;
 public sealed partial class DeviceListPage
 {
     [Inject]
-    private ISerginUiDispatcher Dispatcher { get; set; } = default!;
+    private ISerginDispatcher Dispatcher { get; set; } = default!;
 
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
