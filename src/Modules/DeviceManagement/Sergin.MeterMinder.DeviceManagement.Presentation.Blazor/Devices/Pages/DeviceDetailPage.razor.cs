@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
-using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Errors;
 
@@ -15,7 +14,7 @@ public sealed partial class DeviceDetailPage
     public Guid Id { get; set; }
 
     [Inject]
-    private ISerginUiDispatcher Dispatcher { get; set; } = default!;
+    private ISerginDispatcher Dispatcher { get; set; } = default!;
 
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
