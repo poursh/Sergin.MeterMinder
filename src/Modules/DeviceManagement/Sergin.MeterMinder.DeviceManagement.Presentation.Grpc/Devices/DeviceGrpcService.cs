@@ -6,8 +6,8 @@ namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
 
 /// <summary>
 /// Runs in the module's own process when Remote. Proto request in, dispatched the same way
-/// GetDeviceEndpoint (Presentation.WebApi) dispatches via ISerginSender (which itself still ends in
-/// ISender.Send inside its own scope), ErrorOr out — just a different transport in front. This service
+/// GetDeviceEndpoint (Presentation.WebApi) dispatches — directly via ISender.Send, no wrapper on either
+/// side anymore — ErrorOr out — just a different transport in front. This service
 /// itself stays on raw ISender.Send by construction: it *is* the Local side of Remote dispatch, so routing
 /// it through ISerginSender would risk a Remote→Remote loop. Same MediatR pipeline
 /// (PermissionCheckPipelineBehavior, ValidationPipelineBehavior) runs here as it does for every other
