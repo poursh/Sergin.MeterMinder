@@ -7,19 +7,22 @@ namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
 /// <summary>
 /// Runs in the module's own process when Remote. Proto request in, dispatched the same way
 /// GetDeviceEndpoint (Presentation.WebApi) dispatches — directly via ISender.Send, no wrapper on either
-/// side anymore — ErrorOr out — just a different transport in front. This service
-/// itself stays on raw ISender.Send by construction: it *is* the Local side of Remote dispatch, so routing
-/// it through ISerginSender would risk a Remote→Remote loop. Same MediatR pipeline
-/// (PermissionCheckPipelineBehavior, ValidationPipelineBehavior) runs here as it does for every other
-/// ISender.Send call in the process this service lives in.
+/// side — ErrorOr out — just a different transport in front. This service always resolves the real handler
+/// via raw ISender.Send: it *is* the Local side of Remote dispatch, from the target process's own point of
+/// view, so unlike a caller choosing between DeviceManagementModule (Local) and DeviceManagementRemoteModule
+/// (Remote) at composition time, this service has no Local/Remote choice to make — that's what being the
+/// gRPC server target means. Same MediatR pipeline (PermissionCheckPipelineBehavior,
+/// ValidationPipelineBehavior) runs here as it does for every other ISender.Send call in the process this
+/// service lives in.
 /// </summary>
 /// <remarks>
 /// Public, not internal: no production composition root wires this into a real host yet — see
 /// <c>src/Modules/DeviceManagement/CLAUDE.md</c>'s "gRPC dispatch slice" note, which explains this is
-/// live-but-unhosted (the real host's <c>Sergin:Dispatch:Modules:dm</c> stays <c>Local</c>). Its one
-/// current cross-assembly call site is <c>DeviceGrpcRoundTripTests</c>' own from-scratch Kestrel host in
-/// the outer test project. Same reasoning <c>ModuleDispatchRouteResolver</c> documents: an
-/// <c>InternalsVisibleTo</c> for one call site costs more than the encapsulation it buys.
+/// live-but-unhosted (no host passes <c>DeviceManagementRemoteModule</c> as a <c>remoteModules</c> entry to
+/// <c>AddSerginCore</c> today). Its one current cross-assembly call site is
+/// <c>DeviceGrpcRoundTripTests</c>' own from-scratch Kestrel host in the outer test project. Same reasoning
+/// <c>RemoteForwardingHandler</c> documents: an <c>InternalsVisibleTo</c> for one call site costs more than
+/// the encapsulation it buys.
 /// </remarks>
 public sealed class DeviceGrpcService(ISender sender) : DeviceService.DeviceServiceBase
 {
