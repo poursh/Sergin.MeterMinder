@@ -10,10 +10,11 @@ using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Grpc;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
+using Sergin.SharedKernel.Application.Dispatching;
 using Sergin.SharedKernel.Application.Securities;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Users;
-using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.SharedKernel.Infrastructure.Dispatching;
 using Sergin.SharedKernel.Presentation.Grpc.Dispatching;
 using Grpc.Net.Client;
 
@@ -98,8 +99,8 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 
         GetDeviceByIdQueryCommand command = new(deviceGuid);
 
-        ISerginUiDispatcher remoteDispatcher = BuildDispatcher(remote: true, permissions: [DevicesReadPermission]);
-        ErrorOr<DeviceQueryResponse> remoteResult = await remoteDispatcher.SendAsync(command);
+        ISerginSender remoteSender = BuildSender(remote: true, permissions: [DevicesReadPermission]);
+        ErrorOr<DeviceQueryResponse> remoteResult = await remoteSender.SendAsync(command);
 
         // "Local" comparison goes through the server app's own bespoke MediatR setup wired in
         // InitializeAsync: ISender -> GetDeviceByIdQueryCommandHandler, with no pipeline behaviors
@@ -118,9 +119,9 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
     [Fact]
     public async Task RemoteDispatch_ForMissingDevice_ReturnsNotFound()
     {
-        ISerginUiDispatcher dispatcher = BuildDispatcher(remote: true, permissions: [DevicesReadPermission]);
+        ISerginSender sender = BuildSender(remote: true, permissions: [DevicesReadPermission]);
 
-        ErrorOr<DeviceQueryResponse> result = await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
+        ErrorOr<DeviceQueryResponse> result = await sender.SendAsync(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
@@ -130,19 +131,19 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
     public async Task RemoteDispatch_WithoutRequiredPermission_ReturnsForbidden()
     {
         // Deliberately queries for a device the shared `repository` field was never given — if the
-        // permission short-circuit in RoutingSerginUiDispatcher (Task 3, Step 4) ever regressed to run
+        // permission short-circuit in RoutingSerginSender (Task 3, Step 4) ever regressed to run
         // after the IsRemote branch instead of before it, this would fail as NotFound (from a real round
         // trip that reached the server) instead of Forbidden, not silently pass either way.
-        ISerginUiDispatcher dispatcher = BuildDispatcher(remote: true, permissions: []);
+        ISerginSender sender = BuildSender(remote: true, permissions: []);
 
         ErrorOr<DeviceQueryResponse> result =
-            await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
+            await sender.SendAsync(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorType.Forbidden, result.FirstError.Type);
     }
 
-    private ISerginUiDispatcher BuildDispatcher(bool remote, Permission[] permissions)
+    private ISerginSender BuildSender(bool remote, Permission[] permissions)
     {
         ServiceCollection services = new();
 
@@ -151,9 +152,9 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         services.AddSingleton(new DeviceService.DeviceServiceClient(channel));
         services.AddScoped<IRemoteInvoker<GetDeviceByIdQueryCommand, DeviceQueryResponse>, GetDeviceByIdGrpcInvoker>();
         services.AddSingleton<IDispatchRouteResolver>(new FixedRouteResolver(remote));
-        services.AddSerginBlazorKit(); // registers ISerginUiDispatcher -> RoutingSerginUiDispatcher, among others
+        services.AddSingleton<ISerginSender, RoutingSerginSender>(); // registers ISerginSender -> RoutingSerginSender directly, avoiding AddSerginBlazorKit's full MudBlazor/error-presenter registration pass
 
-        return services.BuildServiceProvider().GetRequiredService<ISerginUiDispatcher>();
+        return services.BuildServiceProvider().GetRequiredService<ISerginSender>();
     }
 
     private sealed class StubDeviceQueryRepository : IGetDeviceQueryRepository

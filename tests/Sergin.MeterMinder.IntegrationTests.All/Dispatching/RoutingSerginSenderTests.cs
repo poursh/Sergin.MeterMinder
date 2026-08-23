@@ -2,14 +2,15 @@ using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
+using Sergin.SharedKernel.Application.Dispatching;
 using Sergin.SharedKernel.Application.Securities;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Users;
-using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.SharedKernel.Infrastructure.Dispatching;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Dispatching;
 
-public sealed class RoutingSerginUiDispatcherTests
+public sealed class RoutingSerginSenderTests
 {
     private static readonly DeviceQueryResponse StubResponse = new(Guid.NewGuid(), "DEV-1", Guid.NewGuid());
 
@@ -40,13 +41,13 @@ public sealed class RoutingSerginUiDispatcherTests
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         services.AddScoped<ISender>(_ => new StubSender(StubResponse));
         services.AddSingleton<IDispatchRouteResolver, AlwaysLocalRouteResolver>();
-        services.AddSerginBlazorKit(); // registers ISerginUiDispatcher -> RoutingSerginUiDispatcher, among others
+        services.AddSingleton<ISerginSender, RoutingSerginSender>(); // hand-registered, mirroring the other stubs here — avoids pulling in AddSerginCore's full MediatR/DbContext registration pass
 
         using ServiceProvider provider = services.BuildServiceProvider();
 
-        ISerginUiDispatcher dispatcher = provider.GetRequiredService<ISerginUiDispatcher>();
+        ISerginSender sender = provider.GetRequiredService<ISerginSender>();
 
-        return dispatcher.SendAsync(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
+        return sender.SendAsync(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
     }
 
     private sealed class StubUserContextFactory(Permission[] permissions) : IUserContextFactory
