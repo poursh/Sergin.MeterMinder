@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
-using Sergin.SharedKernel.Application.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Errors;
 
@@ -15,14 +14,14 @@ public sealed partial class DeviceDetailPage
     public Guid Id { get; set; }
 
     [Inject]
-    private ISerginSender Sender { get; set; } = default!;
+    private ISerginDispatcher Dispatcher { get; set; } = default!;
 
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
     protected override async Task OnParametersSetAsync()
     {
-        ErrorOr<DeviceQueryResponse> result = await Sender.SendAsync(new GetDeviceByIdQueryCommand(Id));
+        ErrorOr<DeviceQueryResponse> result = await Dispatcher.SendAsync(new GetDeviceByIdQueryCommand(Id));
 
         if (result.IsError)
         {

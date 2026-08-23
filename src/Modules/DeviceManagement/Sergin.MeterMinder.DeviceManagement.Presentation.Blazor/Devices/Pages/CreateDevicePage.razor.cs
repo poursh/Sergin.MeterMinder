@@ -4,8 +4,6 @@ using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.Get
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Models;
-using Sergin.SharedKernel.Application.Dispatching;
-using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Pages;
@@ -18,7 +16,7 @@ public sealed partial class CreateDevicePage
     private bool submitting;
 
     [Inject]
-    private ISerginSender Sender { get; set; } = default!;
+    private ISerginDispatcher Dispatcher { get; set; } = default!;
 
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
@@ -32,7 +30,7 @@ public sealed partial class CreateDevicePage
         // (the list repositories ignore Term/Filtering/Sorting), so beyond 200 manufacturers
         // the tail is silently unreachable here and this needs an autocomplete instead.
         ErrorOr<ListQueryResponse<GetManufacturerListItem>> result =
-            await Sender.SendListAsync<GetManufacturerListItem>(200, 1);
+            await Dispatcher.SendListAsync<GetManufacturerListItem>(200, 1);
 
         if (result.IsError)
         {
@@ -48,7 +46,7 @@ public sealed partial class CreateDevicePage
     {
         submitting = true;
 
-        ErrorOr<CreateDeviceCommandResponse> result = await Sender.SendAsync(
+        ErrorOr<CreateDeviceCommandResponse> result = await Dispatcher.SendAsync(
             new CreateDeviceCommand(new DeviceId(model.DeviceId), new ManufacturerId(model.ManufacturerId)));
 
         submitting = false;
