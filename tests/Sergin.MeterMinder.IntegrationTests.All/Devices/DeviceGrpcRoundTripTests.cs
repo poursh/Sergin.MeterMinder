@@ -10,8 +10,8 @@ using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Grpc;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
-using Sergin.SharedKernel.Application.Dispatching;
 using Sergin.SharedKernel.Application.Securities;
+using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Users;
 using Sergin.SharedKernel.Infrastructure.Dispatching;
@@ -24,7 +24,13 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Devices;
 /// Real Kestrel server on a loopback port, real HTTP/2 gRPC call, real DeviceGrpcService ->
 /// ISender.Send -> the actual GetDeviceByIdQueryCommandHandler — just with an in-memory
 /// IGetDeviceQueryRepository instead of Postgres, so it needs no Testcontainers. Proves Local and
-/// Remote agree, byte for byte, for the same input.
+/// Remote agree, byte for byte, for the same input. Both sides are a plain ISender: "Local" is the
+/// server app's own bespoke MediatR registration (InitializeAsync, below); "Remote" is
+/// BuildRemoteSender's bespoke registration, whose GetDeviceByIdQueryCommand handler is
+/// RemoteForwardingHandler&lt;GetDeviceByIdQueryCommand, DeviceQueryResponse&gt; wrapping
+/// GetDeviceByIdGrpcInvoker's real gRPC call into the Kestrel server started here. There is no
+/// dispatcher and no Local/Remote routing decision left anywhere in this file — MediatR dispatches
+/// by request type on both sides, exactly as it does in production.
 /// </summary>
 public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 {
@@ -54,16 +60,13 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
             new StubUserContextFactory([DevicesReadPermission]));
         builder.Services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
 
-        // A production host also open-registers the permission and validation pipeline behaviors here,
-        // via SerginCoreExtensions in the SharedKernel.Hosts project. Both behaviors are internal to the
-        // SharedKernel Application assembly, which is a separate git submodule this outer-repo test
-        // project has no visibility grant into, and cannot add one to on its own -- that source lives in,
-        // and changes to it belong in, the standalone SharedKernel repository, not here. Leaving them out
-        // does not weaken what this file proves. The dispatcher's own permission gate already runs
-        // client-side ahead of either the local or the remote branch, so that gate, not a server-side
-        // pipeline behavior, is what the forbidden-path test below actually exercises. And the local
-        // sender comparison never goes through the dispatcher at all, so it was never subject to that
-        // behavior either way.
+        // Deliberately no PermissionCheckPipelineBehavior/ValidationPipelineBehavior registered on this
+        // "Local" comparison side, even though Task 5's InternalsVisibleTo grant would now let this test
+        // project reference them directly (see BuildRemoteSender, below, which does). This side exists
+        // purely to prove Local and Remote agree on the handler's own output for the same input; it never
+        // enforced permissions before the redesign and doesn't need to now. The forbidden-path test below
+        // is exercised entirely by BuildRemoteSender's own real PermissionCheckPipelineBehavior — this
+        // server-side registration plays no part in it.
         builder.Services.AddMediatR(o =>
             o.RegisterServicesFromAssembly(DeviceManagementApplicationAssemblyReference.Assembly));
 
@@ -99,15 +102,13 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 
         GetDeviceByIdQueryCommand command = new(deviceGuid);
 
-        ISerginSender remoteSender = BuildSender(remote: true, permissions: [DevicesReadPermission]);
-        ErrorOr<DeviceQueryResponse> remoteResult = await remoteSender.SendAsync(command);
+        ISender remoteSender = BuildRemoteSender([DevicesReadPermission]);
+        ErrorOr<DeviceQueryResponse> remoteResult = await remoteSender.Send(command);
 
         // "Local" comparison goes through the server app's own bespoke MediatR setup wired in
         // InitializeAsync: ISender -> GetDeviceByIdQueryCommandHandler, with no pipeline behaviors
-        // registered (see the comment there for why PermissionCheckPipelineBehavior/
-        // ValidationPipelineBehavior can't be added from this outer-repo test project) — not a
-        // hand-constructed handler, since GetDeviceByIdQueryCommandHandler is internal to the
-        // Application project.
+        // registered (see the comment there) — not a hand-constructed handler, since
+        // GetDeviceByIdQueryCommandHandler is internal to the Application project.
         ISender localSender = server.Services.GetRequiredService<ISender>();
         ErrorOr<DeviceQueryResponse> localResult = await localSender.Send(command);
 
@@ -119,9 +120,9 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
     [Fact]
     public async Task RemoteDispatch_ForMissingDevice_ReturnsNotFound()
     {
-        ISerginSender sender = BuildSender(remote: true, permissions: [DevicesReadPermission]);
+        ISender sender = BuildRemoteSender([DevicesReadPermission]);
 
-        ErrorOr<DeviceQueryResponse> result = await sender.SendAsync(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
+        ErrorOr<DeviceQueryResponse> result = await sender.Send(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
@@ -130,20 +131,21 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
     [Fact]
     public async Task RemoteDispatch_WithoutRequiredPermission_ReturnsForbidden()
     {
-        // Deliberately queries for a device the shared `repository` field was never given — if the
-        // permission short-circuit in RoutingSerginSender (Task 3, Step 4) ever regressed to run
-        // after the IsRemote branch instead of before it, this would fail as NotFound (from a real round
-        // trip that reached the server) instead of Forbidden, not silently pass either way.
-        ISerginSender sender = BuildSender(remote: true, permissions: []);
+        // Deliberately queries for a device the shared `repository` field was never given — if the real
+        // PermissionCheckPipelineBehavior (registered below in BuildRemoteSender, reachable only via
+        // Task 5's InternalsVisibleTo grant into the SharedKernel Application assembly) ever stopped
+        // running ahead of RemoteForwardingHandler's gRPC call, this would fail as NotFound (from a real
+        // round trip that reached the server) instead of Forbidden, not silently pass either way.
+        ISender sender = BuildRemoteSender([]);
 
         ErrorOr<DeviceQueryResponse> result =
-            await sender.SendAsync(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
+            await sender.Send(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorType.Forbidden, result.FirstError.Type);
     }
 
-    private ISerginSender BuildSender(bool remote, Permission[] permissions)
+    private ISender BuildRemoteSender(Permission[] permissions)
     {
         ServiceCollection services = new();
 
@@ -151,10 +153,26 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         services.AddSingleton(new DeviceService.DeviceServiceClient(channel));
         services.AddScoped<IRemoteInvoker<GetDeviceByIdQueryCommand, DeviceQueryResponse>, GetDeviceByIdGrpcInvoker>();
-        services.AddSingleton<IDispatchRouteResolver>(new FixedRouteResolver(remote));
-        services.AddSingleton<ISerginSender, RoutingSerginSender>(); // registers ISerginSender -> RoutingSerginSender directly, avoiding AddSerginBlazorKit's full MudBlazor/error-presenter registration pass
 
-        return services.BuildServiceProvider().GetRequiredService<ISerginSender>();
+        // AddMediatR throws ("No assemblies found to scan") if given no assembly at all, even though the
+        // one handler this test needs is registered explicitly below — so it's pointed at
+        // GetDeviceByIdQueryCommand's own assembly (.Application.Contracts) purely to satisfy that
+        // requirement. That assembly holds only request/response records, never handlers (see root
+        // CLAUDE.md's Application.Contracts split), so the scan itself finds nothing and can't shadow the
+        // explicit RemoteForwardingHandler registration below.
+        services.AddMediatR(o =>
+        {
+            o.RegisterServicesFromAssemblyContaining<GetDeviceByIdQueryCommand>();
+            o.AddOpenBehavior(typeof(PermissionCheckPipelineBehavior<,>));
+        });
+
+        // Not discovered by AddMediatR's assembly scan (generic, lives outside any scanned assembly) —
+        // registered explicitly, same as production's AddDeviceManagementRemoteServices (Task 11).
+        services.AddTransient<
+            IRequestHandler<GetDeviceByIdQueryCommand, ErrorOr<DeviceQueryResponse>>,
+            RemoteForwardingHandler<GetDeviceByIdQueryCommand, DeviceQueryResponse>>();
+
+        return services.BuildServiceProvider().GetRequiredService<ISender>();
     }
 
     private sealed class StubDeviceQueryRepository : IGetDeviceQueryRepository
@@ -180,10 +198,5 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         public string LastName => "User";
         public string Email => "stub@sergin.local";
         public HashSet<Permission> Permissions { get; } = [.. permissions];
-    }
-
-    private sealed class FixedRouteResolver(bool remote) : IDispatchRouteResolver
-    {
-        public bool IsRemote(Type requestType) => remote;
     }
 }

@@ -1,7 +1,6 @@
 using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application;
-using Sergin.SharedKernel.Application.Dispatching;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.UserAccess.Application.Users.Commands.Create;
@@ -22,11 +21,11 @@ public sealed class CreateAndGetUserTests(SerginWebApiFactory<Program> factory)
     [Fact]
     public async Task CreateUser_ThenListUsers_IncludesCreatedUser()
     {
-        // ISerginSender opens a fresh DI scope per send, so the write and the read run in separate
-        // scopes — the list genuinely round-trips through Postgres rather than being served out of the
-        // writing DbContext's change tracker. Resolving it from the root provider is correct: it is a
-        // singleton holding only IServiceScopeFactory.
-        ISerginSender sender = factory.Services.GetRequiredService<ISerginSender>();
+        // ISerginDispatcher (ScopedSerginDispatcher) opens a fresh DI scope per send, so the write and the
+        // read run in separate scopes — the list genuinely round-trips through Postgres rather than being
+        // served out of the writing DbContext's change tracker. Resolving it from the root provider is
+        // correct: it is a singleton holding only IServiceScopeFactory.
+        ISerginDispatcher sender = factory.Services.GetRequiredService<ISerginDispatcher>();
 
         string userName = $"integration-test-{Guid.CreateVersion7()}";
 
