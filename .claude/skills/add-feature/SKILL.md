@@ -26,7 +26,7 @@ Same shape but under `Commands/<Feature>/` still (this repo keeps queries in the
 
 ## Optional: the UI slice
 
-Ask whether the feature also needs a **Blazor page**. Skip this whole section if not — plenty of slices are API-only, and the module's `.Presentation.Blazor` project may not exist at all (it's optional; see `/add-module`). The slice above is complete and shippable without it: pages consume the same MediatR handlers through `ISerginUiDispatcher`, so nothing in Application/Infrastructure changes.
+Ask whether the feature also needs a **Blazor page**. Skip this whole section if not — plenty of slices are API-only, and the module's `.Presentation.Blazor` project may not exist at all (it's optional; see `/add-module`). The slice above is complete and shippable without it: pages consume the same MediatR handlers through `ISerginSender`, so nothing in Application/Infrastructure changes.
 
 Reference implementations to read before writing — cite these, don't improvise:
 - `src/Modules/UserAccess/Sergin.UserAccess.Presentation.Blazor/Users/Pages/` — `UserListPage`, `UserDetailPage` (which also carries a mutate action), `CreateUserPage`, each a `.razor` + `.razor.cs` pair.
@@ -50,7 +50,7 @@ Reference implementations to read before writing — cite these, don't improvise
 
 ```csharp
 [Inject]
-private ISerginUiDispatcher Dispatcher { get; set; } = default!;
+private ISerginSender Sender { get; set; } = default!;
 
 [Inject]
 private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
@@ -62,11 +62,11 @@ private NavigationManager Navigation { get; set; } = default!;   // only if the 
 public Guid Id { get; set; }                                     // detail pages only
 ```
 
-**Inject `ISerginUiDispatcher`, never `ISender`/`IMediator`.** In Blazor Server "scoped" is the SignalR circuit's lifetime, not a request's, so a directly resolved `ISender` would share one `DbContext` for as long as the tab is open — unbounded change tracker, stale first-level-cache reads, and "a second operation was started on this context" on parallel renders. `ScopedSerginUiDispatcher` opens a fresh scope per send.
+**Inject `ISerginSender`, never `ISender`/`IMediator`.** In Blazor Server "scoped" is the SignalR circuit's lifetime, not a request's, so a directly resolved `ISender` would share one `DbContext` for as long as the tab is open — unbounded change tracker, stale first-level-cache reads, and "a second operation was started on this context" on parallel renders. `RoutingSerginSender` opens a fresh scope per send. `ISerginSender` isn't Blazor-specific — its contract lives in `Sergin.SharedKernel.Application.Dispatching` and WebApi endpoints inject the same type (see the endpoint template above).
 
 Two calls, both returning `ErrorOr<T>`:
-- `await Dispatcher.SendAsync(new Get<Aggregate>ByIdQueryCommand(Id))` → `ErrorOr<<Aggregate>QueryResponse>`; same call for commands → `ErrorOr<<Feature>CommandResponse>`.
-- `await Dispatcher.SendListAsync<Get<Aggregate>ListItem>(state.PageSize, state.Page + 1, cancellationToken)` → `ErrorOr<ListQueryResponse<TItem>>`, whose `.Data` is `IReadOnlyCollection<TItem>` and `.Total` an `int`. The extension exists because list features have no dedicated command type. **`pageIndex` is 1-based while MudBlazor's `TableState.Page` is 0-based** — hence the `+ 1`, which every existing list page comments.
+- `await Sender.SendAsync(new Get<Aggregate>ByIdQueryCommand(Id))` → `ErrorOr<<Aggregate>QueryResponse>`; same call for commands → `ErrorOr<<Feature>CommandResponse>`.
+- `await Sender.SendListAsync<Get<Aggregate>ListItem>(state.PageSize, state.Page + 1, cancellationToken)` → `ErrorOr<ListQueryResponse<TItem>>`, whose `.Data` is `IReadOnlyCollection<TItem>` and `.Total` an `int`. The extension exists because list features have no dedicated command type. **`pageIndex` is 1-based while MudBlazor's `TableState.Page` is 0-based** — hence the `+ 1`, which every existing list page comments.
 
 **Error handling, two shapes** — both go through `IUiErrorPresenter`, which maps the `Error` through the same `SerginProblemFactory` the API uses, so both surfaces render identical text for a given `error.Code`:
 - **List page / any submit** → `ErrorPresenter.Notify(result.FirstError)` (snackbar), and for a list return `new TableData<TItem> { Items = [], TotalItems = 0 }`.
