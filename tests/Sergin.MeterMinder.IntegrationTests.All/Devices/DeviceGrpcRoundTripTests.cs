@@ -14,7 +14,6 @@ using Sergin.SharedKernel.Application.Securities;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Users;
-using Sergin.SharedKernel.Infrastructure.Dispatching;
 using Sergin.SharedKernel.Presentation.Grpc.Dispatching;
 using Grpc.Net.Client;
 
