@@ -77,6 +77,7 @@
   </Folder>
   <Folder Name="/src/SharedKernel/Presentation/">
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Presentation.Blazor/Sergin.SharedKernel.Presentation.Blazor.csproj" />
+    <Project Path="src/SharedKernel/Sergin.SharedKernel.Presentation.Grpc/Sergin.SharedKernel.Presentation.Grpc.csproj" />
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Presentation.WebApi/Sergin.SharedKernel.Presentation.WebApi.csproj" />
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Presentation/Sergin.SharedKernel.Presentation.csproj" />
   </Folder>
