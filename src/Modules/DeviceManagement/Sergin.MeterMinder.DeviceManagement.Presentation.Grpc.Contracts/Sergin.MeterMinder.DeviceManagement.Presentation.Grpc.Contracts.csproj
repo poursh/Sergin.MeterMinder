@@ -10,11 +10,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\..\..\..\SharedKernel\Sergin.SharedKernel.Presentation.Grpc\Sergin.SharedKernel.Presentation.Grpc.csproj" />
+		<ProjectReference Include="..\..\..\SharedKernel\Sergin.SharedKernel.Presentation.Grpc\Sergin.SharedKernel.Presentation.Grpc.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<Protobuf Include="Protos\devices.proto" GrpcServices="Both" AdditionalImportDirs="..\..\..\..\..\SharedKernel\Sergin.SharedKernel.Presentation.Grpc\Protos" />
+		<Protobuf Include="Protos\devices.proto" GrpcServices="Both" AdditionalImportDirs="..\..\..\SharedKernel\Sergin.SharedKernel.Presentation.Grpc\Protos" />
 	</ItemGroup>
 
 </Project>

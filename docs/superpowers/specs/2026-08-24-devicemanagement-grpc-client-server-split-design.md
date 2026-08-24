@@ -173,12 +173,18 @@ This is the shape a future module's own gRPC slice should copy: a nested `Grpc`
 solution folder under its own `Presentation` folder, holding its own
 `Contracts`/`Client`/`Server` trio.
 
-Physical directories on disk follow the same nesting:
-`src/Modules/DeviceManagement/Presentation/Grpc/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.{Contracts,Client,Server}/`
-— moved out of the current flat
-`src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc/`
-location, matching the new solution-folder nesting rather than leaving disk layout
-and solution-folder layout disagreeing.
+**Amended after initial implementation:** physical directories stay flat on disk —
+`src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.{Contracts,Client,Server}/`,
+siblings of `.Application`, `.Domain`, `.Infrastructure`, `.Presentation.WebApi`, and
+`.Presentation.Blazor` directly under `src/Modules/DeviceManagement/` — matching how
+every other Presentation-layer project in this repo already sits. The `Presentation/`
+and `Presentation/Grpc/` nesting shown above is `.slnx`-only (a `<Folder>` grouping),
+never a physical directory. The original version of this section called for disk to
+mirror the solution-folder nesting; that was reverted per explicit user instruction
+after the branch's initial implementation and review, once it was pointed out this
+made the gRPC trio the only Presentation-layer projects with a different on-disk
+convention from WebApi/Blazor's flat layout — the .slnx-only grouping removes that
+asymmetry instead of introducing it.
 
 ### Directory.Packages.props
 

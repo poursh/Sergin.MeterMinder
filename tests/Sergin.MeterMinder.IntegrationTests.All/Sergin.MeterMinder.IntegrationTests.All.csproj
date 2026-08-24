@@ -34,9 +34,9 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Hosts\Sergin.MeterMinder.Hosts.All\Sergin.MeterMinder.Hosts.All.csproj" />
     <ProjectReference Include="..\..\src\SharedKernel\Sergin.SharedKernel.IntegrationTests\Sergin.SharedKernel.IntegrationTests.csproj" />
-    <ProjectReference Include="..\..\src\Modules\DeviceManagement\Presentation\Grpc\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\Modules\DeviceManagement\Presentation\Grpc\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Client\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Client.csproj" />
-    <ProjectReference Include="..\..\src\Modules\DeviceManagement\Presentation\Grpc\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Server\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Server.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DeviceManagement\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DeviceManagement\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Client\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Client.csproj" />
+    <ProjectReference Include="..\..\src\Modules\DeviceManagement\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Server\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Server.csproj" />
   </ItemGroup>
 
   <ItemGroup>
