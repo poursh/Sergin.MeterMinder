@@ -40,7 +40,11 @@
   <Folder Name="/src/Modules/DeviceManagement/Presentation/">
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Presentation.WebApi/Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.csproj" />
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Presentation.Blazor/Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.csproj" />
-    <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/DeviceManagement/Presentation/Grpc/">
+    <Project Path="src/Modules/DeviceManagement/Presentation/Grpc/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts.csproj" />
+    <Project Path="src/Modules/DeviceManagement/Presentation/Grpc/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Client/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Client.csproj" />
+    <Project Path="src/Modules/DeviceManagement/Presentation/Grpc/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Server/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Server.csproj" />
   </Folder>
   <Folder Name="/src/Modules/UserAccess/">
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Application.Contracts/Sergin.UserAccess.Application.Contracts.csproj" />
