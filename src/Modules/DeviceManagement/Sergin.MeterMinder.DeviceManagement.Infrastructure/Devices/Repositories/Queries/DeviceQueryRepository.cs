@@ -29,7 +29,7 @@ internal sealed class DeviceQueryRepository(
     }
 
     public async Task<ListQueryResponse<GetDeviceListItem>> GetListAsync(
-        ListQuery<GetDeviceListItem> query, CancellationToken cancellationToken = default)
+        ListQuery query, CancellationToken cancellationToken = default)
     {
         using DbConnection connection = await connectionFactory.CreateConnectionAsync();
 

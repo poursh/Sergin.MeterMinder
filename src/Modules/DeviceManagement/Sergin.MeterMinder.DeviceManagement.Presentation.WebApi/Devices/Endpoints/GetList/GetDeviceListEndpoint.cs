@@ -14,7 +14,7 @@ internal class GetDeviceListEndpoint : IEndpoint
             .MapGet("/devices", async ([AsParameters]ListQueryRequestModel request, ISender sender) =>
             {
                 ErrorOr<ListQueryResponse<GetDeviceListItem>> res = await sender.Send(
-                    request.ToListQuery<GetDeviceListItem>());
+                    new GetDeviceListQueryCommand(request.ToPaggination(), request.Term, request.Filtering, request.Sorting));
 
                 return res.ToApiResult();
             })

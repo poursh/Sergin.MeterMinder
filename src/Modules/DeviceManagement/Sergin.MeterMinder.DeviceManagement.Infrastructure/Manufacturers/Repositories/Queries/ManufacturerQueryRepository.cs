@@ -29,7 +29,7 @@ internal sealed class ManufacturerQueryRepository(
     }
 
     public async Task<ListQueryResponse<GetManufacturerListItem>> GetListAsync(
-        ListQuery<GetManufacturerListItem> query, CancellationToken cancellationToken = default)
+        ListQuery query, CancellationToken cancellationToken = default)
     {
         using DbConnection connection = await connectionFactory.CreateConnectionAsync();
 

@@ -20,7 +20,8 @@ public sealed partial class DeviceListPage
     {
         // MudBlazor's TableState.Page is 0-based; Sergin's PageIndex is 1-based.
         ErrorOr<ListQueryResponse<GetDeviceListItem>> result =
-            await Dispatcher.SendListAsync<GetDeviceListItem>(state.PageSize, state.Page + 1, cancellationToken);
+            await Dispatcher.SendAsync(
+                new GetDeviceListQueryCommand(Paggination.Create(state.PageSize, state.Page + 1)), cancellationToken);
 
         if (result.IsError)
         {

@@ -14,7 +14,7 @@ internal class GetManufacturerListEndpoint : IEndpoint
             .MapGet("/manufacturers", async ([AsParameters] ListQueryRequestModel request, ISender sender) =>
             {
                 ErrorOr<ListQueryResponse<GetManufacturerListItem>> res = await sender.Send(
-                    request.ToListQuery<GetManufacturerListItem>());
+                    new GetManufacturerListQueryCommand(request.ToPaggination(), request.Term, request.Filtering, request.Sorting));
 
                 return res.ToApiResult();
             })

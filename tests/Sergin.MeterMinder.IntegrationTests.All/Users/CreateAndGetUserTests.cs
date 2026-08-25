@@ -1,6 +1,7 @@
 using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application;
+using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.UserAccess.Application.Users.Commands.Create;
@@ -35,7 +36,7 @@ public sealed class CreateAndGetUserTests(SerginWebApiFactory<Program> factory)
         Assert.False(created.IsError, created.IsError ? created.FirstError.Description : string.Empty);
 
         ErrorOr<ListQueryResponse<GetUserListItem>> list =
-            await sender.SendListAsync<GetUserListItem>(pageSize: 100, pageIndex: 1);
+            await sender.SendAsync(new GetUserListQueryCommand(Paggination.Create(100, 1)));
 
         Assert.False(list.IsError, list.IsError ? list.FirstError.Description : string.Empty);
 
