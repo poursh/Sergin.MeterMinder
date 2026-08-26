@@ -7,6 +7,11 @@ public static class DeviceManagementNavigation
 {
     public static IReadOnlyCollection<SerginNavItem> Items { get; } =
     [
-        new SerginNavItem("Devices", "/dm/devices", Icons.Material.Filled.Router, Order: 100)
+        new SerginNavItem(
+            "Devices",
+            "/dm/devices",
+            Icons.Material.Filled.Router,
+            Order: 100,
+            RequiredPermission: "permission.dm.devices.read")
     ];
 }

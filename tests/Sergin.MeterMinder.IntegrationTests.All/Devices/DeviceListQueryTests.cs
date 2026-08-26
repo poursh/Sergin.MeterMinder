@@ -16,13 +16,19 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Devices;
 /// still routes to its handler through MediatR, and that PermissionCheckPipelineBehavior passes for the
 /// permissions the host grants its configured development user.
 /// </summary>
+/// <remarks>
+/// The dispatcher is resolved from a scope rather than the root provider because it is scoped — it
+/// carries the caller's IUserContext into the root-provider scope it opens per send. A Blazor page
+/// always resolves it from its circuit's scope, so this is also the more faithful simulation.
+/// </remarks>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class DeviceListQueryTests(SerginWebApiFactory<Program> factory)
 {
     [Fact]
     public async Task GetDeviceList_IsDispatchedAndPermitted()
     {
-        ISerginDispatcher dispatcher = factory.Services.GetRequiredService<ISerginDispatcher>();
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
         ErrorOr<ListQueryResponse<GetDeviceListItem>> result =
             await dispatcher.SendAsync(new GetDeviceListQueryCommand(Paggination.Create(10, 1)));
@@ -38,7 +44,8 @@ public sealed class DeviceListQueryTests(SerginWebApiFactory<Program> factory)
     [Fact]
     public async Task GetManufacturerList_IsDispatchedAndPermitted()
     {
-        ISerginDispatcher dispatcher = factory.Services.GetRequiredService<ISerginDispatcher>();
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
         ErrorOr<ListQueryResponse<GetManufacturerListItem>> result =
             await dispatcher.SendAsync(new GetManufacturerListQueryCommand(Paggination.Create(10, 1)));

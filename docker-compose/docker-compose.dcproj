@@ -16,5 +16,6 @@
 		</None>
 		<None Include="docker-compose.yml" />
 		<None Include=".dockerignore" />
+		<None Include=".files\identity\sergin-realm.json" />
 	</ItemGroup>
 </Project>
