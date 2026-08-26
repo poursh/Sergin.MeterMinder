@@ -13,7 +13,6 @@ services:
       # mandatory whenever Sergin__Auth__Mode is DevUser, since that mode has no authentication at all
       # and AddSerginBlazorApp refuses to start it anywhere else.
       ASPNETCORE_ENVIRONMENT: Development
-      # Overrides Sergin:ConnectionStrings:Database (double-underscore = config section separator).
       Sergin__ConnectionStrings__Database: Host=sergin.database;Port=5432;Database=Sergin_DB;Username=postgres;Password=Ww4pC8bzn4
       # Real sign-in through Keycloak. Set Mode back to DevUser to run without it.
       Sergin__Auth__Mode: Keycloak
@@ -63,12 +62,18 @@ services:
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       # Pins the issuer to the browser-facing URL, so tokens match Sergin__Auth__Authority above.
       KC_HOSTNAME: http://localhost:8080
+      # Frontchannel URLs (login page, logout) keep the browser address above. Backchannel URLs
+      # (jwks_uri, token, introspection) are instead resolved from the incoming request, so the app
+      # container is handed sergin.identity:8080 and can reach them. Without this the discovery
+      # document tells the app to fetch keys from "localhost:8080", which inside that container is
+      # the app itself, and every sign-in dies on IDX20803 before the login page ever appears.
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
     ports:
       - 8080:8080
     volumes:
-      - ./keycloak:/opt/keycloak/data/import:ro
+      - ./.files/identity:/opt/keycloak/data/import:ro
 
   sergin.dashboard:
     image: mcr.microsoft.com/dotnet/aspire-dashboard:13.4
