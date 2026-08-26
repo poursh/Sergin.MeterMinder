@@ -24,6 +24,22 @@ This repo has no scaffolding CLI; slices are hand-authored following a strict, r
 **Query** (read-side, bypasses EF):
 Same shape but under `Commands/<Feature>/` still (this repo keeps queries in the `Commands` folder alongside commands — match that, don't invent a `Queries` folder), implementing `IQuery<TResponse>` / `IQueryHandler<TQuery, TResponse>` from `Sergin.SharedKernel.Application.Commands.Queries`. **The query request record and its response record go in `Sergin.<Module>.Application.Contracts/<Aggregate>/Commands/<Feature>/`, same as a command's records — only the `<Feature>QueryCommandHandler.cs` class and the `I<Feature>QueryRepository` interface stay in `Sergin.<Module>.Application`.** The handler depends on a dedicated `I<Feature>QueryRepository` interface (returns nullable response, handler maps null to `Error.NotFound()`). Implement that interface in `Sergin.<Module>.Infrastructure/<Aggregate>/Repositories/Queries/<Aggregate>QueryRepository.cs` using `IDbConnectionFactory` + raw SQL against the module's Postgres schema (see `UserQueryRepository.cs` for the `QuerySingleOrDefaultAsync` / `QueryMultipleAsync` Dapper-style pattern) — never use EF Core for reads. If the query needs authorization, add `[RequiredPermissions("permission.<schema>.<resource>.<action>")]` on the query record (which now lives in `.Application.Contracts`).
 
+**List query** (a paged `GetList` slice) is the same shape with three specifics. The request record derives from `ListQuery<Get<Aggregate>ListItem>` — that generic already implements `IListQuery<TItem>`, so no interface list is needed — declared with an explicit constructor rather than positional parameters. **This is mandatory, not stylistic: every `ListQuery` type is `abstract`, so there is nothing to dispatch without a feature record.** Copy `GetDeviceListQueryCommand.cs`:
+
+```csharp
+[RequiredPermissions("permission.<schema>.<resource>.read")]
+public sealed record Get<Aggregate>ListQueryCommand : ListQuery<Get<Aggregate>ListItem>
+{
+    public Get<Aggregate>ListQueryCommand(
+        Paggination paggination, Term? term = default, Filtering? filtering = default, Sorting? sorting = default)
+        : base(paggination, term, filtering, sorting)
+    {
+    }
+}
+```
+
+The handler implements `IListQueryHandler<Get<Aggregate>ListQueryCommand, Get<Aggregate>ListItem>`. The `I<Aggregate>ListQueryRepository` interface takes the **base** `ListQuery`, not the feature record — it only reads `Paggination`. The endpoint builds the record itself: `new Get<Aggregate>ListQueryCommand(request.ToPaggination(), request.Term, request.Filtering, request.Sorting)`.
+
 ## Optional: the UI slice
 
 Ask whether the feature also needs a **Blazor page**. Skip this whole section if not — plenty of slices are API-only, and the module's `.Presentation.Blazor` project may not exist at all (it's optional; see `/add-module`). The slice above is complete and shippable without it: pages consume the same MediatR handlers through `ISerginDispatcher`, so nothing in Application/Infrastructure changes.
@@ -66,13 +82,13 @@ public Guid Id { get; set; }                                     // detail pages
 
 Two calls, both returning `ErrorOr<T>`:
 - `await Dispatcher.SendAsync(new Get<Aggregate>ByIdQueryCommand(Id))` → `ErrorOr<<Aggregate>QueryResponse>`; same call for commands → `ErrorOr<<Feature>CommandResponse>`.
-- `await Dispatcher.SendListAsync<Get<Aggregate>ListItem>(state.PageSize, state.Page + 1, cancellationToken)` → `ErrorOr<ListQueryResponse<TItem>>`, whose `.Data` is `IReadOnlyCollection<TItem>` and `.Total` an `int`. The extension exists because list features have no dedicated command type. **`pageIndex` is 1-based while MudBlazor's `TableState.Page` is 0-based** — hence the `+ 1`, which every existing list page comments.
+- `await Dispatcher.SendAsync(new Get<Aggregate>ListQueryCommand(Paggination.Create(state.PageSize, state.Page + 1)), cancellationToken)` → `ErrorOr<ListQueryResponse<TItem>>`, whose `.Data` is `IReadOnlyCollection<TItem>` and `.Total` an `int`. There is no list-specific dispatcher helper. **`PageIndex` is 1-based while MudBlazor's `TableState.Page` is 0-based** — hence the `+ 1`, which every existing list page comments.
 
 **Error handling, two shapes** — both go through `IUiErrorPresenter`, which maps the `Error` through the same `SerginProblemFactory` the API uses, so both surfaces render identical text for a given `error.Code`:
 - **List page / any submit** → `ErrorPresenter.Notify(result.FirstError)` (snackbar), and for a list return `new TableData<TItem> { Items = [], TotalItems = 0 }`.
 - **Detail page load** → `problem = ErrorPresenter.Present(result.FirstError)` into a `private SerginProblem? problem;` field, rendered by `<SerginProblemPanel Problem="problem" />` in the markup. Set `problem = null` on the success path. This is what makes a `[RequiredPermissions]` failure or a missing record show up as an inline alert instead of a blank page.
 
-**Markup conventions** (copy from the reference pages): list page = `<MudTable T="TItem" ServerData="LoadAsync" OnRowClick="@(args => Open(args.Item))" RowsPerPage="10">` with `<MudTablePager />`; create page = `<EditForm Model="model" OnValidSubmit="SubmitAsync">` + `<DataAnnotationsValidator />` + `MudTextField @bind-Value="model.X" For="@(() => model.X)"`, with the submit button `Disabled="submitting"` against a `private bool submitting;` field. **Don't add sort/filter/search controls** — `ListQuery` carries `Term`/`Filtering`/`Sorting` fields, but `SendListAsync` forwards none of them and no query repository reads them, so such a control would silently do nothing. Wiring them through is a read-side feature of its own.
+**Markup conventions** (copy from the reference pages): list page = `<MudTable T="TItem" ServerData="LoadAsync" OnRowClick="@(args => Open(args.Item))" RowsPerPage="10">` with `<MudTablePager />`; create page = `<EditForm Model="model" OnValidSubmit="SubmitAsync">` + `<DataAnnotationsValidator />` + `MudTextField @bind-Value="model.X" For="@(() => model.X)"`, with the submit button `Disabled="submitting"` against a `private bool submitting;` field. **Don't add sort/filter/search controls** — `ListQuery` carries `Term`/`Filtering`/`Sorting` fields and the request record accepts all three, but no query repository reads them, so such a control would silently do nothing. Wiring them through is a read-side feature of its own.
 
 **Registration** — pages need no DI registration; the module's `UiAssembly` is already scanned. Two follow-ups only:
 1. Add a `SerginNavItem` to `<Module>Navigation.Items` for the **list** page (detail/create pages are reached by navigation, not the menu). Existing entries: `new SerginNavItem("Devices", "/dm/devices", Icons.Material.Filled.Router, Order: 100)` and `new SerginNavItem("Users", "/ua/users", Icons.Material.Filled.People, Order: 200)`.

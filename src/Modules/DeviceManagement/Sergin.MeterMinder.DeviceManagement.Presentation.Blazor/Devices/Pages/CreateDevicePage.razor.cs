@@ -30,7 +30,8 @@ public sealed partial class CreateDevicePage
         // (the list repositories ignore Term/Filtering/Sorting), so beyond 200 manufacturers
         // the tail is silently unreachable here and this needs an autocomplete instead.
         ErrorOr<ListQueryResponse<GetManufacturerListItem>> result =
-            await Dispatcher.SendListAsync<GetManufacturerListItem>(200, 1);
+            await Dispatcher.SendAsync(
+                new GetManufacturerListQueryCommand(Paggination.Create(200, 1)));
 
         if (result.IsError)
         {
