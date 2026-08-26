@@ -1,0 +1,71 @@
+{
+  "realm": "sergin",
+  "enabled": true,
+  "displayName": "Sergin",
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": false,
+  "editUsernameAllowed": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "clients": [
+    {
+      "clientId": "sergin-meterminder",
+      "name": "Sergin MeterMinder",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "sergin-local-development-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://localhost:5002",
+      "baseUrl": "/",
+      "redirectUris": [
+        "http://localhost:5002/signin-oidc",
+        "https://localhost:5003/signin-oidc"
+      ],
+      "postLogoutRedirectUris": [
+        "http://localhost:5002/*",
+        "https://localhost:5003/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5002",
+        "https://localhost:5003"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5002/*##https://localhost:5003/*"
+      },
+      "defaultClientScopes": [
+        "openid",
+        "profile",
+        "email",
+        "roles",
+        "web-origins"
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "dev",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "dev@sergin.local",
+      "firstName": "Development",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "dev",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

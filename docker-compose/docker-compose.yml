@@ -9,16 +9,30 @@ services:
       - 5002:8080
       - 5003:8081
     environment:
-      # Mandatory here, not merely convenient: AddSerginBlazorApp throws outside Development
-      # because this host has no real authentication (every request runs as Sergin:DevUser).
-      # Development also applies EF migrations on startup.
+      # Development applies EF migrations on startup, which is what this stack relies on. It is also
+      # mandatory whenever Sergin__Auth__Mode is DevUser, since that mode has no authentication at all
+      # and AddSerginBlazorApp refuses to start it anywhere else.
       ASPNETCORE_ENVIRONMENT: Development
       # Overrides Sergin:ConnectionStrings:Database (double-underscore = config section separator).
       Sergin__ConnectionStrings__Database: Host=sergin.database;Port=5432;Database=Sergin_DB;Username=postgres;Password=Ww4pC8bzn4
+      # Real sign-in through Keycloak. Set Mode back to DevUser to run without it.
+      Sergin__Auth__Mode: Keycloak
+      # Authority is the URL the BROWSER reaches Keycloak on, because it must match the issuer in the
+      # tokens. MetadataAddress is the URL THIS CONTAINER reaches it on, over the compose network.
+      # Getting these the same way round is the single most common way this setup fails.
+      Sergin__Auth__Authority: http://localhost:8080/realms/sergin
+      Sergin__Auth__MetadataAddress: http://sergin.identity:8080/realms/sergin/.well-known/openid-configuration
+      Sergin__Auth__ClientId: sergin-meterminder
+      Sergin__Auth__ClientSecret: sergin-local-development-secret
+      # Local Keycloak serves plain HTTP; leaving this true fails metadata retrieval with an error
+      # that never mentions the scheme.
+      Sergin__Auth__RequireHttpsMetadata: "false"
     depends_on:
       sergin.database:
         condition: service_healthy
       sergin.dashboard:
+        condition: service_started
+      sergin.identity:
         condition: service_started
 
   sergin.database:
@@ -35,6 +49,26 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # Development only: start-dev keeps everything in an in-memory H2 database, so the realm is rebuilt
+  # from the committed export on every start and nothing here is a production deployment. The app does
+  # not contact Keycloak at boot — the OIDC handler fetches discovery metadata lazily, on first sign-in
+  # — so waiting for the container to start is enough and no healthcheck is needed.
+  sergin.identity:
+    image: quay.io/keycloak/keycloak:26.5
+    container_name: Sergin.Identity
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # Pins the issuer to the browser-facing URL, so tokens match Sergin__Auth__Authority above.
+      KC_HOSTNAME: http://localhost:8080
+      KC_HOSTNAME_STRICT: "false"
+      KC_HTTP_ENABLED: "true"
+    ports:
+      - 8080:8080
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
 
   sergin.dashboard:
     image: mcr.microsoft.com/dotnet/aspire-dashboard:13.4

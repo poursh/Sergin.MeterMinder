@@ -24,9 +24,11 @@ public sealed class CreateAndGetUserTests(SerginWebApiFactory<Program> factory)
     {
         // ISerginDispatcher (ScopedSerginDispatcher) opens a fresh DI scope per send, so the write and the
         // read run in separate scopes — the list genuinely round-trips through Postgres rather than being
-        // served out of the writing DbContext's change tracker. Resolving it from the root provider is
-        // correct: it is a singleton holding only IServiceScopeFactory.
-        ISerginDispatcher sender = factory.Services.GetRequiredService<ISerginDispatcher>();
+        // served out of the writing DbContext's change tracker. It is itself scoped, because it carries the
+        // caller's IUserContext into each of those scopes, so it comes from a scope and not the root
+        // provider — which is what a Blazor page's circuit scope does too.
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher sender = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
         string userName = $"integration-test-{Guid.CreateVersion7()}";
 
