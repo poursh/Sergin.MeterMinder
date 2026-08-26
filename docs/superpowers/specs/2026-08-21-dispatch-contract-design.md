@@ -212,6 +212,11 @@ Decisions 5/6 solve the discriminator, but force a real scope question into the 
 
 `Filtering`/`Sorting` — already dead plumbing per CLAUDE.md (`ListQueryRequestModel.ToListQuery<T>()` forwards `Term` but not these; no query repository reads them) — are dropped from the proto messages entirely rather than carried across a network boundary to nowhere.
 
+> **Status, 2026-08-26 — done, with two changes.** Per-feature list-query types now exist for all three list features (`GetDeviceListQueryCommand`, `GetManufacturerListQueryCommand`, `GetUserListQueryCommand`), each carrying `[RequiredPermissions]`, and `IListQueryHandler<TQuery, TResponseData>` binds the handler to the concrete type. Two points of this section were decided differently in the event:
+>
+> 1. **`ListQuery<T>` was not retired — it was made `abstract` and kept as the base to derive from.** All three `ListQuery` types (the base and both generics) are abstract, which enforces the per-feature record more strongly than deleting the generic would have: there is now no dispatchable list-query type that is not a feature record. `ListQueryFactory` was deleted instead.
+> 2. **`Filtering`/`Sorting` are carried on the C# record after all.** The WebApi endpoints pass all three of `Term`/`Filtering`/`Sorting` into the feature record, since `ToPaggination()` replaced `ToListQuery<T>()` and the endpoint composes the record itself. This does not settle the proto question — no list rpc exists yet — but whoever writes `GetDeviceListRequest` should know the fields are populated on the request object, and decide deliberately whether the wire carries them. No query repository reads any of the three, so this section's reasoning for dropping them still stands.
+
 ## 8. Testing
 
 `CreateAndGetUserTests` resolves `ISerginUiDispatcher` from `factory.Services` and sends `CreateUserCommand` today; this keeps working unchanged as long as the test host configures UserAccess as `Local` in `DispatchModeOptions` — same real in-process round trip through Postgres the existing CLAUDE.md guidance calls for. Remote-mode coverage (a gRPC server via Testcontainers or an in-memory channel) is new work, not addressed here — flagged as follow-up, not silently assumed to be free.
@@ -219,7 +224,7 @@ Decisions 5/6 solve the discriminator, but force a real scope question into the 
 ## Open follow-ups (explicitly out of scope for this spec)
 
 - Real authentication/trust boundary for Remote mode (§5).
-- Retiring `ListQuery<T>` and introducing per-feature list-query types (§7) — a CQRS-layer change, not purely a dispatch-contract one; likely its own spec.
+- ~~Retiring `ListQuery<T>` and introducing per-feature list-query types (§7) — a CQRS-layer change, not purely a dispatch-contract one; likely its own spec.~~ **Done 2026-08-26** (no separate spec — went straight to implementation). The per-feature types exist; `ListQuery<T>` was made abstract rather than retired. See the status note in §7.
 - Remote-mode integration test infrastructure (§8).
 - Which repo builds and ships each module's service image once UserAccess (embed-only, no standalone `.slnx`) needs to run as its own Remote-mode process — flagged in the investigation's Cross-cutting section, unresolved here.
 - Identity-metadata propagation (§5's stated attachment of `UserId`/`Permissions` to the gRPC call's metadata headers) was not implemented in this reference-slice pass: the shipped `RoutingSerginUiDispatcher` resolves `IUserContext` for its own Local/Remote permission gate only, and never forwards that identity to the Remote branch — `invoker.InvokeAsync(request, ct)` carries no identity parameter today. Closing this gap requires widening `IRemoteInvoker<TRequest,TResponse>`'s public signature, which would ripple into every existing implementer (`GetDeviceByIdGrpcInvoker`/`DeviceGrpcService`); flagged here rather than done silently.
