@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
-using Sergin.SharedKernel.Application.Securities;
 using Sergin.SharedKernel.Application.Securities.Users;
+using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authentication;

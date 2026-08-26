@@ -1,6 +1,7 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Claims;
-using Sergin.SharedKernel.Application.Securities;
 using Sergin.SharedKernel.Application.Securities.Users;
+using Sergin.SharedKernel.Domain.Securities;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authentication;
 
@@ -24,7 +25,7 @@ public sealed class ClaimsPrincipalUserContextTests
             new Claim("given_name", "Development"),
             new Claim("family_name", "User"));
 
-        IUserContext context = ClaimsPrincipalUserContext.Create(principal);
+        IUserContext context = ContextFor(principal);
 
         Assert.Equal(userId, context.Id.Value);
         Assert.Equal("dev", context.UserName);
@@ -61,11 +62,21 @@ public sealed class ClaimsPrincipalUserContextTests
             new Claim(SerginClaimTypes.Permission, "NOT A PERMISSION"),
             new Claim(SerginClaimTypes.Permission, "permission.dm.devices.read"));
 
-        IUserContext context = ClaimsPrincipalUserContext.Create(principal);
+        IUserContext context = ContextFor(principal);
 
         Assert.Single(context.Permissions);
         Assert.True(context.HasPermission(Permission.Create("permission.dm.devices.read")));
     }
+
+    [SuppressMessage(
+        "Performance",
+        "CA1859:Use concrete types when possible for improved performance",
+        Justification =
+            "IUserContext.HasPermission is a default interface method, so it is callable only through " +
+            "the interface. Returning ClaimsPrincipalUserContext here would move the same CA1859 onto " +
+            "the IUserContext locals at both call sites, which is the form the assertions need.")]
+    private static IUserContext ContextFor(ClaimsPrincipal principal)
+        => ClaimsPrincipalUserContext.Create(principal);
 
     private static ClaimsPrincipal Authenticated(params Claim[] claims)
         => new(new ClaimsIdentity(claims, authenticationType: "Test"));
