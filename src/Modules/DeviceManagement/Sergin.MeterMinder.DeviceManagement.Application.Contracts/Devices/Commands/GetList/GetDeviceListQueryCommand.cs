@@ -4,7 +4,7 @@ using Sergin.SharedKernel.Application.Securities.Authorization;
 namespace Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetList;
 
 [RequiredPermissions("permission.dm.devices.read")]
-public sealed record GetDeviceListQueryCommand : ListQuery, IListQuery<GetDeviceListItem>
+public sealed record GetDeviceListQueryCommand : ListQuery<GetDeviceListItem>
 {
     public GetDeviceListQueryCommand(
         Paggination paggination,
