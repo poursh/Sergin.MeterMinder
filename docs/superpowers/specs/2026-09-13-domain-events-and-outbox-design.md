@@ -196,6 +196,13 @@ exactly the silent loss this change exists to remove. Nothing in the repo calls 
 
 ## The outbox decision
 
+**Superseded the same day.** The deferral below was reversed after review; the outbox is
+specified in [2026-09-13-outbox-design.md](2026-09-13-outbox-design.md), which keeps the
+shape recorded here where it still fits (per-module tables, `FOR UPDATE SKIP LOCKED`
+relay, idempotent consumers, hand-rolled) and changes one thing: the outbox row is
+written by the interceptor through a per-event translator, not by a domain event
+handler. The text below is kept as history.
+
 **Not now.** The outbox pattern makes "state changed" and "event recorded" one atomic
 write, and gives at-least-once delivery to whatever consumes the event afterwards. It
 earns its keep when a side effect must survive the originating process — a handler in
