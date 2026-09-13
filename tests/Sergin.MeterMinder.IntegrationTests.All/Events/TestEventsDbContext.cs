@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Events;
 
@@ -10,18 +11,23 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Events;
 /// <c>test_events</c> schema through the same <c>AddModuleDbContext</c> helper the real modules use. It
 /// exists because no aggregate in DeviceManagement or UserAccess raises a domain event yet, and the
 /// dispatch pipe (<c>EventDispatcherInterceptor</c> → <c>IEventDispatcher</c> → handlers) needs a producer
-/// to be exercised end to end.
+/// to be exercised end to end. It also opts into <see cref="IOutboxDbContext"/> so
+/// <c>OutboxRelayTests</c> can prove the same interceptor writes an outbox row in the same save.
 /// </summary>
 internal interface ITestEventsDbContext : IDbContext;
 
 internal interface ITestEventsUnitOfWork : IUnitOfWork;
 
 internal sealed class TestEventsDbContext(DbContextOptions<TestEventsDbContext> options)
-    : SerginDbContext(options), ITestEventsDbContext, ITestEventsUnitOfWork
+    : SerginDbContext(options), ITestEventsDbContext, ITestEventsUnitOfWork, IOutboxDbContext
 {
     public const string Schema = "test_events";
 
     public DbSet<TestAggregate> Aggregates => Set<TestAggregate>();
+
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
+    public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +39,8 @@ internal sealed class TestEventsDbContext(DbContextOptions<TestEventsDbContext> 
             aggregate.HasKey(x => x.Id);
             aggregate.Property(x => x.Name);
         });
+
+        modelBuilder.ApplyOutbox();
 
         base.OnModelCreating(modelBuilder);
     }
