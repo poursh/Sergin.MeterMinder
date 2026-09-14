@@ -4,6 +4,10 @@ Schema `dm`. The Head-End System (HES) module — device communication and data 
 
 See the root `.claude/CLAUDE.md` for cross-module conventions (layering, CQRS split, permissions, etc.) — this file only covers what's specific to the `Devices`/`DeviceModels` aggregates.
 
+## Outbox opt-in
+
+`DeviceManagementDbContext` implements `IOutboxDbContext` (`Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox`) and calls `modelBuilder.ApplyOutbox()` after `ApplyConfigurationsFromAssembly`, so `dm.outbox_messages` and `dm.inbox_messages` exist — added by the `AddOutbox` migration. That opt-in is what makes `AddModuleDbContext` register this module's `IInbox<IDeviceManagementUnitOfWork>` and its `IOutboxRelaySource`, which the host's `OutboxRelayService` drains. **No translator, integration event, or handler is declared here yet** — the tables are ready for the first one; see the root `CLAUDE.md`'s Outbox bullet for the producer/consumer shapes and `docs/superpowers/specs/2026-09-13-outbox-design.md` for the design.
+
 ## `Devices` aggregate
 
 `Sergin.MeterMinder.DeviceManagement.Domain/Devices/Device.cs` — `AggregateRoot<DeviceIntenralId>` (note the misspelling — it's the real type name, match it). `DeviceId` is the business-facing string key; `DeviceIntenralId` is the internal `Guid` PK. `Device` also carries a mandatory `ManufacturerId` FK (see `Manufacturers` aggregate below) — set via `Device.Create(DeviceId, ManufacturerId)`.
