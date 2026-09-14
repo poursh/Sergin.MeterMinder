@@ -220,9 +220,9 @@ inbox rows with the same cutoff.
 by `OutboxOptionsValidator` (positive intervals, `BatchSize >= 1`, `MaxAttempts >= 1`,
 messages naming `Sergin:Outbox:<Key>`).
 
-`OutboxRelayService : BackgroundService` (`Sergin.SharedKernel.Hosts/Outbox/`):
-`StartAsync` resolves `IIntegrationEventTypeRegistry` first so a bad registry fails host
-start, then `ExecuteAsync` runs, per source, one loop task (`RelayOnceAsync`; if claimed
+`OutboxRelayService : BackgroundService` (`Sergin.SharedKernel.Hosts/Outbox/`, `public`
+so a test can remove its registration — see Testing): `StartAsync` resolves
+`IIntegrationEventTypeRegistry` first so a bad registry fails host start, then `ExecuteAsync` runs, per source, one loop task (`RelayOnceAsync`; if claimed
 < `BatchSize`, delay `PollInterval`; exceptions caught and logged so a database outage
 does not kill the loop) and one purge task (every `PurgeInterval`); all awaited with
 `Task.WhenAll`, cancellation on shutdown swallowed. In Development the service starts
@@ -293,9 +293,15 @@ handler yet.
 `ThrowingIntegrationHandler` gated by singleton `FailureSwitch`, `ChainingIntegrationHandler`
 that sends `CreateChildAggregateCommand`
 (`[RequiredPermissions("permission.test-events.aggregates.write")]`) through `ISender`.
-`OutboxRelayTests` registers the test assembly as an `IIntegrationEventSource`, the
-translator and handlers by hand, and sets `Sergin:Outbox:PollInterval` to 500 ms. Cases,
-by name:
+`OutboxTestHost` builds the shared host: it registers the test assembly as an
+`IIntegrationEventSource` and the translator and handlers by hand, on top of the shared
+factory. Two test classes use it. `OutboxRelayTests` (cases 1–7 and 9) **removes the
+`OutboxRelayService` hosted-service registration** and drives `IOutboxRelaySource` by
+hand — with the service left running, every manual pass would race it for the same rows,
+and `FOR UPDATE SKIP LOCKED` makes that safe in production and unassertable in a test.
+This is why `OutboxRelayService` is `public`: the test finds its `IHostedService`
+descriptor by implementation type. `OutboxRelayServiceTests` (cases 8, 10 and 11) keeps
+the service and sets `Sergin:Outbox:PollInterval` to 500 ms. Cases, by name:
 
 1. `SaveChangesAsync_WithTranslator_WritesOutboxRow_InSameSave` — raising a domain event
    that has a registered translator writes exactly one `outbox_messages` row in the same
@@ -328,6 +334,8 @@ by name:
 10. `HostStart_WithUnnamedIntegrationEvent_Throws` — an unnamed nested event type
     supplied through `TypesIntegrationEventSource` makes `IntegrationEventTypeRegistry`'s
     constructor throw at host start, before any message is ever published.
+11. `HostStart_WithZeroBatchSize_FailsStartupNamingTheKey` — `Sergin:Outbox:BatchSize`
+    set to `0` fails host start with an `OptionsValidationException` naming that key.
 
 The rest of the suite, including `DomainEventDispatchTests`, stays green.
 

@@ -1,42 +1,30 @@
-using ErrorOr;
-using MediatR;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
-using Sergin.SharedKernel.Application.Events;
-using Sergin.SharedKernel.Application.Events.Integration;
-using Sergin.SharedKernel.Infrastructure.Data.EFCore;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
-using Sergin.SharedKernel.Infrastructure.Events.Integration;
 using Sergin.SharedKernel.IntegrationTests;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Events;
 
 /// <summary>
-/// The regression tests for the outbox, both halves. Producer side: raising a domain event that has a
-/// registered translator writes an <c>outbox_messages</c> row in the same <c>SaveChangesAsync</c> that
-/// persists the aggregate, and a domain event handler throwing leaves neither behind. Relay side, driven by
-/// calling <c>IOutboxRelaySource.RelayOnceAsync</c> directly rather than through the background service:
-/// a claimed row reaches <c>IIntegrationEventHandler&lt;TEvent&gt;</c> consumers and is stamped processed;
-/// a throwing consumer records an attempt with backoff instead of propagating; a redelivered message is
-/// skipped by the inbox; a row at <c>MaxAttempts</c> is no longer claimed; a consumer's <c>ISender.Send</c>
-/// of a permissioned command passes only because the relay seeded its system identity, and the outbox row
-/// that command produces names the consumed message as its cause; and <c>PurgeAsync</c> drops processed
-/// rows past retention. Everything under test — <c>EventDispatcherInterceptor</c>, <c>OutboxWriter</c>,
-/// <c>EfInbox</c>, <c>OutboxRelaySource</c>, <c>OutboxRelayIdentity</c> — is the real host wiring from
-/// <c>AddSerginCore</c> and <c>AddModuleDbContext</c>; only the producer (<see cref="TestEventsDbContext"/>),
-/// the translator, the handlers and the chained command are test-owned, added on top of the shared factory
-/// through <c>WithWebHostBuilder</c>, mirroring <c>DomainEventDispatchTests</c>.
+/// The regression tests for the outbox, both halves, driven by hand. Producer side: raising a domain event
+/// that has a registered translator writes an <c>outbox_messages</c> row in the same <c>SaveChangesAsync</c>
+/// that persists the aggregate, and a domain event handler throwing leaves neither behind. Relay side, by
+/// calling <c>IOutboxRelaySource.RelayOnceAsync</c> directly with the background service removed (see
+/// <see cref="OutboxTestHost.RemoveRelayService"/>): a claimed row reaches
+/// <c>IIntegrationEventHandler&lt;TEvent&gt;</c> consumers and is stamped processed; a throwing consumer
+/// records an attempt with backoff instead of propagating; a redelivered message is skipped by the inbox; a
+/// row at <c>MaxAttempts</c> is no longer claimed; a consumer's <c>ISender.Send</c> of a permissioned command
+/// passes only because the relay seeded its system identity, and the outbox row that command produces names
+/// the consumed message as its cause; and <c>PurgeAsync</c> drops processed rows past retention. The
+/// background service itself is covered by <see cref="OutboxRelayServiceTests"/>.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class OutboxRelayTests(SerginWebApiFactory<Program> factory) : IAsyncLifetime
 {
     // Plain literals, not interpolations over TestEventsDbContext.Schema: ExecuteSqlRawAsync with an
     // interpolated string trips EF1002, and identifiers cannot be parameterized anyway.
-    private const string ResetSchemaSql = "DROP SCHEMA IF EXISTS test_events CASCADE; CREATE SCHEMA test_events;";
     private const string UnprocessSql = "UPDATE test_events.outbox_messages SET processed_on_utc = NULL;";
     private const string ExhaustAttemptsSql = "UPDATE test_events.outbox_messages SET attempts = 10;";
     private const string AgeProcessedRowsSql =
@@ -50,43 +38,8 @@ public sealed class OutboxRelayTests(SerginWebApiFactory<Program> factory) : IAs
 
     public async Task InitializeAsync()
     {
-        eventsFactory = factory.WithWebHostBuilder(builder =>
-        {
-            builder.UseSetting("Sergin:Outbox:PollInterval", "00:00:00.500");
-
-            builder.ConfigureServices((context, services) =>
-            {
-                services.AddModuleDbContext<TestEventsDbContext, ITestEventsDbContext, ITestEventsUnitOfWork>(
-                    context.Configuration.GetSection("Sergin"), TestEventsDbContext.Schema);
-
-                services.AddSingleton<IIntegrationEventSource>(new AssemblyIntegrationEventSource(typeof(OutboxRelayTests).Assembly));
-                services.AddTransient<IIntegrationEventTranslator<TestAggregateCreated>, TestAggregateCreatedTranslator>();
-
-                services.AddScoped<RecordedEvents>();
-                services.AddTransient<INotificationHandler<DomainEventNotification<TestAggregateCreated>>, ThrowingHandler>();
-
-                // Consumer side. Singletons, because the relay delivers in a scope the test never sees; the
-                // handlers are registered by hand as INotificationHandler<IntegrationEventNotification<T>> for
-                // the same reason DomainEventDispatchTests registers its domain handlers that way — the MediatR
-                // scan covers the modules' ApplicationAssembly only, not this test assembly. Recording goes
-                // first so its inbox row is written before Throwing gets a chance to abort the publish.
-                services.AddSingleton<RecordedIntegrationEvents>();
-                services.AddSingleton<FailureSwitch>();
-                services.AddTransient<INotificationHandler<IntegrationEventNotification<TestAggregateCreatedIntegrationEvent>>, RecordingIntegrationHandler>();
-                services.AddTransient<INotificationHandler<IntegrationEventNotification<TestAggregateCreatedIntegrationEvent>>, ThrowingIntegrationHandler>();
-                services.AddTransient<INotificationHandler<IntegrationEventNotification<TestAggregateCreatedIntegrationEvent>>, ChainingIntegrationHandler>();
-                services.AddTransient<IRequestHandler<CreateChildAggregateCommand, ErrorOr<Guid>>, CreateChildAggregateCommandHandler>();
-            });
-        });
-
-        using IServiceScope scope = eventsFactory.Services.CreateScope();
-        TestEventsDbContext context = scope.ServiceProvider.GetRequiredService<TestEventsDbContext>();
-
-        // Not EnsureCreatedAsync: it no-ops as soon as the database holds any table, and the modules'
-        // migrations have already run by the time this host is up. CreateTablesAsync builds this model's
-        // tables regardless.
-        await context.Database.ExecuteSqlRawAsync(ResetSchemaSql);
-        await context.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
+        eventsFactory = OutboxTestHost.Create(factory, builder => builder.ConfigureServices(OutboxTestHost.RemoveRelayService));
+        await OutboxTestHost.ResetSchemaAsync(eventsFactory);
     }
 
     public async Task DisposeAsync()
@@ -298,17 +251,7 @@ public sealed class OutboxRelayTests(SerginWebApiFactory<Program> factory) : IAs
         Failure.ShouldThrow = false;
     }
 
-    private async Task<TestAggregate> SaveAggregateAsync(string name)
-    {
-        using IServiceScope scope = eventsFactory.Services.CreateScope();
-        TestEventsDbContext context = scope.ServiceProvider.GetRequiredService<TestEventsDbContext>();
-
-        var aggregate = TestAggregate.Create(name);
-        context.Aggregates.Add(aggregate);
-        await context.SaveChangesAsync();
-
-        return aggregate;
-    }
+    private Task<TestAggregate> SaveAggregateAsync(string name) => OutboxTestHost.SaveAggregateAsync(eventsFactory, name);
 
     private async Task<OutboxMessage> ReadSingleMessageAsync()
     {
