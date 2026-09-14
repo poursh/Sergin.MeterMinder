@@ -40,7 +40,8 @@ at-least-once semantics; consumers make it effectively-once through an inbox.
 - No module raises a real integration event yet; nothing in DeviceManagement or
   UserAccess has an outbound reaction worth writing.
 - No message broker, no cross-process transport, no `LISTEN/NOTIFY` — delivery is
-  in-process only, through `IPublisher`.
+  in-process by default, through `IPublisher`. The seam a broker adapter plugs into is
+  designed here (see "Transport seam"); no adapter is built.
 - No `IOutbox<T>.Enqueue` escape hatch: the only way to produce an integration event is a
   translator reacting to a domain event.
 - No new NuGet packages.
@@ -113,9 +114,10 @@ public interface IIntegrationEventTranslator<TDomainEvent> : IIntegrationEventTr
 public interface IIntegrationEventSource { IEnumerable<Type> EventTypes { get; } }
 public interface IIntegrationEventTypeRegistry { string NameOf(Type eventType); Type TypeOf(string name); }
 public interface IIntegrationEventSerializer { string Serialize(IIntegrationEvent integrationEvent); IIntegrationEvent Deserialize(string typeName, string content); }
-public interface IIntegrationEventDispatcher { Task DispatchAsync(Guid messageId, string correlationId, IIntegrationEvent integrationEvent, CancellationToken cancellationToken); }
+public sealed record IntegrationEventEnvelope(Guid MessageId, string Type, string Content, DateTime OccurredOnUtc, string CorrelationId, Guid? CausationId); // the outbox row as a transport sees it
+public interface IIntegrationEventDispatcher { Task DispatchAsync(IntegrationEventEnvelope envelope, CancellationToken cancellationToken); } // the transport seam
 
-public sealed class IntegrationEventContextAccessor { public string? CorrelationId { get; set; } public Guid? CausationMessageId { get; set; } } // scoped, seeded by the relay, read by the writer
+public sealed class IntegrationEventContextAccessor { public string? CorrelationId { get; set; } public Guid? CausationMessageId { get; set; } } // scoped, seeded by the in-process dispatcher, read by the writer
 
 public interface IOutboxRelayIdentity { IUserContext User { get; } }
 
@@ -137,10 +139,24 @@ public abstract class InboxIntegrationEventHandler<TEvent, TUnitOfWork>(IInbox<T
 }
 ```
 
-`IIntegrationEventDispatcher` exists because `.Infrastructure.Data.EFCore` has no MediatR
-reference; `DefaultIntegrationEventDispatcher(IPublisher)` in
-`Sergin.SharedKernel.Infrastructure/Events/Integration/` publishes
-`IntegrationEventNotification.Wrap(...)`. `IntegrationEventTypeRegistry(IEnumerable<IIntegrationEventSource>)`
+`IIntegrationEventDispatcher` is the transport seam: the one method a host replaces to
+move messages between processes (see "Transport seam" below). It is a contract of its own,
+rather than the relay calling MediatR, because `.Infrastructure.Data.EFCore` has no MediatR
+reference. `IntegrationEventEnvelope` is the outbox row as a transport sees it — `Type` is
+the wire name, `Content` the JSON exactly as stored, so a broker adapter maps it onto a
+body plus headers without knowing any event type; `CausationId` rides along for log and
+trace headers only. The default,
+`InProcessIntegrationEventDispatcher(IServiceScopeFactory, IIntegrationEventSerializer, IOutboxRelayIdentity)`
+in `Sergin.SharedKernel.Infrastructure/Events/Integration/`, is public and sealed: it
+opens a consumer scope from the root provider, seeds
+`UserContextAccessor.Current = identity.User` and
+`IntegrationEventContextAccessor { CorrelationId = envelope.CorrelationId, CausationMessageId = envelope.MessageId }`,
+deserializes `envelope.Type`/`envelope.Content`, and publishes
+`IntegrationEventNotification.Wrap(envelope.MessageId, envelope.CorrelationId, event)`
+through the scope's `IPublisher`. That is also the last mile a broker consumer service on
+another host calls after rebuilding the envelope from headers, which is why it is public
+and registered by its concrete type as well.
+`IntegrationEventTypeRegistry(IEnumerable<IIntegrationEventSource>)`
 (same folder) builds name↔type both ways eagerly in its constructor and throws
 `InvalidOperationException` naming the offending type(s) on a missing
 `[IntegrationEventName]` or a duplicate name. `AssemblyIntegrationEventSource(Assembly)`
@@ -203,13 +219,21 @@ is registered by `AddModuleDbContext` when `TContext : IOutboxDbContext`, alongs
 with `OutboxMessages.FromSqlRaw(claimSql, now, maxAttempts, batchSize).ToListAsync()`
 where `claimSql` is
 `SELECT * FROM "<schema>"."outbox_messages" WHERE processed_on_utc IS NULL AND attempts < {1} AND (next_attempt_at IS NULL OR next_attempt_at <= {0}) ORDER BY id LIMIT {2} FOR UPDATE SKIP LOCKED`
-built once from EF metadata. Per row: open a fresh consumer scope, seed
-`UserContextAccessor.Current = relayIdentity.User` and
-`IntegrationEventContextAccessor { CorrelationId = row.CorrelationId, CausationMessageId = row.Id }`,
-deserialize, resolve `IIntegrationEventDispatcher` from that scope, dispatch. Success →
-`MarkProcessed(now)`. Exception → `MarkFailed(now, exception.ToString(), backoff)` with
-backoff `min(2^attempts, 300)` seconds, log a warning, continue with the next row. Then
-`SaveChangesAsync` on the relay context and commit; return the claimed count.
+built once from EF metadata. Per row, `DeliverAsync` is one call: build
+`new IntegrationEventEnvelope(row.Id, row.Type, row.Content, row.OccurredOnUtc, row.CorrelationId, row.CausationId)`
+and `await dispatcher.DispatchAsync(envelope, ct)` on the `IIntegrationEventDispatcher`
+the source was constructed with. The relay neither deserializes nor opens a consumer
+scope — that is the transport's last mile (the in-process dispatcher's when the message
+stays in this host, a broker consumer's when it does not). Success → `MarkProcessed(now)`.
+Exception — a handler throwing in-process, or a publish the broker refused →
+`MarkFailed(now, exception.ToString(), backoff)` with backoff `min(2^attempts, 300)`
+seconds, log a warning, continue with the next row. Then `SaveChangesAsync` on the relay
+context and commit; return the claimed count. The source's constructor takes `schema`
+(the one argument DI cannot supply — `AddModuleDbContext` builds it through
+`ActivatorUtilities.CreateInstance`), `IServiceScopeFactory`, `IIntegrationEventDispatcher`,
+`IDateTimeProvider`, `IOptions<OutboxOptions>` and a logger; it no longer takes the
+serializer or the relay identity, which moved with the consumer-scope work into the
+in-process dispatcher.
 `PurgeAsync` bulk-deletes outbox rows with `processed_on_utc < now - Retention` and
 inbox rows with the same cutoff.
 
@@ -235,8 +259,8 @@ Handlers implement `IIntegrationEventHandler<TEvent>` in the consuming module's
 `.Application.Contracts` for the event type. Deriving from
 `InboxIntegrationEventHandler<TEvent, TUnitOfWork>` gives inbox dedup and a save in one
 transaction; a plain implementation owns its idempotency. A consumer may `ISender.Send`
-a command; it passes `PermissionCheckPipelineBehavior` because the relay identity is a
-system admin.
+a command; it passes `PermissionCheckPipelineBehavior` because the in-process dispatcher
+seeded the relay identity — a system admin — into the consumer scope before publishing.
 
 ### Identity, correlation and causation
 
@@ -262,10 +286,51 @@ causation: `IntegrationEventContextAccessor.CausationMessageId`. Consequence:
 with `OutboxOptionsValidator`; `TryAddSingleton<IDateTimeProvider, DefaultDateTimeProvider>()`
 (it existed but nothing registered it); one `IIntegrationEventSource` per local and
 remote module's `ContractsAssembly`; `IIntegrationEventTypeRegistry`,
-`IIntegrationEventSerializer` singletons; `IIntegrationEventDispatcher`,
-`IntegrationEventContextAccessor`, `IOutboxWriter` scoped; translator scan over local
-modules' `ApplicationAssembly`; `IOutboxRelayIdentity` singleton;
-`AddHostedService<OutboxRelayService>()`.
+`IIntegrationEventSerializer` singletons; `AddSingleton<InProcessIntegrationEventDispatcher>()`
+unconditionally plus `TryAddSingleton<IIntegrationEventDispatcher>(p => p.GetRequiredService<InProcessIntegrationEventDispatcher>())`
+— singleton because the dispatcher is a transport holding a scope factory (a broker
+client is a connection and must be one anyway), `TryAdd` so a host's own registration
+made before the bootstrap call wins; `IntegrationEventContextAccessor`, `IOutboxWriter`
+scoped; translator scan over local modules' `ApplicationAssembly`; `IOutboxRelayIdentity`
+singleton; `AddHostedService<OutboxRelayService>()`.
+
+### Transport seam
+
+`IIntegrationEventDispatcher` is the one place a third-party transport ever plugs in.
+The decisions, recorded so the first multi-host deployment does not have to relitigate
+them:
+
+- **Only the transfer between processes is ever outsourced.** The outbox writer, the
+  relay, the inbox, the translators, the type registry, the relay identity, and the
+  correlation/causation propagation stay ours. A broker library gets the envelope and
+  nothing else; no handler, module or test learns its abstractions.
+- **The envelope is ours.** On the wire a message is the JSON body from `Content` plus
+  headers `message-id`, `type`, `correlation-id`, `causation-id` and `occurred-on`, one per
+  envelope field; the topic or routing key is the wire name from `[IntegrationEventName]`.
+  CLR type names never go on the wire — a consumer resolves the type through its own
+  registry, exactly as `JsonIntegrationEventSerializer` does today.
+- **No hybrid.** Either every event goes in-process (a single host, the default
+  dispatcher) or every event goes through the broker and every host subscribes for the
+  handlers it has — including the producer's own host for its own events. Two delivery
+  paths in one process means double delivery, because the in-process dispatcher would
+  publish to the local handlers and the broker would deliver the same message back to
+  them.
+- **Retry semantics shift with a broker.** In-process, an outbox row is processed once
+  every handler returned, and `error` records the handler that threw. With a broker, a
+  row is processed once the publish is acked, `error` means "could not publish", and a
+  consumer-side failure lives in the broker's retry and dead-letter machinery instead of
+  `attempts`/`next_attempt_at`. Inbox dedup already makes the broker's redelivery safe, so
+  nothing on the consumer side changes shape.
+- **The host chooses the dispatcher in `Program.cs`**, registering its
+  `IIntegrationEventDispatcher` before `AddSerginBlazorApp`/`AddSerginWebApi`; the
+  `TryAddSingleton` in `AddSerginCore` then leaves it alone. A composition-time choice like
+  Local/Remote — there is deliberately no `Sergin:Outbox:Transport` key to read at startup.
+  A broker consumer service rebuilds the envelope from the message and calls
+  `InProcessIntegrationEventDispatcher` as its last mile; that concrete registration is
+  unconditional for exactly this reason.
+- **Candidate libraries, when the time comes:** the raw `RabbitMQ.Client` or `NATS.Net`
+  clients, or Rebus (MIT). MassTransit was ruled out: v9 requires a paid license, and
+  v8's Apache 2.0 line receives only security fixes until the end of 2026.
 
 ### What does not change
 
@@ -295,13 +360,18 @@ that sends `CreateChildAggregateCommand`
 (`[RequiredPermissions("permission.test-events.aggregates.write")]`) through `ISender`.
 `OutboxTestHost` builds the shared host: it registers the test assembly as an
 `IIntegrationEventSource` and the translator and handlers by hand, on top of the shared
-factory. Two test classes use it. `OutboxRelayTests` (cases 1–7 and 9) **removes the
+factory. Three test classes use it. `OutboxRelayTests` (cases 1–7 and 9) **removes the
 `OutboxRelayService` hosted-service registration** and drives `IOutboxRelaySource` by
 hand — with the service left running, every manual pass would race it for the same rows,
 and `FOR UPDATE SKIP LOCKED` makes that safe in production and unassertable in a test.
 This is why `OutboxRelayService` is `public`: the test finds its `IHostedService`
 descriptor by implementation type. `OutboxRelayServiceTests` (cases 8, 10 and 11) keeps
-the service and sets `Sergin:Outbox:PollInterval` to 500 ms. Cases, by name:
+the service and sets `Sergin:Outbox:PollInterval` to 500 ms. `OutboxTransportSeamTests`
+(cases 12 and 13) removes the service too and swaps the dispatcher for a recording fake —
+by `Replace`-ing the descriptor in the test-services hook, because
+`WebApplicationFactory` runs that hook after `Program.cs` has already run `AddSerginCore`,
+so "registered first wins" has to be proven on a bare `HostApplicationBuilder` instead.
+Cases, by name:
 
 1. `SaveChangesAsync_WithTranslator_WritesOutboxRow_InSameSave` — raising a domain event
    that has a registered translator writes exactly one `outbox_messages` row in the same
@@ -323,7 +393,7 @@ the service and sets `Sergin:Outbox:PollInterval` to 500 ms. Cases, by name:
    longer claimed by `RelayOnceAsync`.
 7. `RelayOnce_ConsumerRunsAsRelayUser_AndChainsCausation` — `ChainingIntegrationHandler`'s
    `ISender.Send(CreateChildAggregateCommand)` passes `PermissionCheckPipelineBehavior`
-   because the relay seeded the relay identity, and the outbox row written for the
+   because the in-process dispatcher seeded the relay identity, and the outbox row written for the
    resulting domain event carries `causation_id` equal to the consumed message's id and
    the same correlation id.
 8. `BackgroundRelay_DeliversWithoutManualTrigger` — with `OutboxRelayService` running at
@@ -336,6 +406,15 @@ the service and sets `Sergin:Outbox:PollInterval` to 500 ms. Cases, by name:
     constructor throw at host start, before any message is ever published.
 11. `HostStart_WithZeroBatchSize_FailsStartupNamingTheKey` — `Sergin:Outbox:BatchSize`
     set to `0` fails host start with an `OptionsValidationException` naming that key.
+12. `RelayOnce_HandsRowToRegisteredDispatcher_AsEnvelope` — with a recording
+    `IIntegrationEventDispatcher` in place of the default, one pass hands the fake exactly
+    one `IntegrationEventEnvelope` whose `MessageId`, `Type` (the wire name), `Content`,
+    `OccurredOnUtc`, `CorrelationId` and `CausationId` equal the `outbox_messages` row's,
+    stamps the row processed, and — because the fake never publishes — writes no inbox row.
+13. `AddSerginCore_KeepsADispatcherRegisteredBeforeIt_AndStillExposesTheInProcessOne` — on
+    a bare `HostApplicationBuilder`, an `IIntegrationEventDispatcher` registered before
+    `AddSerginCore` is the instance the built host resolves, and
+    `InProcessIntegrationEventDispatcher` still resolves by its concrete type.
 
 The rest of the suite, including `DomainEventDispatchTests`, stays green.
 
@@ -374,9 +453,13 @@ submodule bumps land in `Sergin.MeterMinder`.
   idempotent handlers.
 - Relay failure policy: a failed row gets exponential backoff and is skipped; later rows
   overtake it (no head-of-line blocking); dead letter = `attempts >= MaxAttempts` and
-  unprocessed. One sequential loop per module, fresh consumer DI scope per message.
-- In-process delivery only (`IPublisher`); no broker, no cross-process transport, no
-  `LISTEN/NOTIFY`.
+  unprocessed. One sequential loop per module, fresh consumer DI scope per message
+  (opened by the in-process dispatcher, not the relay).
+- In-process delivery by default (`IPublisher`); no broker, no cross-process transport, no
+  `LISTEN/NOTIFY` built. The relay hands each row to `IIntegrationEventDispatcher` as an
+  `IntegrationEventEnvelope`, and that interface is the only seam a transport ever
+  replaces — see "Transport seam" for the envelope, the no-hybrid rule, the retry shift,
+  and the library shortlist.
 - Correlation/causation: correlation from the ambient consumer scope, else
   `Activity.Current?.TraceId`, else a new v7 guid; causation = the message being
   consumed when the row was written, else null.

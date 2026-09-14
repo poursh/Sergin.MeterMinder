@@ -16,9 +16,11 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Events;
 /// <c>IIntegrationEventHandler&lt;TEvent&gt;</c> consumers and is stamped processed; a throwing consumer
 /// records an attempt with backoff instead of propagating; a redelivered message is skipped by the inbox; a
 /// row at <c>MaxAttempts</c> is no longer claimed; a consumer's <c>ISender.Send</c> of a permissioned command
-/// passes only because the relay seeded its system identity, and the outbox row that command produces names
-/// the consumed message as its cause; and <c>PurgeAsync</c> drops processed rows past retention. The
-/// background service itself is covered by <see cref="OutboxRelayServiceTests"/>.
+/// passes only because the in-process dispatcher seeded the relay's system identity, and the outbox row that
+/// command produces names the consumed message as its cause; and <c>PurgeAsync</c> drops processed rows past
+/// retention. The background service itself is covered by <see cref="OutboxRelayServiceTests"/>; the
+/// hand-off from the relay to the transport, with the dispatcher swapped out, by
+/// <see cref="OutboxTransportSeamTests"/>.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class OutboxRelayTests(SerginWebApiFactory<Program> factory) : IAsyncLifetime
