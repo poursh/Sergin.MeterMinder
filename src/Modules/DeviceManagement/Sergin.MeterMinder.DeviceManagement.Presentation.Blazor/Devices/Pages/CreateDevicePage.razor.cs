@@ -54,7 +54,8 @@ public sealed partial class CreateDevicePage
 
         if (result.IsError)
         {
-            ErrorPresenter.Notify(result.FirstError);
+            // Every error, not the first: validation yields one per broken rule.
+            ErrorPresenter.Notify(result.Errors);
 
             return;
         }

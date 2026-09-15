@@ -21,5 +21,15 @@ public class Manufacturer : AggregateRoot<ManufacturerId>
 }
 
 public sealed record ManufacturerId(Guid Value);
-public sealed record ManufacturerName(string Value);
-public sealed record ManufacturerAddress(string Value);
+
+// MaxLength: read by CreateManufacturerCommandValidator. The columns are unbounded text today, so these
+// are the only limits; widen here and the validator follows.
+public sealed record ManufacturerName(string Value)
+{
+    public const int MaxLength = 200;
+}
+
+public sealed record ManufacturerAddress(string Value)
+{
+    public const int MaxLength = 500;
+}

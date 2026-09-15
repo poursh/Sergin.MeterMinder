@@ -33,4 +33,10 @@ public class Device : AggregateRoot<DeviceIntenralId>
 }
 
 public sealed record DeviceIntenralId(Guid Value);
-public sealed record DeviceId(string Value);
+
+// MaxLength: the one number CreateDeviceCommandValidator and NewDeviceFormModel's [StringLength] both
+// read, so the limit is never repeated as a literal.
+public sealed record DeviceId(string Value)
+{
+    public const int MaxLength = 100;
+}
