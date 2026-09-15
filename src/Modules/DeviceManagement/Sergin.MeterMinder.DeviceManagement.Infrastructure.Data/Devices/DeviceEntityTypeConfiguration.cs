@@ -20,6 +20,9 @@ internal sealed class DeviceEntityTypeConfiguration : IEntityTypeConfiguration<D
         builder.Property(d => d.DeviceId)
             .HasConversion<DeviceIdConverter>();
 
+        // IDeviceRepository declares DeviceId an alternate key; the validator's check is advisory, this is the guarantee.
+        builder.HasIndex(d => d.DeviceId).IsUnique();
+
         builder.Property(d => d.ManufacturerId)
             .HasConversion<ManufacturerIdConverter>();
 

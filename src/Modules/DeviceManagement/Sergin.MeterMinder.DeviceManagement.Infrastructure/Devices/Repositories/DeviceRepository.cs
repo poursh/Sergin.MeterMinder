@@ -1,28 +1,18 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Repositories;
 
 namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Devices.Repositories;
 
-internal class DeviceRepository(IDeviceManagementDbContext dbContext) : IDeviceRepository
+internal class DeviceRepository(IDeviceManagementDbContext dbContext)
+    : EfRepository<Device, DeviceIntenralId>(dbContext), IDeviceRepository
 {
-    public ValueTask<Device?> GetAsync(DeviceIntenralId id, CancellationToken cancellationToken = default)
-    {
-        return dbContext.Set<Device>().FindAsync([id, cancellationToken], cancellationToken: cancellationToken);
-    }
-
     public Task<Device?> GetByDeviceId(DeviceId deviceId, CancellationToken cancellationToken = default)
     {
-        return dbContext.Set<Device>().SingleOrDefaultAsync(d => d.DeviceId == deviceId, cancellationToken);
+        return Set.SingleOrDefaultAsync(d => d.DeviceId == deviceId, cancellationToken);
     }
 
-    public void Insert(Device entity)
-    {
-        dbContext.Set<Device>().Add(entity);
-    }
-
-    public void Remove(Device entity)
-    {
-        dbContext.Set<Device>().Remove(entity);
-    }
+    public Task<bool> IsTakenAsync(DeviceId key, CancellationToken cancellationToken = default)
+        => AnyAsync(d => d.DeviceId == key, cancellationToken);
 }
