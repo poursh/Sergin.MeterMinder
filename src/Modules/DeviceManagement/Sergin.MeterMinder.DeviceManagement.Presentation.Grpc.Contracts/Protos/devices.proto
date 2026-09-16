@@ -28,4 +28,5 @@ message DeviceData {
   string id = 1;
   string device_id = 2;
   string manufacturer_id = 3;
+  string manufacturer_name = 4;
 }

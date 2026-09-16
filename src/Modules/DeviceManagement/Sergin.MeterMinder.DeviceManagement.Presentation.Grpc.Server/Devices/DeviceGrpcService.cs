@@ -40,6 +40,7 @@ public sealed class DeviceGrpcService(ISender sender) : DeviceService.DeviceServ
                     Id = response.Id.ToString(),
                     DeviceId = response.DeviceId,
                     ManufacturerId = response.ManufacturerId.ToString(),
+                    ManufacturerName = response.ManufacturerName,
                 },
             },
             errors => new GetDeviceByIdReply { Error = errors[0].ToErrorReply() });

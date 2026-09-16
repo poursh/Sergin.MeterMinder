@@ -12,6 +12,12 @@ public static class DeviceManagementNavigation
             "/dm/devices",
             Icons.Material.Filled.Router,
             Order: 100,
-            RequiredPermission: "permission.dm.devices.read")
+            RequiredPermission: "permission.dm.devices.read"),
+        new SerginNavItem(
+            "Manufacturers",
+            "/dm/manufacturers",
+            Icons.Material.Filled.Factory,
+            Order: 110,
+            RequiredPermission: "permission.dm.manufacturers.read")
     ];
 }

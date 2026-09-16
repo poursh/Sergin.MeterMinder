@@ -1,0 +1,21 @@
+@page "/dm/manufacturers/{Id:guid}"
+
+<PageTitle>Manufacturer</PageTitle>
+
+<MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Href="/dm/manufacturers" Class="mb-4">Back to manufacturers</MudButton>
+
+<SerginProblemPanel Problem="problem" />
+
+@if (manufacturer is not null)
+{
+    <MudCard>
+        <MudCardContent>
+            <MudText Typo="Typo.h5">@manufacturer.Name</MudText>
+            @if (manufacturer.Address is not null)
+            {
+                <MudText Typo="Typo.body2">Address: @manufacturer.Address</MudText>
+            }
+            <MudText Typo="Typo.body2">@manufacturer.Id</MudText>
+        </MudCardContent>
+    </MudCard>
+}

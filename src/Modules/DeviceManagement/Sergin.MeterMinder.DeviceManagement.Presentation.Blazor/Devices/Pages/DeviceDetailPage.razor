@@ -11,7 +11,10 @@
     <MudCard>
         <MudCardContent>
             <MudText Typo="Typo.h5">@device.DeviceId</MudText>
-            <MudText Typo="Typo.body2">Manufacturer: @device.ManufacturerId</MudText>
+            <MudText Typo="Typo.body2">
+                Manufacturer:
+                <MudLink Href="@($"/dm/manufacturers/{device.ManufacturerId}")">@device.ManufacturerName</MudLink>
+            </MudText>
             <MudText Typo="Typo.body2">@device.Id</MudText>
         </MudCardContent>
     </MudCard>
