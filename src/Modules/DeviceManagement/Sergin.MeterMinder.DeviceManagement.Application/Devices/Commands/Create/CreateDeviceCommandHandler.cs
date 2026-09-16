@@ -10,7 +10,7 @@ internal sealed class CreateDeviceCommandHandler(
     public async Task<ErrorOr<CreateDeviceCommandResponse>> Handle(
         CreateDeviceCommand request, CancellationToken cancellationToken)
     {
-        var newDevice = Device.Create(request.DeviceId, request.ManufacturerId);
+        var newDevice = Device.Create(request.DeviceId, request.DeviceModelId);
 
         repository.Insert(newDevice);
 
