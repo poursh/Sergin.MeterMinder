@@ -27,6 +27,8 @@ message GetDeviceByIdReply {
 message DeviceData {
   string id = 1;
   string device_id = 2;
-  string manufacturer_id = 3;
-  string manufacturer_name = 4;
+  // Fields 3 and 4 re-used, not reserved: the service is live-but-unhosted and no client has seen the
+  // manufacturer_id / manufacturer_name shape they replace.
+  string device_model_id = 3;
+  string device_model_name = 4;
 }

@@ -11,11 +11,18 @@
         <MudCardContent>
             <MudTextField @bind-Value="model.DeviceId" Label="Device ID" For="@(() => model.DeviceId)" />
 
-            <MudSelect T="Guid" @bind-Value="model.ManufacturerId" Label="Manufacturer"
-                       For="@(() => model.ManufacturerId)">
+            <MudSelect T="Guid" Value="selectedManufacturerId" ValueChanged="OnManufacturerChangedAsync" Label="Manufacturer">
                 @foreach (GetManufacturerListItem manufacturer in manufacturers)
                 {
                     <MudSelectItem T="Guid" Value="@manufacturer.Id">@manufacturer.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudSelect T="Guid" @bind-Value="model.DeviceModelId" Label="Model"
+                       For="@(() => model.DeviceModelId)" Disabled="@(selectedManufacturerId == Guid.Empty)">
+                @foreach (GetDeviceModelListItem deviceModel in deviceModels)
+                {
+                    <MudSelectItem T="Guid" Value="@deviceModel.Id">@deviceModel.Name</MudSelectItem>
                 }
             </MudSelect>
         </MudCardContent>

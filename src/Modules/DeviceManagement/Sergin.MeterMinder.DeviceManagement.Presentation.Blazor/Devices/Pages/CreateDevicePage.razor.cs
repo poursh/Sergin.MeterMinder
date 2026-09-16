@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.Create;
+using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetDeviceModelList;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
@@ -13,6 +14,10 @@ public sealed partial class CreateDevicePage
     private readonly NewDeviceFormModel model = new();
 
     private IReadOnlyCollection<GetManufacturerListItem> manufacturers = [];
+    private IReadOnlyCollection<GetDeviceModelListItem> deviceModels = [];
+
+    // Page state only: the manufacturer narrows the model picker and is not part of the command.
+    private Guid selectedManufacturerId;
     private bool submitting;
 
     [Inject]
@@ -43,12 +48,38 @@ public sealed partial class CreateDevicePage
         manufacturers = result.Value.Data;
     }
 
+    private async Task OnManufacturerChangedAsync(Guid manufacturerId)
+    {
+        selectedManufacturerId = manufacturerId;
+        model.DeviceModelId = Guid.Empty;
+        deviceModels = [];
+
+        if (manufacturerId == Guid.Empty)
+        {
+            return;
+        }
+
+        // Same 200-row caveat as the manufacturer picker above.
+        ErrorOr<ListQueryResponse<GetDeviceModelListItem>> result =
+            await Dispatcher.SendAsync(
+                new GetDeviceModelListQueryCommand(new ManufacturerId(manufacturerId), Paggination.Create(200, 1)));
+
+        if (result.IsError)
+        {
+            ErrorPresenter.Notify(result.FirstError);
+
+            return;
+        }
+
+        deviceModels = result.Value.Data;
+    }
+
     private async Task SubmitAsync()
     {
         submitting = true;
 
         ErrorOr<CreateDeviceCommandResponse> result = await Dispatcher.SendAsync(
-            new CreateDeviceCommand(new DeviceId(model.DeviceId), new ManufacturerId(model.ManufacturerId)));
+            new CreateDeviceCommand(new DeviceId(model.DeviceId), new DeviceModelInternalId(model.DeviceModelId)));
 
         submitting = false;
 

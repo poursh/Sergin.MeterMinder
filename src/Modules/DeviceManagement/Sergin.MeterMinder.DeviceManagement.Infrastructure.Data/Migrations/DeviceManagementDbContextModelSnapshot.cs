@@ -34,9 +34,9 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("device_id");
 
-                    b.Property<Guid>("ManufacturerId")
+                    b.Property<Guid>("DeviceModelId")
                         .HasColumnType("uuid")
-                        .HasColumnName("manufacturer_id");
+                        .HasColumnName("device_model_id");
 
                     b.HasKey("Id")
                         .HasName("pk_device");
@@ -45,10 +45,35 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_device_device_id");
 
-                    b.HasIndex("ManufacturerId")
-                        .HasDatabaseName("ix_device_manufacturer_id");
+                    b.HasIndex("DeviceModelId")
+                        .HasDatabaseName("ix_device_device_model_id");
 
                     b.ToTable("device", "dm");
+                });
+
+            modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ManufacturerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("manufacturer_id");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.HasKey("Id")
+                        .HasName("pk_device_model");
+
+                    b.HasIndex("ManufacturerId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_device_model_manufacturer_id_name");
+
+                    b.ToTable("device_model", "dm");
                 });
 
             modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.Manufacturer", b =>
@@ -151,12 +176,27 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Devices.Device", b =>
                 {
-                    b.HasOne("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.Manufacturer", null)
+                    b.HasOne("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModel", null)
                         .WithMany()
+                        .HasForeignKey("DeviceModelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_device_device_model_device_model_id");
+                });
+
+            modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModel", b =>
+                {
+                    b.HasOne("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.Manufacturer", null)
+                        .WithMany("Models")
                         .HasForeignKey("ManufacturerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_device_manufacturer_manufacturer_id");
+                        .HasConstraintName("fk_device_model_manufacturer_manufacturer_id");
+                });
+
+            modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.Manufacturer", b =>
+                {
+                    b.Navigation("Models");
                 });
 #pragma warning restore 612, 618
         }

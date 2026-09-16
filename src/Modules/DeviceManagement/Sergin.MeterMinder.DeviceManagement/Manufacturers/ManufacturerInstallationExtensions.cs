@@ -1,12 +1,17 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetDeviceModel;
+using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetDeviceModelList;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Manufacturers.Repositories;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Manufacturers.Repositories.Queries;
+using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.AddDeviceModel;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.Create;
+using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.GetDeviceModel;
+using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.GetDeviceModelList;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.GetList;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.GetOne;
 
@@ -20,6 +25,9 @@ internal static class ManufacturerInstallationExtensions
         services.AddTransient<IManufacturerAllQueryRepository, ManufacturerQueryRepository>();
         services.AddTransient<IGetManufacturerQueryRepository, ManufacturerQueryRepository>();
         services.AddTransient<IGetManufacturerListQueryRepository, ManufacturerQueryRepository>();
+        // Device models are entities of this aggregate, so their reads hang off the same query repository.
+        services.AddTransient<IGetDeviceModelQueryRepository, ManufacturerQueryRepository>();
+        services.AddTransient<IGetDeviceModelListQueryRepository, ManufacturerQueryRepository>();
 
         return services;
     }
@@ -29,6 +37,9 @@ internal static class ManufacturerInstallationExtensions
         new CreateManufacturerEndpoint().MapEndpoint(routeBuilder);
         new GetManufacturerEndpoint().MapEndpoint(routeBuilder);
         new GetManufacturerListEndpoint().MapEndpoint(routeBuilder);
+        new AddDeviceModelEndpoint().MapEndpoint(routeBuilder);
+        new GetDeviceModelEndpoint().MapEndpoint(routeBuilder);
+        new GetDeviceModelListEndpoint().MapEndpoint(routeBuilder);
 
         return routeBuilder;
     }

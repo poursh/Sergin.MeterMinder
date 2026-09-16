@@ -19,7 +19,7 @@ internal class CreateDeviceEndpoint : IEndpoint
                 ErrorOr<CreateDeviceCommandResponse> res = await sender.Send(
                     new CreateDeviceCommand(
                         new DeviceId(device.DeviceId),
-                        new ManufacturerId(device.ManufacturerId)));
+                        new DeviceModelInternalId(device.DeviceModelId)));
 
                 return res.ToApiResult();
             })

@@ -18,4 +18,23 @@
             <MudText Typo="Typo.body2">@manufacturer.Id</MudText>
         </MudCardContent>
     </MudCard>
+
+    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mt-6 mb-2">
+        <MudText Typo="Typo.h5">Models</MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add" Href="@($"/dm/manufacturers/{Id}/models/new")">New model</MudButton>
+    </MudStack>
+
+    <MudTable T="GetDeviceModelListItem" ServerData="LoadModelsAsync" Hover="true" Striped="true"
+              OnRowClick="@(args => OpenModel(args.Item))" RowsPerPage="10">
+        <HeaderContent>
+            <MudTh>Name</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name">@context.Name</MudTd>
+        </RowTemplate>
+        <PagerContent>
+            <MudTablePager />
+        </PagerContent>
+    </MudTable>
 }

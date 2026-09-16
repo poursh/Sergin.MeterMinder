@@ -64,20 +64,20 @@ public sealed class CommandValidationTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
-    public async Task CreateDevice_EmptyDeviceIdAndManufacturer_ReportsBothAtOnce()
+    public async Task CreateDevice_EmptyDeviceIdAndDeviceModel_ReportsBothAtOnce()
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
         ErrorOr<CreateDeviceCommandResponse> created = await dispatcher.SendAsync(
-            new CreateDeviceCommand(new DeviceId(string.Empty), new ManufacturerId(Guid.Empty)));
+            new CreateDeviceCommand(new DeviceId(string.Empty), new DeviceModelInternalId(Guid.Empty)));
 
-        Assert.True(created.IsError, "An empty device id and an empty manufacturer must both be refused.");
+        Assert.True(created.IsError, "An empty device id and an empty device model must both be refused.");
         Assert.All(created.Errors, error => Assert.Equal(ErrorType.Validation, error.Type));
 
         // Both rules fail in one pass, and each failure names the command property — not "DeviceId.Value".
         Assert.Contains(created.Errors, error => error.Code == nameof(CreateDeviceCommand.DeviceId));
-        Assert.Contains(created.Errors, error => error.Code == nameof(CreateDeviceCommand.ManufacturerId));
+        Assert.Contains(created.Errors, error => error.Code == nameof(CreateDeviceCommand.DeviceModelId));
     }
 
     [Fact]

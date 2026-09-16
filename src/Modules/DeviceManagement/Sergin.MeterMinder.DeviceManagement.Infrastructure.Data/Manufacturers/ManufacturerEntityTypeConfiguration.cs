@@ -22,5 +22,20 @@ internal sealed class ManufacturerEntityTypeConfiguration : IEntityTypeConfigura
         builder.Property(m => m.Address)
             .HasConversion<ManufacturerAddressConverter>()
             .IsRequired(false);
+
+        // Not OwnsMany, though Role.Permissions and User.Roles are: Device holds a foreign key to a model, and
+        // EF refuses an owned type on the principal side of a non-ownership relationship
+        // (CoreStrings.PrincipalOwnedType). DeviceModel is a regular entity type instead, and the aggregate
+        // boundary is held by the repository layer — no DbSet, no repository of its own, written only through
+        // Manufacturer.Models. Cascade: a model has no life outside its manufacturer.
+        builder.HasMany(m => m.Models)
+            .WithOne()
+            .HasForeignKey(model => model.ManufacturerId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Navigation(m => m.Models)
+            .HasField("models")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
     }
 }
