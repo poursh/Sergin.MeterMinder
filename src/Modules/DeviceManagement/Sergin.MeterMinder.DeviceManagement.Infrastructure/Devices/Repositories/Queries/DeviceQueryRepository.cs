@@ -19,9 +19,10 @@ internal sealed class DeviceQueryRepository(
 
         string queries =
            """
-            SELECT id, device_id AS deviceId, manufacturer_id AS manufacturerId
-            FROM dm.device
-            WHERE id = @Id;
+            SELECT d.id, d.device_id AS deviceId, d.manufacturer_id AS manufacturerId, m.name AS manufacturerName
+            FROM dm.device d
+            JOIN dm.manufacturer m ON m.id = d.manufacturer_id
+            WHERE d.id = @Id;
             """;
 
         return await connection.QuerySingleOrDefaultAsync<DeviceQueryResponse>(
@@ -37,9 +38,10 @@ internal sealed class DeviceQueryRepository(
             """
             SELECT count(*) FROM dm.device;
 
-            SELECT id, device_id AS deviceId, manufacturer_id AS manufacturerId
-            FROM dm.device
-            ORDER BY id
+            SELECT d.id, d.device_id AS deviceId, d.manufacturer_id AS manufacturerId, m.name AS manufacturerName
+            FROM dm.device d
+            JOIN dm.manufacturer m ON m.id = d.manufacturer_id
+            ORDER BY d.id
             LIMIT @PageSize OFFSET @Offset;
             """;
 
