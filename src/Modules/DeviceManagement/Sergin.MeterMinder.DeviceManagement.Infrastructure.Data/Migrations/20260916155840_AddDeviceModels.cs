@@ -75,6 +75,10 @@ public partial class AddDeviceModels : Migration
     /// <inheritdoc />
     protected override void Down(MigrationBuilder migrationBuilder)
     {
+        // Mirror of Up: after this migration every device row's device_model_id holds a model id, and the
+        // rename below would carry those ids into the manufacturer FK. Same Development-only reasoning as Up.
+        migrationBuilder.Sql("DELETE FROM dm.device;");
+
         migrationBuilder.DropForeignKey(
             name: "fk_device_device_model_device_model_id",
             schema: "dm",

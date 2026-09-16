@@ -15,7 +15,8 @@ internal class ManufacturerRepository(IDeviceManagementDbContext dbContext)
 
     // Through the aggregate's own Set rather than dbContext.Set<DeviceModel>(): capturing the primary-constructor
     // parameter that is also passed to the base is CS9107, an error under TreatWarningsAsErrors. EF translates
-    // the SelectMany into an EXISTS over dm.device_model; nothing is loaded.
+    // the SelectMany into an EXISTS over dm.manufacturer joined to dm.device_model — same answer, since the FK is
+    // NOT NULL — and nothing is loaded.
     public Task<bool> ModelExistsAsync(DeviceModelInternalId id, CancellationToken cancellationToken = default)
     {
         return Set.SelectMany(m => m.Models).AnyAsync(model => model.Id == id, cancellationToken);
