@@ -1,0 +1,21 @@
+@page "/dm/manufacturers/{ManufacturerId:guid}/models/{Id:guid}"
+
+<PageTitle>Device model</PageTitle>
+
+<MudButton StartIcon="@Icons.Material.Filled.ArrowBack" Href="@($"/dm/manufacturers/{ManufacturerId}")" Class="mb-4">Back to manufacturer</MudButton>
+
+<SerginProblemPanel Problem="problem" />
+
+@if (deviceModel is not null)
+{
+    <MudCard>
+        <MudCardContent>
+            <MudText Typo="Typo.h5">@deviceModel.Name</MudText>
+            <MudText Typo="Typo.body2">
+                Manufacturer:
+                <MudLink Href="@($"/dm/manufacturers/{deviceModel.ManufacturerId}")">@deviceModel.ManufacturerName</MudLink>
+            </MudText>
+            <MudText Typo="Typo.body2">@deviceModel.Id</MudText>
+        </MudCardContent>
+    </MudCard>
+}
