@@ -96,7 +96,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         // Seeding the stub with an unrelated internal id here would make every lookup miss.
         var deviceGuid = Guid.CreateVersion7();
         DeviceIntenralId internalId = new(deviceGuid);
-        DeviceQueryResponse expected = new(deviceGuid, "DEV-42", Guid.CreateVersion7(), "Acme Meters");
+        DeviceQueryResponse expected = new(deviceGuid, "DEV-42", Guid.CreateVersion7(), "XYZ-200");
         repository.Add(internalId, expected);
 
         GetDeviceByIdQueryCommand command = new(deviceGuid);

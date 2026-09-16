@@ -5,6 +5,7 @@ using Npgsql;
 using Sergin.MeterMinder.DeviceManagement.Application;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetList;
+using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.AddDeviceModel;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
@@ -22,7 +23,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Validation;
 /// <summary>
 /// The repository-backed validation rules end to end. <c>MustExistIn</c> and <c>MustBeUniqueIn</c>
 /// (<c>Sergin.SharedKernel.Application.Validations</c>) run inside ValidationPipelineBehavior, in the
-/// request's scope, so a reference to a missing aggregate or a taken alternate key comes back as an
+/// request's scope, so a reference to a missing aggregate or entity or a taken alternate key comes back as an
 /// ErrorOr validation error naming the command property — where it used to be a raw Postgres exception
 /// from the foreign key, or a silent duplicate. The rules are advisory: the last two tests pin the two
 /// things underneath them, that <c>ExistsAsync</c> answers without loading anything and that the unique
@@ -34,26 +35,26 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Validation;
 public sealed class RepositoryRuleTests(SerginWebApiFactory<Program> factory)
 {
     private const string DeviceIdTakenMessage = "'Device Id' is already in use.";
-    private const string ManufacturerMissingMessage = "'Manufacturer Id' must refer to an existing Manufacturer.";
+    private const string DeviceModelMissingMessage = "'Device Model Id' must refer to an existing DeviceModel.";
 
     [Fact]
-    public async Task CreateDevice_UnknownManufacturer_IsRefusedNotThrown()
+    public async Task CreateDevice_UnknownDeviceModel_IsRefusedNotThrown()
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
         DeviceId deviceId = new($"device-{Guid.CreateVersion7()}");
 
-        // Well-formed, so the shape rule passes and the existence rule is what runs. Before the rule,
-        // this same send threw DbUpdateException out of the handler's SaveChangesAsync (FK 23503).
+        // Well-formed, so the shape rule passes and the existence rule is what runs. Without the rule this
+        // send would throw DbUpdateException out of the handler's SaveChangesAsync (FK 23503).
         ErrorOr<CreateDeviceCommandResponse> created = await dispatcher.SendAsync(
-            new CreateDeviceCommand(deviceId, new ManufacturerId(Guid.CreateVersion7())));
+            new CreateDeviceCommand(deviceId, new DeviceModelInternalId(Guid.CreateVersion7())));
 
-        Assert.True(created.IsError, "A manufacturer id that matches no row must be refused.");
+        Assert.True(created.IsError, "A device-model id that matches no row must be refused.");
         Error error = Assert.Single(created.Errors);
         Assert.Equal(ErrorType.Validation, error.Type);
-        Assert.Equal(nameof(CreateDeviceCommand.ManufacturerId), error.Code);
-        Assert.Equal(ManufacturerMissingMessage, error.Description);
+        Assert.Equal(nameof(CreateDeviceCommand.DeviceModelId), error.Code);
+        Assert.Equal(DeviceModelMissingMessage, error.Description);
 
         ErrorOr<ListQueryResponse<GetDeviceListItem>> list =
             await dispatcher.SendAsync(new GetDeviceListQueryCommand(Paggination.Create(1000, 1)));
@@ -68,16 +69,16 @@ public sealed class RepositoryRuleTests(SerginWebApiFactory<Program> factory)
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
-        ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
+        DeviceModelInternalId modelId = await CreateDeviceModelAsync(dispatcher);
         DeviceId deviceId = new($"device-{Guid.CreateVersion7()}");
 
         ErrorOr<CreateDeviceCommandResponse> first =
-            await dispatcher.SendAsync(new CreateDeviceCommand(deviceId, manufacturerId));
+            await dispatcher.SendAsync(new CreateDeviceCommand(deviceId, modelId));
 
         Assert.False(first.IsError, first.IsError ? first.FirstError.Description : string.Empty);
 
         ErrorOr<CreateDeviceCommandResponse> second =
-            await dispatcher.SendAsync(new CreateDeviceCommand(deviceId, manufacturerId));
+            await dispatcher.SendAsync(new CreateDeviceCommand(deviceId, modelId));
 
         Assert.True(second.IsError, "A device id already carried by a row must be refused.");
         Error error = Assert.Single(second.Errors);
@@ -89,27 +90,27 @@ public sealed class RepositoryRuleTests(SerginWebApiFactory<Program> factory)
     /// <summary>
     /// Each repository rule sits behind a <c>When</c> on its own shape rule, and the rules are
     /// independent of each other: an empty device id reports its shape error and no uniqueness error,
-    /// while the manufacturer rule — whose shape rule passed — still runs and reports. What this pins
+    /// while the device-model rule — whose shape rule passed — still runs and reports. What this pins
     /// is the errors a caller sees; it cannot observe that the uniqueness query was never sent, since
     /// <c>IsTakenAsync("")</c> would answer false either way.
     /// </summary>
     [Fact]
-    public async Task CreateDevice_EmptyDeviceIdAndUnknownManufacturer_ReportsShapeAndExistenceNotUniqueness()
+    public async Task CreateDevice_EmptyDeviceIdAndUnknownDeviceModel_ReportsShapeAndExistenceNotUniqueness()
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
         ErrorOr<CreateDeviceCommandResponse> created = await dispatcher.SendAsync(
-            new CreateDeviceCommand(new DeviceId(string.Empty), new ManufacturerId(Guid.CreateVersion7())));
+            new CreateDeviceCommand(new DeviceId(string.Empty), new DeviceModelInternalId(Guid.CreateVersion7())));
 
-        Assert.True(created.IsError, "An empty device id and an unknown manufacturer must both be refused.");
+        Assert.True(created.IsError, "An empty device id and an unknown device model must both be refused.");
         Assert.All(created.Errors, error => Assert.Equal(ErrorType.Validation, error.Type));
 
         Assert.Contains(created.Errors, error =>
             error.Code == nameof(CreateDeviceCommand.DeviceId) && error.Description != DeviceIdTakenMessage);
         Assert.DoesNotContain(created.Errors, error => error.Description == DeviceIdTakenMessage);
         Assert.Contains(created.Errors, error =>
-            error.Code == nameof(CreateDeviceCommand.ManufacturerId) && error.Description == ManufacturerMissingMessage);
+            error.Code == nameof(CreateDeviceCommand.DeviceModelId) && error.Description == DeviceModelMissingMessage);
     }
 
     [Fact]
@@ -185,11 +186,11 @@ public sealed class RepositoryRuleTests(SerginWebApiFactory<Program> factory)
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
-        ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
+        DeviceModelInternalId modelId = await CreateDeviceModelAsync(dispatcher);
         DeviceId deviceId = new($"device-{Guid.CreateVersion7()}");
 
         ErrorOr<CreateDeviceCommandResponse> created =
-            await dispatcher.SendAsync(new CreateDeviceCommand(deviceId, manufacturerId));
+            await dispatcher.SendAsync(new CreateDeviceCommand(deviceId, modelId));
 
         Assert.False(created.IsError, created.IsError ? created.FirstError.Description : string.Empty);
 
@@ -198,7 +199,7 @@ public sealed class RepositoryRuleTests(SerginWebApiFactory<Program> factory)
         IDeviceRepository devices = scope.ServiceProvider.GetRequiredService<IDeviceRepository>();
         IDeviceManagementUnitOfWork unitOfWork = scope.ServiceProvider.GetRequiredService<IDeviceManagementUnitOfWork>();
 
-        devices.Insert(Device.Create(deviceId, manufacturerId));
+        devices.Insert(Device.Create(deviceId, modelId));
 
         DbUpdateException exception =
             await Assert.ThrowsAsync<DbUpdateException>(() => unitOfWork.SaveChangesAsync());
@@ -215,6 +216,18 @@ public sealed class RepositoryRuleTests(SerginWebApiFactory<Program> factory)
         Assert.False(created.IsError, created.IsError ? created.FirstError.Description : string.Empty);
 
         return new ManufacturerId(created.Value.Id);
+    }
+
+    private static async Task<DeviceModelInternalId> CreateDeviceModelAsync(ISerginDispatcher dispatcher)
+    {
+        ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
+
+        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAsync(
+            new AddDeviceModelCommand(manufacturerId, new DeviceModelName($"model-{Guid.CreateVersion7()}")));
+
+        Assert.False(added.IsError, added.IsError ? added.FirstError.Description : string.Empty);
+
+        return new DeviceModelInternalId(added.Value.Id);
     }
 
     /// <summary>
