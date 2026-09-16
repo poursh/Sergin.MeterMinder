@@ -21,8 +21,10 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
     [InlineData("/")]
     [InlineData("/dm/devices")]
     [InlineData("/ua/users")]
+    [InlineData("/dm/manufacturers")]
     [InlineData("/dm/devices/new")]
     [InlineData("/ua/users/new")]
+    [InlineData("/dm/manufacturers/new")]
     public async Task Page_RendersServerSide_WithNavFromBothModules(string path)
     {
         HttpClient client = factory.CreateClient();
@@ -35,11 +37,13 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
 
         // Both modules contributed nav entries, so the shell composed them.
         Assert.Contains("/dm/devices", html, StringComparison.Ordinal);
+        Assert.Contains("/dm/manufacturers", html, StringComparison.Ordinal);
         Assert.Contains("/ua/users", html, StringComparison.Ordinal);
     }
 
     [Theory]
     [InlineData("/dm/devices")]
+    [InlineData("/dm/manufacturers")]
     [InlineData("/ua/users")]
     public async Task ModulePage_IsInteractive_NotStaticallyRenderedOnly(string path)
     {
@@ -143,5 +147,24 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
 
         Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
         Assert.Contains("User name", await createResponse.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ManufacturerListPage_AndCreateManufacturerPage_BothRender()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage listResponse = await client.GetAsync("/dm/manufacturers");
+
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        Assert.Contains(
+            "<title>Manufacturers</title>", await listResponse.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        HttpResponseMessage createResponse = await client.GetAsync("/dm/manufacturers/new");
+
+        Assert.Equal(HttpStatusCode.OK, createResponse.StatusCode);
+
+        // The address field is what distinguishes this form from every other create page in the shell.
+        Assert.Contains("Address", await createResponse.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 }
