@@ -1,9 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
-using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Devices.Converters;
-using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Manufacturers.Converters;
+using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Manufacturers.DeviceModels.Converters;
 
 namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Devices;
 
