@@ -22,6 +22,16 @@ public sealed partial class DeviceModelDetailPage
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
+    // A property, not a field: both tail steps are the page title's words until the load fills them in, and
+    // on the not-found path they stay that way beside the problem panel. The manufacturer step links by the
+    // route parameter, not the read model's id, so it is a link before the load too.
+    private IReadOnlyList<SerginBreadcrumb> Trail =>
+    [
+        SerginBreadcrumb.Of(DeviceManagementNavigation.Manufacturers),
+        new(deviceModel?.ManufacturerName ?? "Manufacturer", $"/dm/manufacturers/{ManufacturerId}"),
+        new(deviceModel?.Name ?? "Device model"),
+    ];
+
     protected override async Task OnParametersSetAsync()
     {
         ErrorOr<DeviceModelQueryResponse> result =

@@ -7,6 +7,8 @@ namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.
 
 public sealed partial class ManufacturerListPage
 {
+    private IReadOnlyList<SerginBreadcrumb> Trail { get; } = [SerginBreadcrumb.Of(DeviceManagementNavigation.Manufacturers)];
+
     [Inject]
     private ISerginDispatcher Dispatcher { get; set; } = default!;
 
