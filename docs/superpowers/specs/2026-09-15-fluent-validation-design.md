@@ -44,6 +44,8 @@ Out, recorded so nobody reaches for them by accident:
   `.WithMessage` string would be English until `DefaultLocalizer` grows real resources.
 - Moving Blazor forms from `DataAnnotationsValidator` to FluentValidation. The forms keep
   DataAnnotations client-side; the pipeline validator is the server-side backstop.
+  *Superseded 2026-09-17: the forms now run the pipeline's validators field by field through
+  `ISerginFormValidator` — see `2026-09-17-mudform-client-validation-design.md`.*
 
 ## Decisions
 
