@@ -51,7 +51,7 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                     b.ToTable("device", "dm");
                 });
 
-            modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModel", b =>
+            modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels.DeviceModel", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
@@ -176,7 +176,7 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Devices.Device", b =>
                 {
-                    b.HasOne("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModel", null)
+                    b.HasOne("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels.DeviceModel", null)
                         .WithMany()
                         .HasForeignKey("DeviceModelId")
                         .OnDelete(DeleteBehavior.Restrict)
@@ -184,7 +184,7 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasConstraintName("fk_device_device_model_device_model_id");
                 });
 
-            modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModel", b =>
+            modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels.DeviceModel", b =>
                 {
                     b.HasOne("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.Manufacturer", null)
                         .WithMany("Models")
