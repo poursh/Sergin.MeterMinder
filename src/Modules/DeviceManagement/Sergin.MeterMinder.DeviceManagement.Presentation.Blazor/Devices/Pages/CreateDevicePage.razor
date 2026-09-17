@@ -4,14 +4,15 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">New device</MudText>
 
-<EditForm Model="model" OnValidSubmit="SubmitAsync">
-    <DataAnnotationsValidator />
-
+<MudForm @ref="form" Model="model" Validation="@validation" @bind-IsValid="isValid"
+         SuppressImplicitSubmission="false" onsubmit="@OnSubmit">
     <MudCard>
         <MudCardContent>
-            <MudTextField @bind-Value="model.DeviceId" Label="Device ID" For="@(() => model.DeviceId)" />
+            <MudTextField @bind-Value="model.DeviceId" Label="Device ID" For="@(() => model.DeviceId)" Immediate="true" />
 
-            <MudSelect T="Guid" Value="selectedManufacturerId" ValueChanged="OnManufacturerChangedAsync" Label="Manufacturer">
+            @* Page state, not on the command: For= only gives the form-level validation a member path, which finds no rule. *@
+            <MudSelect T="Guid" Value="selectedManufacturerId" ValueChanged="OnManufacturerChangedAsync" Label="Manufacturer"
+                       For="@(() => selectedManufacturerId)">
                 @foreach (GetManufacturerListItem manufacturer in manufacturers)
                 {
                     <MudSelectItem T="Guid" Value="@manufacturer.Id">@manufacturer.Name</MudSelectItem>
@@ -28,8 +29,8 @@
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
-                       Color="Color.Primary" Disabled="submitting">Create</MudButton>
+                       Color="Color.Primary" Disabled="@(submitting || !isValid)">Create</MudButton>
             <MudButton Href="/dm/devices">Cancel</MudButton>
         </MudCardActions>
     </MudCard>
-</EditForm>
+</MudForm>

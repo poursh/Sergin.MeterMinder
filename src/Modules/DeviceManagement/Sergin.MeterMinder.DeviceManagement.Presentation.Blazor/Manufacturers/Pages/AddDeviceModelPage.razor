@@ -4,17 +4,16 @@
 
 <MudText Typo="Typo.h4" Class="mb-4">New device model</MudText>
 
-<EditForm Model="model" OnValidSubmit="SubmitAsync">
-    <DataAnnotationsValidator />
-
+<MudForm @ref="form" Model="model" Validation="@validation" @bind-IsValid="isValid"
+         SuppressImplicitSubmission="false" onsubmit="@OnSubmit">
     <MudCard>
         <MudCardContent>
-            <MudTextField @bind-Value="model.Name" Label="Name" For="@(() => model.Name)" />
+            <MudTextField @bind-Value="model.Name" Label="Name" For="@(() => model.Name)" Immediate="true" />
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
-                       Color="Color.Primary" Disabled="submitting">Create</MudButton>
+                       Color="Color.Primary" Disabled="@(submitting || !isValid)">Create</MudButton>
             <MudButton Href="@($"/dm/manufacturers/{ManufacturerId}")">Cancel</MudButton>
         </MudCardActions>
     </MudCard>
-</EditForm>
+</MudForm>
