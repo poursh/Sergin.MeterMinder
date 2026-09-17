@@ -54,7 +54,7 @@ The composition root's csproj also needs:
 
 It references the module's `.Application.Contracts` (never `.Application` directly, and never `.Infrastructure`) — pages reach handlers through MediatR only, and only need the request/response record shapes `.Application.Contracts` holds. It needs **two** import files, both copied from UserAccess:
 - `GlobalUsings.cs` — `global using ErrorOr;` / `MediatR` / `Sergin.SharedKernel.Application` (covers the `.razor.cs` code-behind).
-- `_Imports.razor` — `Microsoft.AspNetCore.Components{,.Forms,.Routing,.Web}`, `MudBlazor`, `Sergin.SharedKernel.Application`, `Sergin.SharedKernel.Presentation.Blazor.Dispatching`, `Sergin.SharedKernel.Presentation.Blazor.Errors`, plus one line per feature namespace as pages get added (covers the markup).
+- `_Imports.razor` — `Microsoft.AspNetCore.Components{,.Forms,.Routing,.Web}`, `MudBlazor`, `Sergin.SharedKernel.Application`, `Sergin.SharedKernel.Presentation.Blazor.Dispatching`, `Sergin.SharedKernel.Presentation.Blazor.Errors`, plus one line per feature namespace as pages get added, and one per `<Aggregate>[/<ChildEntity>]/Components/` namespace once a non-routable component exists (covers the markup). Layout per aggregate is `<Aggregate>/{Models,Pages,Components}/`, with a child entity nested as `<Aggregate>/<ChildEntity>/{Models,Pages,Components}/` — see `/add-feature`.
 
 No `InternalsVisibleTo` here — unlike endpoints and repositories, the Blazor types are `public` (the host reflects over them to route).
 
