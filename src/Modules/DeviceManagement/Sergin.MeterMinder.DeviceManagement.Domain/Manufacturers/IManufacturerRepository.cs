@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Domain.Repositories;
 
 namespace Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;

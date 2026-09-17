@@ -1,5 +1,5 @@
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
-using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Application.Commands;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.Create;

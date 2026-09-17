@@ -1,17 +1,19 @@
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetDeviceModel;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetDeviceModelList;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels;
+using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels.Commands.GetList;
+using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Infrastructure.Manufacturers.DeviceModels.Repositories.Queries;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Manufacturers.Repositories;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Manufacturers.Repositories.Queries;
-using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.AddDeviceModel;
+using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.DeviceModels.Endpoints.Add;
+using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.DeviceModels.Endpoints.GetList;
+using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.DeviceModels.Endpoints.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.Create;
-using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.GetDeviceModel;
-using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.GetDeviceModelList;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.GetList;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.GetOne;
 
@@ -25,9 +27,11 @@ internal static class ManufacturerInstallationExtensions
         services.AddTransient<IManufacturerAllQueryRepository, ManufacturerQueryRepository>();
         services.AddTransient<IGetManufacturerQueryRepository, ManufacturerQueryRepository>();
         services.AddTransient<IGetManufacturerListQueryRepository, ManufacturerQueryRepository>();
-        // Device models are entities of this aggregate, so their reads hang off the same query repository.
-        services.AddTransient<IGetDeviceModelQueryRepository, ManufacturerQueryRepository>();
-        services.AddTransient<IGetDeviceModelListQueryRepository, ManufacturerQueryRepository>();
+        // Device models are entities of this aggregate: they get a query repository of their own (reads owe
+        // nothing to the aggregate boundary) but no write repository — writes go through the root above.
+        services.AddTransient<IDeviceModelAllQueryRepository, DeviceModelQueryRepository>();
+        services.AddTransient<IGetDeviceModelQueryRepository, DeviceModelQueryRepository>();
+        services.AddTransient<IGetDeviceModelListQueryRepository, DeviceModelQueryRepository>();
 
         return services;
     }

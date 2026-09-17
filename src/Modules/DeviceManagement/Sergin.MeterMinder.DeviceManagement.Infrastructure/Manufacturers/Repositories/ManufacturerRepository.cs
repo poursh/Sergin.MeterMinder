@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Repositories;
 

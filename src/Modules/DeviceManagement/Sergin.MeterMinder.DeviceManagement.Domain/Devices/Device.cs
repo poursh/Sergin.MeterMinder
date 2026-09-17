@@ -1,4 +1,4 @@
-﻿using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
+﻿using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Domain;
 
 namespace Sergin.MeterMinder.DeviceManagement.Domain.Devices;
