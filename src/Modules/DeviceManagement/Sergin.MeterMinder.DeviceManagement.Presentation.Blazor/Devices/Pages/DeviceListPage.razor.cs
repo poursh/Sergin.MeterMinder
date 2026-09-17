@@ -7,6 +7,8 @@ namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Pages;
 
 public sealed partial class DeviceListPage
 {
+    private IReadOnlyList<SerginBreadcrumb> Trail { get; } = [SerginBreadcrumb.Of(DeviceManagementNavigation.Devices)];
+
     [Inject]
     private ISerginDispatcher Dispatcher { get; set; } = default!;
 

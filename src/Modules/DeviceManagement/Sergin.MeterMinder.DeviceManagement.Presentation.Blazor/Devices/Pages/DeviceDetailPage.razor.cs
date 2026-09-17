@@ -19,6 +19,14 @@ public sealed partial class DeviceDetailPage
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
+    // A property, not a field: the tail is the page title's word until the load fills in the device id, and
+    // on the not-found path it stays that way beside the problem panel.
+    private IReadOnlyList<SerginBreadcrumb> Trail =>
+    [
+        SerginBreadcrumb.Of(DeviceManagementNavigation.Devices),
+        new(device?.DeviceId ?? "Device"),
+    ];
+
     protected override async Task OnParametersSetAsync()
     {
         ErrorOr<DeviceQueryResponse> result = await Dispatcher.SendAsync(new GetDeviceByIdQueryCommand(Id));

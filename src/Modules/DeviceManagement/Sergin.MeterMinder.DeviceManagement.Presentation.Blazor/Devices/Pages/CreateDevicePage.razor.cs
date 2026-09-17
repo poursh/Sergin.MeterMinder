@@ -26,6 +26,12 @@ public sealed partial class CreateDevicePage
     private bool submitting;
     private Func<object, string, Task<IEnumerable<string>>> validation = default!;
 
+    private IReadOnlyList<SerginBreadcrumb> Trail { get; } =
+    [
+        SerginBreadcrumb.Of(DeviceManagementNavigation.Devices),
+        new("New device"),
+    ];
+
     [Inject]
     private ISerginDispatcher Dispatcher { get; set; } = default!;
 

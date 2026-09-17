@@ -16,6 +16,12 @@ public sealed partial class CreateManufacturerPage
     private bool submitting;
     private Func<object, string, Task<IEnumerable<string>>> validation = default!;
 
+    private IReadOnlyList<SerginBreadcrumb> Trail { get; } =
+    [
+        SerginBreadcrumb.Of(DeviceManagementNavigation.Manufacturers),
+        new("New manufacturer"),
+    ];
+
     [Inject]
     private ISerginDispatcher Dispatcher { get; set; } = default!;
 

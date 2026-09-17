@@ -19,6 +19,14 @@ public sealed partial class ManufacturerDetailPage
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
+    // A property, not a field: the tail is the page title's word until the load fills in the name, and on
+    // the not-found path it stays that way beside the problem panel.
+    private IReadOnlyList<SerginBreadcrumb> Trail =>
+    [
+        SerginBreadcrumb.Of(DeviceManagementNavigation.Manufacturers),
+        new(manufacturer?.Name ?? "Manufacturer"),
+    ];
+
     protected override async Task OnParametersSetAsync()
     {
         ErrorOr<ManufacturerQueryResponse> result = await Dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(Id));
