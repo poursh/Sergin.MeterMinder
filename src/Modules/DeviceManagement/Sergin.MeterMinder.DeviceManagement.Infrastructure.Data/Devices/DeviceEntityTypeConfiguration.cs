@@ -23,12 +23,15 @@ internal sealed class DeviceEntityTypeConfiguration : IEntityTypeConfiguration<D
         // IDeviceRepository declares DeviceId an alternate key; the validator's check is advisory, this is the guarantee.
         builder.HasIndex(d => d.DeviceId).IsUnique();
 
-        builder.Property(d => d.ManufacturerId)
-            .HasConversion<ManufacturerIdConverter>();
+        builder.Property(d => d.DeviceModelId)
+            .HasConversion<DeviceModelInternalIdConverter>();
 
-        builder.HasOne<Manufacturer>()
+        // Restrict, not the default cascade: a reference across an aggregate boundary must never delete the
+        // referrer.
+        builder.HasOne<DeviceModel>()
             .WithMany()
-            .HasForeignKey(d => d.ManufacturerId)
-            .IsRequired();
+            .HasForeignKey(d => d.DeviceModelId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

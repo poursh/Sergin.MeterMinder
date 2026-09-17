@@ -25,6 +25,8 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
     [InlineData("/dm/devices/new")]
     [InlineData("/ua/users/new")]
     [InlineData("/dm/manufacturers/new")]
+    [InlineData("/dm/manufacturers/01920000-0000-7000-8000-000000000001/models/new")]
+    [InlineData("/dm/manufacturers/01920000-0000-7000-8000-000000000001/models/01920000-0000-7000-8000-000000000002")]
     public async Task Page_RendersServerSide_WithNavFromBothModules(string path)
     {
         HttpClient client = factory.CreateClient();

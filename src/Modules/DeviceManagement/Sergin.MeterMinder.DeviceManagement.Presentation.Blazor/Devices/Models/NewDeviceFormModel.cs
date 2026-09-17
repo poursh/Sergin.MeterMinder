@@ -9,6 +9,9 @@ public sealed class NewDeviceFormModel
     [StringLength(Domain.Devices.DeviceId.MaxLength, MinimumLength = 1)]
     public string DeviceId { get; set; } = string.Empty;
 
+    // The manufacturer is page state on CreateDevicePage, not part of what is submitted. [Required] on a Guid
+    // never fails (Guid.Empty is not null) — the pipeline validator's NotEmpty is the real check, as it was for
+    // ManufacturerId before.
     [Required]
-    public Guid ManufacturerId { get; set; }
+    public Guid DeviceModelId { get; set; }
 }

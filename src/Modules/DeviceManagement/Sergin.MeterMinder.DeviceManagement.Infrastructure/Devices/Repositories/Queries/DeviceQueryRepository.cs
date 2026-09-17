@@ -19,9 +19,9 @@ internal sealed class DeviceQueryRepository(
 
         string queries =
            """
-            SELECT d.id, d.device_id AS deviceId, d.manufacturer_id AS manufacturerId, m.name AS manufacturerName
+            SELECT d.id, d.device_id AS deviceId, d.device_model_id AS deviceModelId, dm_.name AS deviceModelName
             FROM dm.device d
-            JOIN dm.manufacturer m ON m.id = d.manufacturer_id
+            JOIN dm.device_model dm_ ON dm_.id = d.device_model_id
             WHERE d.id = @Id;
             """;
 
@@ -38,9 +38,9 @@ internal sealed class DeviceQueryRepository(
             """
             SELECT count(*) FROM dm.device;
 
-            SELECT d.id, d.device_id AS deviceId, d.manufacturer_id AS manufacturerId, m.name AS manufacturerName
+            SELECT d.id, d.device_id AS deviceId, d.device_model_id AS deviceModelId, dm_.name AS deviceModelName
             FROM dm.device d
-            JOIN dm.manufacturer m ON m.id = d.manufacturer_id
+            JOIN dm.device_model dm_ ON dm_.id = d.device_model_id
             ORDER BY d.id
             LIMIT @PageSize OFFSET @Offset;
             """;

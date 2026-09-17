@@ -8,26 +8,18 @@ public class Device : AggregateRoot<DeviceIntenralId>
     private Device() { }
 
     public DeviceId DeviceId { get; private set; }
-    public ManufacturerId ManufacturerId { get; private set; }
-    ///public DeviceModelInternalId ModelId { get; private set; }
-    ///public virtual DeviceModel Model { get; private set; }
 
-    ///public static Device Create(DeviceModelInternalId modelId)
-    ///{
-    ///    return new Device
-    ///    {
-    ///        Id = new DeviceIntenralId(Guid.CreateVersion7()),
-    ///        ModelId = modelId
-    ///    };
-    ///}
+    // A reference across the aggregate boundary to an entity inside Manufacturer. The manufacturer itself is
+    // reachable only through the model — Device deliberately does not store it twice.
+    public DeviceModelInternalId DeviceModelId { get; private set; }
 
-    public static Device Create(DeviceId deviceId, ManufacturerId manufacturerId)
+    public static Device Create(DeviceId deviceId, DeviceModelInternalId deviceModelId)
     {
         return new Device
         {
             Id = new DeviceIntenralId(Guid.CreateVersion7()),
             DeviceId = deviceId,
-            ManufacturerId = manufacturerId
+            DeviceModelId = deviceModelId
         };
     }
 }

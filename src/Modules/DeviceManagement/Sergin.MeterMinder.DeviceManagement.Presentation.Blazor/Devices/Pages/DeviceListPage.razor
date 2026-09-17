@@ -12,11 +12,11 @@
           OnRowClick="@(args => OpenDevice(args.Item))" RowsPerPage="10">
     <HeaderContent>
         <MudTh>Device ID</MudTh>
-        <MudTh>Manufacturer</MudTh>
+        <MudTh>Model</MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="Device ID">@context.DeviceId</MudTd>
-        <MudTd DataLabel="Manufacturer">@context.ManufacturerName</MudTd>
+        <MudTd DataLabel="Model">@context.DeviceModelName</MudTd>
     </RowTemplate>
     <PagerContent>
         <MudTablePager />

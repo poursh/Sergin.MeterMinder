@@ -10,8 +10,8 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.Creat
 // ValidationProblem by.
 //
 // The repository rules target the wrapper itself, so their Error.Code is already the property name. Whether
-// the manufacturer exists and whether the device id is free are answered here, as ErrorOr validation errors;
-// the foreign key and the unique index on dm.device.device_id stay as the guarantee under a race. Each is
+// the model exists and whether the device id is free are answered here, as ErrorOr validation errors; the
+// foreign key and the unique index on dm.device.device_id stay as the guarantee under a race. Each is
 // guarded by a When so no query runs for a value the shape rule has already refused.
 internal sealed class CreateDeviceCommandValidator : AbstractValidator<CreateDeviceCommand>
 {
@@ -22,16 +22,20 @@ internal sealed class CreateDeviceCommandValidator : AbstractValidator<CreateDev
             .MaximumLength(DeviceId.MaxLength)
             .OverridePropertyName(nameof(CreateDeviceCommand.DeviceId));
 
-        RuleFor(x => x.ManufacturerId.Value)
+        RuleFor(x => x.DeviceModelId.Value)
             .NotEmpty()
-            .OverridePropertyName(nameof(CreateDeviceCommand.ManufacturerId));
+            .OverridePropertyName(nameof(CreateDeviceCommand.DeviceModelId));
 
         RuleFor(x => x.DeviceId)
             .MustBeUniqueIn(devices)
             .When(x => !string.IsNullOrWhiteSpace(x.DeviceId.Value));
 
-        RuleFor(x => x.ManufacturerId)
-            .MustExistIn(manufacturers)
-            .When(x => x.ManufacturerId.Value != Guid.Empty);
+        // A local MustAsync, not MustExistIn: that extension is generic over IRepository<TAggregateRoot, TId>,
+        // and a model is an entity inside the Manufacturer aggregate, not a root with a repository. The
+        // message mirrors MustExistIn's so the two read alike.
+        RuleFor(x => x.DeviceModelId)
+            .MustAsync(manufacturers.ModelExistsAsync)
+            .WithMessage("'{PropertyName}' must refer to an existing DeviceModel.")
+            .When(x => x.DeviceModelId.Value != Guid.Empty);
     }
 }
