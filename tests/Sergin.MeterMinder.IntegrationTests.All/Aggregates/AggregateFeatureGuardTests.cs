@@ -29,7 +29,7 @@ public sealed class AggregateFeatureGuardTests(SerginWebApiFactory<Program> fact
     public void ConfiguredTypeNoContextMaps_IsRefused()
     {
         var registry =
-            AggregateFeatureRegistry.FromConfigurationTypes([typeof(UnmappedEntityAggregateConfiguration)]);
+            AggregateFeatureRegistry.FromConfigurationTypes([typeof(UnmappedEntityAggregateFeatureConfiguration)]);
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
             AggregateFeatureGuard.EnsureApplied(registry, Models()));
@@ -42,7 +42,7 @@ public sealed class AggregateFeatureGuardTests(SerginWebApiFactory<Program> fact
     public void ConfiguredTypeWhoseContextDoesNotApplyIt_IsRefused()
     {
         var registry =
-            AggregateFeatureRegistry.FromConfigurationTypes([typeof(UserAggregateConfiguration)]);
+            AggregateFeatureRegistry.FromConfigurationTypes([typeof(UserAggregateFeatureConfiguration)]);
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
             AggregateFeatureGuard.EnsureApplied(registry, Models()));
@@ -62,7 +62,7 @@ public sealed class AggregateFeatureGuardTests(SerginWebApiFactory<Program> fact
         ];
     }
 
-    private sealed class UserAggregateConfiguration : IAggregateConfiguration<User>
+    private sealed class UserAggregateFeatureConfiguration : IAggregateFeatureConfiguration<User>
     {
         public void Configure(AggregateFeatureBuilder<User> builder) => builder.Audited();
     }

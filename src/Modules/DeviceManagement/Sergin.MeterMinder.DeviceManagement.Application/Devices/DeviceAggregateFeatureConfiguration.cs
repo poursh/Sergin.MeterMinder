@@ -3,7 +3,7 @@ using Sergin.SharedKernel.Application.Aggregates;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Devices;
 
-internal sealed class DeviceAggregateConfiguration : IAggregateConfiguration<Device>
+internal sealed class DeviceAggregateFeatureConfiguration : IAggregateFeatureConfiguration<Device>
 {
     public void Configure(AggregateFeatureBuilder<Device> builder) => builder.Audited();
 }

@@ -30,7 +30,7 @@ internal sealed class TestAuditDbContext(DbContextOptions<TestAuditDbContext> op
     public DbSet<AuditedThing> Things => Set<AuditedThing>();
 
     protected override AggregateFeatureRegistry AggregateFeatures =>
-        AggregateFeatureRegistry.FromConfigurationTypes([typeof(AuditedThingAggregateConfiguration)]);
+        AggregateFeatureRegistry.FromConfigurationTypes([typeof(AuditedThingAggregateFeatureConfiguration)]);
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -71,7 +71,7 @@ internal sealed class AuditedThing : AggregateRoot<Guid>
     public void Rename(string name) => Name = name;
 }
 
-internal sealed class AuditedThingAggregateConfiguration : IAggregateConfiguration<AuditedThing>
+internal sealed class AuditedThingAggregateFeatureConfiguration : IAggregateFeatureConfiguration<AuditedThing>
 {
     public void Configure(AggregateFeatureBuilder<AuditedThing> builder) => builder.Audited();
 }

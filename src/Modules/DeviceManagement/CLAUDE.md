@@ -10,7 +10,7 @@ See the root `.claude/CLAUDE.md` for cross-module conventions (layering, CQRS sp
 
 ## Audit stamps
 
-`Device`, `Manufacturer` and `DeviceModel` are audited: `DeviceAggregateConfiguration`, `ManufacturerAggregateConfiguration` and `DeviceModelAggregateConfiguration` (each an `internal sealed class …AggregateConfiguration : IAggregateConfiguration<…>` in the type's own root folder — `DeviceModelAggregateConfiguration` nested under `Manufacturers/DeviceModels/`, matching the child-entity folder rule) each call `builder.Audited()`, and `DeviceManagementDbContext` overrides `AggregateFeatures` to apply them:
+`Device`, `Manufacturer` and `DeviceModel` are audited: `DeviceAggregateFeatureConfiguration` and `ManufacturerAggregateFeatureConfiguration` (each an `internal sealed class …AggregateFeatureConfiguration : IAggregateFeatureConfiguration<…>` in the root's own folder) each call `builder.Audited()`. `DeviceModel` has no configuration of its own — it can't, the interface takes an aggregate root — and is audited as `Manufacturer`'s child, reached through `Manufacturer.Models`; leaving it out would be `builder.Audited(audit => audit.ExceptChild<DeviceModel>())` plus a migration dropping its columns. `DeviceManagementDbContext` overrides `AggregateFeatures` to apply them:
 
 ```csharp
 protected override AggregateFeatureRegistry AggregateFeatures =>

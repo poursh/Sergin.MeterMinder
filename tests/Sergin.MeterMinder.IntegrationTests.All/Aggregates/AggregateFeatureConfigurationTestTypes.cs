@@ -8,19 +8,19 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 /// registry is only ever built from a module's ApplicationAssembly, not from this test assembly, so
 /// the deliberately broken configurations below cannot reach the real host.
 /// </summary>
-internal sealed class UnmappedEntity : Entity<Guid>;
+internal sealed class UnmappedEntity : AggregateRoot<Guid>;
 
-internal sealed class UnmappedEntityAggregateConfiguration : IAggregateConfiguration<UnmappedEntity>
+internal sealed class UnmappedEntityAggregateFeatureConfiguration : IAggregateFeatureConfiguration<UnmappedEntity>
 {
     public void Configure(AggregateFeatureBuilder<UnmappedEntity> builder) => builder.Audited();
 }
 
-internal sealed class DuplicateUnmappedEntityAggregateConfiguration : IAggregateConfiguration<UnmappedEntity>
+internal sealed class DuplicateUnmappedEntityAggregateFeatureConfiguration : IAggregateFeatureConfiguration<UnmappedEntity>
 {
     public void Configure(AggregateFeatureBuilder<UnmappedEntity> builder) => builder.Audited();
 }
 
-internal sealed class NeedsServiceAggregateConfiguration(IServiceProvider services) : IAggregateConfiguration<UnmappedEntity>
+internal sealed class NeedsServiceAggregateFeatureConfiguration(IServiceProvider services) : IAggregateFeatureConfiguration<UnmappedEntity>
 {
     public void Configure(AggregateFeatureBuilder<UnmappedEntity> builder)
     {
@@ -29,7 +29,7 @@ internal sealed class NeedsServiceAggregateConfiguration(IServiceProvider servic
     }
 }
 
-internal sealed class NoFeaturesAggregateConfiguration : IAggregateConfiguration<UnmappedEntity>
+internal sealed class NoFeaturesAggregateFeatureConfiguration : IAggregateFeatureConfiguration<UnmappedEntity>
 {
     public void Configure(AggregateFeatureBuilder<UnmappedEntity> builder)
     {

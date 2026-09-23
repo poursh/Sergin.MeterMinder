@@ -13,7 +13,7 @@ public sealed class AggregateFeatureRegistryTests
     public void For_ConfiguredType_ReturnsDeclaredFeatures()
     {
         var registry =
-            AggregateFeatureRegistry.FromConfigurationTypes([typeof(UnmappedEntityAggregateConfiguration)]);
+            AggregateFeatureRegistry.FromConfigurationTypes([typeof(UnmappedEntityAggregateFeatureConfiguration)]);
 
         Assert.True(registry.For(typeof(UnmappedEntity)).Audited);
         Assert.Equal(typeof(UnmappedEntity), Assert.Single(registry.ConfiguredTypes));
@@ -29,7 +29,7 @@ public sealed class AggregateFeatureRegistryTests
     public void Configure_DeclaringNothing_StillRegistersTheTypeWithNoFeatures()
     {
         var registry =
-            AggregateFeatureRegistry.FromConfigurationTypes([typeof(NoFeaturesAggregateConfiguration)]);
+            AggregateFeatureRegistry.FromConfigurationTypes([typeof(NoFeaturesAggregateFeatureConfiguration)]);
 
         Assert.Equal(AggregateFeatures.None, registry.For(typeof(UnmappedEntity)));
     }
@@ -39,20 +39,20 @@ public sealed class AggregateFeatureRegistryTests
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
             AggregateFeatureRegistry.FromConfigurationTypes(
-                [typeof(UnmappedEntityAggregateConfiguration), typeof(DuplicateUnmappedEntityAggregateConfiguration)]));
+                [typeof(UnmappedEntityAggregateFeatureConfiguration), typeof(DuplicateUnmappedEntityAggregateFeatureConfiguration)]));
 
         Assert.Contains(typeof(UnmappedEntity).FullName!, error.Message, StringComparison.Ordinal);
-        Assert.Contains(nameof(UnmappedEntityAggregateConfiguration), error.Message, StringComparison.Ordinal);
-        Assert.Contains(nameof(DuplicateUnmappedEntityAggregateConfiguration), error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(UnmappedEntityAggregateFeatureConfiguration), error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(DuplicateUnmappedEntityAggregateFeatureConfiguration), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void ConfigurationWithConstructorArguments_Throws_NamingIt()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            AggregateFeatureRegistry.FromConfigurationTypes([typeof(NeedsServiceAggregateConfiguration)]));
+            AggregateFeatureRegistry.FromConfigurationTypes([typeof(NeedsServiceAggregateFeatureConfiguration)]));
 
-        Assert.Contains(nameof(NeedsServiceAggregateConfiguration), error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(NeedsServiceAggregateFeatureConfiguration), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

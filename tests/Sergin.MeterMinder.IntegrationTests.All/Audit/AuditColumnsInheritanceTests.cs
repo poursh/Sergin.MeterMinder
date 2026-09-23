@@ -34,7 +34,7 @@ internal sealed class InheritanceTestDbContext(DbContextOptions<InheritanceTestD
     : SerginDbContext(options)
 {
     protected override AggregateFeatureRegistry AggregateFeatures =>
-        AggregateFeatureRegistry.FromConfigurationTypes([typeof(BaseThingAggregateConfiguration)]);
+        AggregateFeatureRegistry.FromConfigurationTypes([typeof(BaseThingAggregateFeatureConfiguration)]);
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -69,7 +69,7 @@ internal sealed class DerivedThing : BaseThing
     public static DerivedThing Create() => new();
 }
 
-internal sealed class BaseThingAggregateConfiguration : IAggregateConfiguration<BaseThing>
+internal sealed class BaseThingAggregateFeatureConfiguration : IAggregateFeatureConfiguration<BaseThing>
 {
     public void Configure(AggregateFeatureBuilder<BaseThing> builder) => builder.Audited();
 }

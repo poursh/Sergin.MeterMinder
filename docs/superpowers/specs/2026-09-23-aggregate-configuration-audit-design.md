@@ -17,12 +17,14 @@ audit stamps.
 
 In:
 
-- `IAggregateConfiguration<TEntity>` — a per-aggregate configuration class, discovered by assembly
-  scan like validators.
+- `IAggregateFeatureConfiguration<TAggregateRoot>` — a per-aggregate configuration class, one per
+  aggregate root, discovered by assembly scan like validators. Child entities take the root's features
+  by default; a feature's builder can except a child.
 - An `AggregateFeatureRegistry` built from those classes at host start.
 - An EF model-finalizing convention that adds audit shadow properties to every configured type.
 - `AuditStampInterceptor`, which stamps them on save.
-- Opting `Device`, `Manufacturer` and `DeviceModel` (`dm`) in, with one migration.
+- Opting `Device` and `Manufacturer` (`dm`) in — `DeviceModel` follows as `Manufacturer`'s child — with
+  one migration.
 - Startup guards and integration tests.
 
 Out, recorded so nobody reaches for them by accident:
@@ -41,21 +43,28 @@ later is cheap; the shape of the builder is what must hold.
 
 ## Design
 
-### Declaring features: `IAggregateConfiguration<TEntity>`
+### Declaring features: `IAggregateFeatureConfiguration<TAggregateRoot>`
 
 In `Sergin.SharedKernel.Application`, namespace `Sergin.SharedKernel.Application.Aggregates`:
 
 ```csharp
-public interface IAggregateConfiguration<TEntity>
-    where TEntity : class, IEntity
+public interface IAggregateFeatureConfiguration<TAggregateRoot>
+    where TAggregateRoot : class, IAggregateRoot
 {
-    void Configure(AggregateFeatureBuilder<TEntity> builder);
+    void Configure(AggregateFeatureBuilder<TAggregateRoot> builder);
 }
 
-public sealed class AggregateFeatureBuilder<TEntity>
-    where TEntity : class, IEntity
+public sealed class AggregateFeatureBuilder<TAggregateRoot>
+    where TAggregateRoot : class, IAggregateRoot
 {
-    public AggregateFeatureBuilder<TEntity> Audited();   // idempotent, chainable
+    public AggregateFeatureBuilder<TAggregateRoot> Audited();   // idempotent, chainable
+    public AggregateFeatureBuilder<TAggregateRoot> Audited(Action<AuditFeatureBuilder<TAggregateRoot>> configure);
+}
+
+public sealed class AuditFeatureBuilder<TAggregateRoot>
+    where TAggregateRoot : class, IAggregateRoot
+{
+    public AuditFeatureBuilder<TAggregateRoot> ExceptChild<TChild>() where TChild : class, IEntity;
 }
 
 public sealed record AggregateFeatures(bool Audited)
@@ -65,29 +74,39 @@ public sealed record AggregateFeatures(bool Audited)
 
 public sealed class AggregateFeatureRegistry
 {
-    public AggregateFeatures For(Type entityType);   // None for an unconfigured type
-    public IReadOnlyCollection<Type> ConfiguredTypes { get; }
+    public AggregateFeatures For(Type aggregateRoot);                      // None for an unconfigured root
+    public AggregateFeatures ForChild(Type aggregateRoot, Type childType); // the root's, less exceptions
+    public IReadOnlyCollection<Type> ExceptedChildren(Type aggregateRoot);
+    public IReadOnlyCollection<Type> ConfiguredTypes { get; }              // the configured roots
 }
 ```
 
-The constraint is `IEntity`, not `IAggregateRoot`, so a child entity such as `DeviceModel` can be
-configured too. The name still says *aggregate* because the configuration expresses an aggregate
-boundary decision even when it targets a child.
-
-A module declares one class per configured type, in its `.Application` project, in the
-aggregate's root folder:
+The constraint is `IAggregateRoot`: a feature is a decision about the whole aggregate, so a child
+entity cannot be configured on its own. Every child takes the root's features by default (see
+"Children" below), and a feature's own builder is where a child is left out:
 
 ```csharp
-// Sergin.MeterMinder.DeviceManagement.Application/Devices/DeviceAggregateConfiguration.cs
-internal sealed class DeviceAggregateConfiguration : IAggregateConfiguration<Device>
+builder.Audited(audit => audit.ExceptChild<DeviceModel>());
+```
+
+`ExceptChild` is per feature, so once more features exist a child can be left out of one and keep the
+others. Only the named type is excepted; its own children still take the root's features. Excepting an
+aggregate root fails when the registry is built, since another aggregate never takes this one's
+features in the first place.
+
+A module declares one class per configured root, in its `.Application` project, in the aggregate's
+root folder:
+
+```csharp
+// Sergin.MeterMinder.DeviceManagement.Application/Devices/DeviceAggregateFeatureConfiguration.cs
+internal sealed class DeviceAggregateFeatureConfiguration : IAggregateFeatureConfiguration<Device>
 {
     public void Configure(AggregateFeatureBuilder<Device> builder) => builder.Audited();
 }
 ```
 
-The naming is `<Type>AggregateConfiguration`, so it cannot collide with the EF
-`<Type>Configuration` in `.Infrastructure.Data`. Child-entity configurations follow the nested
-folder rule (`Manufacturers/DeviceModels/DeviceModelAggregateConfiguration.cs`).
+The naming is `<Root>AggregateFeatureConfiguration`, so it cannot collide with the EF
+`<Type>Configuration` in `.Infrastructure.Data`.
 
 `.Application` was chosen over `.Domain` (the domain would take on an application-feature concept),
 `.Infrastructure.Data` (the choice would become an infrastructure detail and need a new scan target)
@@ -97,7 +116,7 @@ already scanned for validators and translators.
 ### Discovery
 
 `AggregateFeatureRegistry.FromAssemblies(assemblies)` finds concrete, non-generic types
-implementing a closed `IAggregateConfiguration<T>`, creates each with `Activator.CreateInstance`,
+implementing a closed `IAggregateFeatureConfiguration<T>`, creates each with `Activator.CreateInstance`,
 runs its `Configure` against a fresh builder, and returns the frozen result.
 `FromConfigurationTypes(types)` does the same for an explicit list (tests use it).
 
@@ -126,8 +145,8 @@ they ship no `.Application` — exactly as for validators.
 `AggregateFeatureConvention : IModelFinalizingConvention` over the context's own
 `AggregateFeatures`. A model-finalizing convention runs after `OnModelCreating`, after
 every `IEntityTypeConfiguration`, and after the other conventions, on the complete, still-mutable
-model. For every entity type the registry marks `Audited` it adds four shadow properties and the
-annotation `sergin:audited`:
+model. For every configured root, and every child it reaches (below), whose features are `Audited`, it
+adds four shadow properties and the annotation `Sergin:Audited`:
 
 | Property | Column | Type |
 |---|---|---|
@@ -141,6 +160,21 @@ the interceptor and any future raw-SQL read use one spelling.
 
 Shadow properties keep the domain types untouched. No module context overrides
 `ConfigureConventions` today (checked 2026-09-23); a future override must call `base`.
+
+**Children.** Which entities belong to an aggregate is the EF model's knowledge, so the convention
+finds them: starting at each configured root, it follows every navigation from a principal to its
+dependents (ownership navigations included, and those declared on derived types), stopping at any
+type that implements `IAggregateRoot`. Each child reached takes `registry.ForChild(root, child)`.
+
+- Navigations, not foreign keys, decide membership. Another aggregate's child that merely holds a key
+  to this root is not pulled in; `Manufacturer.Models` makes `DeviceModel` a child, `Device`'s key to
+  `DeviceModel` does not make `Device` one.
+- An owned type stored in its owner's table (`OwnsOne`) gets no columns of its own — the owner's row
+  carries them — but the walk continues below it. An `OwnsMany` in its own table is stamped.
+- An `ExceptChild` type the walk never reaches fails the model build naming it and the root, so a
+  typo or a type from another aggregate cannot pass silently.
+- An entity reached from two roots whose features for it differ fails the model build naming both
+  roots — the same no-silent-last-wins rule as duplicate configurations.
 
 **Modified is nullable on purpose.** A row that was only inserted was not modified, and `NULL` says
 so directly. A "last touched" read uses `COALESCE(modified_at_utc, created_at_utc)`.
@@ -177,17 +211,17 @@ an unauthenticated OIDC callback.
 
 Semantics that follow, documented rather than guarded:
 
-- A root is **not** stamped when only a child entity changed; a child is stamped only if it has its
-  own configuration.
+- A root is **not** stamped when only a child entity changed; the child's own row is stamped, since
+  children take the root's features unless excepted.
 - Raw-SQL or Dapper writes bypass stamping. None exist today.
 
 ### Startup guards
 
 Each fails host start with a message naming the offending type(s):
 
-1. **Two configurations for the same `T`** — named together; no silent last-wins.
+1. **Two configurations for the same root** — named together; no silent last-wins.
 2. **A configuration with no parameterless constructor** — the `Activator` failure is rethrown with
-   the type name.
+   the type name. `ExceptChild` of an aggregate root fails at the same point.
 3. **A configured type that no module's `DbContext` maps, or whose context does not apply it** — a
    configuration stranded in the wrong module, or a module context that forgot to override
    `AggregateFeatures`. `AddModuleDbContext` registers a `ModuleDbContextRegistration(Type)` per
@@ -201,8 +235,8 @@ Two pull requests, because SharedKernel is a submodule.
 
 **Sergin.SharedKernel**
 
-- `Application/Aggregates/`: `IAggregateConfiguration<T>`, `AggregateFeatureBuilder<T>`,
-  `AggregateFeatures`, `AggregateFeatureRegistry`.
+- `Application/Aggregates/`: `IAggregateFeatureConfiguration<T>`, `AggregateFeatureBuilder<T>`,
+  `AuditFeatureBuilder<T>`, `AggregateFeatures`, `AggregateFeatureRegistry`.
 - The scan and guards 1–2 in `AddSerginCore`; guard 3 in both `Use…Async` bootstraps.
 - `AuditColumns`, `AggregateFeatureConvention`, the `ConfigureConventions` override on
   `SerginDbContext`.
@@ -212,9 +246,8 @@ Two pull requests, because SharedKernel is a submodule.
 **Sergin.MeterMinder**
 
 - Submodule bump.
-- `DeviceAggregateConfiguration`, `ManufacturerAggregateConfiguration`,
-  `DeviceModelAggregateConfiguration`, and the `AggregateFeatures` override on
-  `DeviceManagementDbContext`.
+- `DeviceAggregateFeatureConfiguration`, `ManufacturerAggregateFeatureConfiguration` (which audits
+  `DeviceModel` as its child), and the `AggregateFeatures` override on `DeviceManagementDbContext`.
 - Migration `AddAuditColumns` in `dm`, converted to a file-scoped namespace. It adds the columns
   nullable, backfills `created_at_utc = now()` and `created_by` with the relay identity's fixed id
   (`01920000-0000-7000-8000-00000000000f`, the platform's system actor), then sets `created_*`
@@ -235,11 +268,16 @@ collection fixture:
     leaves `modified_*` `NULL`, read back through raw SQL.
   - Modifying a test-only audited aggregate stamps `modified_*` and leaves `created_*` unchanged
     (DeviceManagement has no update slice yet; the test aggregate follows the outbox tests'
-    `OutboxTestHost` precedent). Its `IAggregateConfiguration` must live in an assembly the test
+    `OutboxTestHost` precedent). Its `IAggregateFeatureConfiguration` must live in an assembly the test
     host passes as a local module's `ApplicationAssembly`, or the scan never finds it.
   - An entity added by a domain-event handler on the same save is stamped.
   - A context seeded through `UserContextAccessor` is the stamped actor — the mechanism the outbox
     relay and the Blazor dispatcher both use to hand their identity into a scope, so this covers the
     relay without running it.
+- **`AggregateChildFeatureTests`** — against model-only contexts: children and grandchildren
+  (including an `OwnsMany`) take the root's features; another aggregate root reached by a navigation
+  does not; an `OwnsOne` in its owner's table gets no columns; `ExceptChild` leaves out only the named
+  type; excepting a non-child or reaching one entity from two roots with different features fails the
+  model build; excepting an aggregate root fails the registry build.
 - **`AggregateFeatureGuardTests`** — the duplicate-configuration and unmapped-type guards
   throw, naming the types.
