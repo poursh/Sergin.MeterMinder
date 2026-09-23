@@ -241,5 +241,5 @@ collection fixture:
   - A context seeded through `UserContextAccessor` is the stamped actor — the mechanism the outbox
     relay and the Blazor dispatcher both use to hand their identity into a scope, so this covers the
     relay without running it.
-- **`AggregateConfigurationGuardTests`** — the duplicate-configuration and unmapped-type guards
+- **`AggregateFeatureGuardTests`** — the duplicate-configuration and unmapped-type guards
   throw, naming the types.
