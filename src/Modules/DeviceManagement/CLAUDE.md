@@ -8,6 +8,17 @@ See the root `.claude/CLAUDE.md` for cross-module conventions (layering, CQRS sp
 
 `DeviceManagementDbContext` implements `IOutboxDbContext` (`Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox`) and calls `modelBuilder.ApplyOutbox()` after `ApplyConfigurationsFromAssembly`, so `dm.outbox_messages` and `dm.inbox_messages` exist — added by the `AddOutbox` migration. That opt-in is what makes `AddModuleDbContext` register this module's `IInbox<IDeviceManagementUnitOfWork>` and its `IOutboxRelaySource`, which the host's `OutboxRelayService` drains. **No translator, integration event, or handler is declared here yet** — the tables are ready for the first one; see the root `CLAUDE.md`'s Outbox bullet for the producer/consumer shapes and `docs/superpowers/specs/2026-09-13-outbox-design.md` for the design.
 
+## Audit stamps
+
+`Device`, `Manufacturer` and `DeviceModel` are audited: `DeviceAggregateFeatureConfiguration` and `ManufacturerAggregateFeatureConfiguration` (each an `internal sealed class …AggregateFeatureConfiguration : IAggregateFeatureConfiguration<…>` in the root's own folder) each call `builder.Audited()`. `DeviceModel` has no configuration of its own — it can't, the interface takes an aggregate root — and is audited as `Manufacturer`'s child, reached through `Manufacturer.Models`; leaving it out would be `builder.Audited(audit => audit.ExceptChild<DeviceModel>())` plus a migration dropping its columns. `DeviceManagementDbContext` overrides `AggregateFeatures` to apply them:
+
+```csharp
+protected override AggregateFeatureRegistry AggregateFeatures =>
+    AggregateFeatureRegistry.FromAssemblies([DeviceManagementApplicationAssemblyReference.Assembly]);
+```
+
+The `AddAuditColumns` migration adds `created_at_utc`/`created_by`/`modified_at_utc`/`modified_by` to `dm.device`, `dm.manufacturer` and `dm.device_model`, nullable at first, then backfills every existing row's `created_at_utc` to the migration's `now()` and `created_by` to the platform's fixed system actor `01920000-0000-7000-8000-00000000000f` (the outbox relay identity's id), before making `created_*` `NOT NULL`. **Those backfilled values are a stand-in for rows that predate auditing, not their real history** — nothing recorded who actually created them. `modified_at_utc`/`modified_by` stay `NULL` for every backfilled row, same as for any row that has never been updated. See the root `CLAUDE.md`'s "Aggregate configuration" bullet and `docs/superpowers/specs/2026-09-23-aggregate-configuration-audit-design.md` for the mechanism.
+
 ## `Devices` aggregate
 
 `Sergin.MeterMinder.DeviceManagement.Domain/Devices/Device.cs` — `AggregateRoot<DeviceIntenralId>` (note the misspelling — it's the real type name, match it). `DeviceId` is the business-facing string key; `DeviceIntenralId` is the internal `Guid` PK. `Device` carries a mandatory `DeviceModelId` — a `DeviceModelInternalId`, a reference across the aggregate boundary to a `DeviceModel` entity inside the `Manufacturers` aggregate (below) — set via `Device.Create(DeviceId, DeviceModelInternalId)`. **A device does not store its manufacturer**; it is reachable only through the model (`dm.device.device_model_id → dm.device_model.id → dm.device_model.manufacturer_id`). The FK is `ON DELETE RESTRICT` — a reference across an aggregate boundary must never cascade.
