@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Sergin.MeterMinder.DeviceManagement.Application;
+using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
 
@@ -21,6 +22,9 @@ internal sealed class DeviceManagementDbContext(DbContextOptions<DeviceManagemen
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
     public DbSet<InboxMessage> InboxMessages => Set<InboxMessage>();
+
+    protected override AggregateFeatureRegistry AggregateFeatures =>
+        AggregateFeatureRegistry.FromAssemblies([DeviceManagementApplicationAssemblyReference.Assembly]);
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
