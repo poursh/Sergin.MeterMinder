@@ -12,6 +12,9 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Devices.Repositorie
 internal sealed class DeviceQueryRepository(
     IDbConnectionFactory connectionFactory) : IDeviceAllQueryRepositoriy
 {
+    // Every read filters deleted_at_utc IS NULL (SoftDeleteColumns.NotDeletedSql) on the table it reads: raw
+    // SQL is not reached by EF's soft-delete query filter. A joined table is not filtered, so a live row still
+    // shows the name of a deleted row it points at.
     public async Task<DeviceQueryResponse?> GetDeviceById(
         DeviceIntenralId Id, CancellationToken cancellationToken = default)
     {
@@ -22,7 +25,7 @@ internal sealed class DeviceQueryRepository(
             SELECT d.id, d.device_id AS deviceId, d.device_model_id AS deviceModelId, dm_.name AS deviceModelName
             FROM dm.device d
             JOIN dm.device_model dm_ ON dm_.id = d.device_model_id
-            WHERE d.id = @Id;
+            WHERE d.id = @Id AND d.deleted_at_utc IS NULL;
             """;
 
         return await connection.QuerySingleOrDefaultAsync<DeviceQueryResponse>(
@@ -36,11 +39,12 @@ internal sealed class DeviceQueryRepository(
 
         string queries =
             """
-            SELECT count(*) FROM dm.device;
+            SELECT count(*) FROM dm.device WHERE deleted_at_utc IS NULL;
 
             SELECT d.id, d.device_id AS deviceId, d.device_model_id AS deviceModelId, dm_.name AS deviceModelName
             FROM dm.device d
             JOIN dm.device_model dm_ ON dm_.id = d.device_model_id
+            WHERE d.deleted_at_utc IS NULL
             ORDER BY d.id
             LIMIT @PageSize OFFSET @Offset;
             """;

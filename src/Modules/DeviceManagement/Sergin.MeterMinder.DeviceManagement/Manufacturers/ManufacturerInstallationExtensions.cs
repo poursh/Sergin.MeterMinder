@@ -14,6 +14,7 @@ using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Devi
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.DeviceModels.Endpoints.GetList;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.DeviceModels.Endpoints.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.Create;
+using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.Delete;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.GetList;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.GetOne;
 
@@ -41,6 +42,7 @@ internal static class ManufacturerInstallationExtensions
         new CreateManufacturerEndpoint().MapEndpoint(routeBuilder);
         new GetManufacturerEndpoint().MapEndpoint(routeBuilder);
         new GetManufacturerListEndpoint().MapEndpoint(routeBuilder);
+        new DeleteManufacturerEndpoint().MapEndpoint(routeBuilder);
         new AddDeviceModelEndpoint().MapEndpoint(routeBuilder);
         new GetDeviceModelEndpoint().MapEndpoint(routeBuilder);
         new GetDeviceModelListEndpoint().MapEndpoint(routeBuilder);

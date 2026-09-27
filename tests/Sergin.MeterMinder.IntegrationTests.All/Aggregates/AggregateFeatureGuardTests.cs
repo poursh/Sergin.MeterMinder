@@ -51,6 +51,19 @@ public sealed class AggregateFeatureGuardTests(SerginWebApiFactory<Program> fact
         Assert.Contains("AggregateFeatures", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SoftDeletableTypeWhoseContextDoesNotApplyIt_IsRefused()
+    {
+        var registry =
+            AggregateFeatureRegistry.FromConfigurationTypes([typeof(SoftDeletableUserAggregateFeatureConfiguration)]);
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            AggregateFeatureGuard.EnsureApplied(registry, Models()));
+
+        Assert.Contains(typeof(User).FullName!, error.Message, StringComparison.Ordinal);
+        Assert.Contains("SoftDeletable()", error.Message, StringComparison.Ordinal);
+    }
+
     private IReadOnlyCollection<IModel> Models()
     {
         using IServiceScope scope = factory.Services.CreateScope();
@@ -60,6 +73,11 @@ public sealed class AggregateFeatureGuardTests(SerginWebApiFactory<Program> fact
             Assert.IsAssignableFrom<DbContext>(scope.ServiceProvider.GetRequiredService<IDeviceManagementDbContext>()).Model,
             Assert.IsAssignableFrom<DbContext>(scope.ServiceProvider.GetRequiredService<IUserAccessDbContext>()).Model,
         ];
+    }
+
+    private sealed class SoftDeletableUserAggregateFeatureConfiguration : IAggregateFeatureConfiguration<User>
+    {
+        public void Configure(AggregateFeatureBuilder<User> builder) => builder.SoftDeletable();
     }
 
     private sealed class UserAggregateFeatureConfiguration : IAggregateFeatureConfiguration<User>

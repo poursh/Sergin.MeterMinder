@@ -7,6 +7,7 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Devices.Repositories;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Devices.Repositories.Queries;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Devices.Endpoints.Create;
+using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Devices.Endpoints.Delete;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Devices.Endpoints.GetList;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Devices.Endpoints.GetOne;
 
@@ -29,6 +30,7 @@ internal static class DeviceInstallationExtensions
         new CreateDeviceEndpoint().MapEndpoint(routeBuilder);
         new GetDeviceEndpoint().MapEndpoint(routeBuilder);
         new GetDeviceListEndpoint().MapEndpoint(routeBuilder);
+        new DeleteDeviceEndpoint().MapEndpoint(routeBuilder);
 
         return routeBuilder;
     }
