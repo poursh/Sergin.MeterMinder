@@ -20,6 +20,18 @@ public sealed class AggregateFeatureRegistryTests
     }
 
     [Fact]
+    public void SoftDeletable_ReachesEveryChild_EvenOneExceptedFromAudit()
+    {
+        var registry = AggregateFeatureRegistry.FromConfigurationTypes(
+            [typeof(SoftDeletableUnmappedEntityAggregateFeatureConfiguration)]);
+
+        Assert.Equal(new AggregateFeatures(Audited: true, SoftDeletable: true), registry.For(typeof(UnmappedEntity)));
+        Assert.Equal(
+            new AggregateFeatures(Audited: false, SoftDeletable: true),
+            registry.ForChild(typeof(UnmappedEntity), typeof(UnmappedChild)));
+    }
+
+    [Fact]
     public void For_UnconfiguredType_ReturnsNone()
     {
         Assert.Equal(AggregateFeatures.None, AggregateFeatureRegistry.Empty.For(typeof(UnmappedEntity)));

@@ -10,6 +10,8 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 /// </summary>
 internal sealed class UnmappedEntity : AggregateRoot<Guid>;
 
+internal sealed class UnmappedChild : Entity<Guid>;
+
 internal sealed class UnmappedEntityAggregateFeatureConfiguration : IAggregateFeatureConfiguration<UnmappedEntity>
 {
     public void Configure(AggregateFeatureBuilder<UnmappedEntity> builder) => builder.Audited();
@@ -27,6 +29,12 @@ internal sealed class NeedsServiceAggregateFeatureConfiguration(IServiceProvider
         ArgumentNullException.ThrowIfNull(services);
         builder.Audited();
     }
+}
+
+internal sealed class SoftDeletableUnmappedEntityAggregateFeatureConfiguration : IAggregateFeatureConfiguration<UnmappedEntity>
+{
+    public void Configure(AggregateFeatureBuilder<UnmappedEntity> builder) =>
+        builder.Audited(audit => audit.ExceptChild<UnmappedChild>()).SoftDeletable();
 }
 
 internal sealed class NoFeaturesAggregateFeatureConfiguration : IAggregateFeatureConfiguration<UnmappedEntity>

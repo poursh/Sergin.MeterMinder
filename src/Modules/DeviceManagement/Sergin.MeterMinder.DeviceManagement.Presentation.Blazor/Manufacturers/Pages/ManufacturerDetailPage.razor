@@ -17,6 +17,9 @@
             }
             <MudText Typo="Typo.body2">@manufacturer.Id</MudText>
         </MudCardContent>
+        <MudCardActions>
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="deleting" OnClick="DeleteAsync">Delete</MudButton>
+        </MudCardActions>
     </MudCard>
 
     <DeviceModelTable ManufacturerId="Id" />

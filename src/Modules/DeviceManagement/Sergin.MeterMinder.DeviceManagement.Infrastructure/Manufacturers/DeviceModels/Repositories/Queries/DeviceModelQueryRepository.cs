@@ -18,6 +18,10 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Manufacturers.Devic
 internal sealed class DeviceModelQueryRepository(
     IDbConnectionFactory connectionFactory) : IDeviceModelAllQueryRepository
 {
+    // Every read filters deleted_at_utc IS NULL (SoftDeleteColumns.NotDeletedSql) on the table it reads: raw
+    // SQL is not reached by EF's soft-delete query filter. A joined table is not filtered, so a live row still
+    // shows the name of a deleted row it points at.
+    //
     // dm is the schema, so the device_model alias is dm_ — the two must never read alike.
     public async Task<DeviceModelQueryResponse?> GetDeviceModelById(
         ManufacturerId manufacturerId, DeviceModelInternalId id, CancellationToken cancellationToken = default)
@@ -30,7 +34,7 @@ internal sealed class DeviceModelQueryRepository(
             SELECT dm_.id, dm_.manufacturer_id AS manufacturerId, m.name AS manufacturerName, dm_.name
             FROM dm.device_model dm_
             JOIN dm.manufacturer m ON m.id = dm_.manufacturer_id
-            WHERE dm_.id = @Id AND dm_.manufacturer_id = @ManufacturerId;
+            WHERE dm_.id = @Id AND dm_.manufacturer_id = @ManufacturerId AND dm_.deleted_at_utc IS NULL;
             """;
 
         return await connection.QuerySingleOrDefaultAsync<DeviceModelQueryResponse>(
@@ -44,11 +48,11 @@ internal sealed class DeviceModelQueryRepository(
 
         string queries =
             """
-            SELECT count(*) FROM dm.device_model WHERE manufacturer_id = @ManufacturerId;
+            SELECT count(*) FROM dm.device_model WHERE manufacturer_id = @ManufacturerId AND deleted_at_utc IS NULL;
 
             SELECT id, name
             FROM dm.device_model
-            WHERE manufacturer_id = @ManufacturerId
+            WHERE manufacturer_id = @ManufacturerId AND deleted_at_utc IS NULL
             ORDER BY id
             LIMIT @PageSize OFFSET @Offset;
             """;

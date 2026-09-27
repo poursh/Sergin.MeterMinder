@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Components;
+using MudBlazor;
+using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Errors;
@@ -9,6 +11,7 @@ public sealed partial class DeviceDetailPage
 {
     private DeviceQueryResponse? device;
     private SerginProblem? problem;
+    private bool deleting;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -18,6 +21,12 @@ public sealed partial class DeviceDetailPage
 
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
+
+    [Inject]
+    private IDialogService DialogService { get; set; } = default!;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
 
     // A property, not a field: the tail is the page title's word until the load fills in the device id, and
     // on the not-found path it stays that way beside the problem panel.
@@ -41,5 +50,34 @@ public sealed partial class DeviceDetailPage
 
         problem = null;
         device = result.Value;
+    }
+
+    private async Task DeleteAsync()
+    {
+        bool? confirmed = await DialogService.ShowMessageBoxAsync(
+            "Delete device",
+            $"Delete {device?.DeviceId}? It disappears from every list and page.",
+            yesText: "Delete",
+            cancelText: "Cancel");
+
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        deleting = true;
+
+        ErrorOr<DeleteDeviceCommandResponse> result = await Dispatcher.SendAsync(new DeleteDeviceCommand(Id));
+
+        deleting = false;
+
+        if (result.IsError)
+        {
+            ErrorPresenter.Notify(result.Errors);
+
+            return;
+        }
+
+        Navigation.NavigateTo("/dm/devices");
     }
 }

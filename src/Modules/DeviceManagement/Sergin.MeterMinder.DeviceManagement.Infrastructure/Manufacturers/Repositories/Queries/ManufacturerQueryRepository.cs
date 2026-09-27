@@ -12,6 +12,9 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Manufacturers.Repos
 internal sealed class ManufacturerQueryRepository(
     IDbConnectionFactory connectionFactory) : IManufacturerAllQueryRepository
 {
+    // Every read filters deleted_at_utc IS NULL (SoftDeleteColumns.NotDeletedSql) on the table it reads: raw
+    // SQL is not reached by EF's soft-delete query filter. A joined table is not filtered, so a live row still
+    // shows the name of a deleted row it points at.
     public async Task<ManufacturerQueryResponse?> GetManufacturerById(
         ManufacturerId id, CancellationToken cancellationToken = default)
     {
@@ -21,7 +24,7 @@ internal sealed class ManufacturerQueryRepository(
            """
             SELECT id, name, address
             FROM dm.manufacturer
-            WHERE id = @Id;
+            WHERE id = @Id AND deleted_at_utc IS NULL;
             """;
 
         return await connection.QuerySingleOrDefaultAsync<ManufacturerQueryResponse>(
@@ -35,10 +38,11 @@ internal sealed class ManufacturerQueryRepository(
 
         string queries =
             """
-            SELECT count(*) FROM dm.manufacturer;
+            SELECT count(*) FROM dm.manufacturer WHERE deleted_at_utc IS NULL;
 
             SELECT id, name, address
             FROM dm.manufacturer
+            WHERE deleted_at_utc IS NULL
             ORDER BY id
             LIMIT @PageSize OFFSET @Offset;
             """;
