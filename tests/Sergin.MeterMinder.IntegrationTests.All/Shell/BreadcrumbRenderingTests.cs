@@ -138,8 +138,9 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
 
     /// <summary>
     /// How MudBlazor renders the current page: the item is disabled and its href is <c>#</c>, because
-    /// <c>SerginBreadcrumbs</c> drops the last step's href rather than only disabling it.
+    /// <c>SerginBreadcrumbs</c> drops the last step's href rather than only disabling it. Since MudBlazor
+    /// 9.11.0 the anchor also carries <c>aria-current="page"</c>, added only to the trail's last item.
     /// </summary>
     private static string Current(string label)
-        => $"<li class=\"mud-breadcrumb-item mud-disabled\"><a href=\"#\">{label}</a></li>";
+        => $"<li class=\"mud-breadcrumb-item mud-disabled\"><a href=\"#\" aria-current=\"page\">{label}</a></li>";
 }
