@@ -35,6 +35,7 @@ internal sealed class TestVersionedDbContext(DbContextOptions<TestVersionedDbCon
         {
             pallet.ToTable("pallets");
             pallet.HasKey(x => x.Id);
+            pallet.Property(x => x.Id).ValueGeneratedNever();
             pallet.Property(x => x.Code);
 
             pallet.HasMany(x => x.Bays)
@@ -48,6 +49,10 @@ internal sealed class TestVersionedDbContext(DbContextOptions<TestVersionedDbCon
         {
             bay.ToTable("bays");
             bay.HasKey(x => x.Id);
+
+            // Assigned in Bay.Create, like DeviceModel's: left store-generated, EF would take a bay added to a
+            // loaded pallet for an existing row and UPDATE it.
+            bay.Property(x => x.Id).ValueGeneratedNever();
             bay.Property(x => x.Name);
         });
 
