@@ -9,6 +9,7 @@ using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
+using Sergin.MeterMinder.IntegrationTests.All.Concurrency;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.IntegrationTests;
@@ -108,8 +109,8 @@ public sealed class DeviceReadModelTests(SerginWebApiFactory<Program> factory)
     private static async Task<DeviceModelInternalId> AddDeviceModelAsync(
         ISerginDispatcher dispatcher, ManufacturerId manufacturerId, DeviceModelName name)
     {
-        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAsync(
-            new AddDeviceModelCommand(manufacturerId, name));
+        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAtManufacturerVersionAsync(
+            manufacturerId.Value, new AddDeviceModelCommand(manufacturerId, name));
 
         Assert.False(added.IsError, added.IsError ? added.FirstError.Description : string.Empty);
 

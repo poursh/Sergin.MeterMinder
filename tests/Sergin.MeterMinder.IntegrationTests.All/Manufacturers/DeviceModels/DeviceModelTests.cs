@@ -9,6 +9,7 @@ using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
+using Sergin.MeterMinder.IntegrationTests.All.Concurrency;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.IntegrationTests;
@@ -38,8 +39,8 @@ public sealed class DeviceModelTests(SerginWebApiFactory<Program> factory)
         ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher, manufacturerName);
         DeviceModelName name = NewModelName();
 
-        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAsync(
-            new AddDeviceModelCommand(manufacturerId, name));
+        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAtManufacturerVersionAsync(
+            manufacturerId.Value, new AddDeviceModelCommand(manufacturerId, name));
 
         Assert.False(added.IsError, added.IsError ? added.FirstError.Description : string.Empty);
 
@@ -71,8 +72,9 @@ public sealed class DeviceModelTests(SerginWebApiFactory<Program> factory)
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
-        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAsync(
-            new AddDeviceModelCommand(new ManufacturerId(Guid.CreateVersion7()), NewModelName()));
+        ManufacturerId manufacturerId = new(Guid.CreateVersion7());
+        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAtManufacturerVersionAsync(
+            manufacturerId.Value, new AddDeviceModelCommand(manufacturerId, NewModelName()));
 
         Assert.True(added.IsError, "A manufacturer id that matches no row must be refused.");
         Assert.Equal(ErrorType.NotFound, added.FirstError.Type);
@@ -87,13 +89,13 @@ public sealed class DeviceModelTests(SerginWebApiFactory<Program> factory)
         ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher, NewManufacturerName());
         DeviceModelName name = NewModelName();
 
-        ErrorOr<AddDeviceModelCommandResponse> first = await dispatcher.SendAsync(
-            new AddDeviceModelCommand(manufacturerId, name));
+        ErrorOr<AddDeviceModelCommandResponse> first = await dispatcher.SendAtManufacturerVersionAsync(
+            manufacturerId.Value, new AddDeviceModelCommand(manufacturerId, name));
 
         Assert.False(first.IsError, first.IsError ? first.FirstError.Description : string.Empty);
 
-        ErrorOr<AddDeviceModelCommandResponse> second = await dispatcher.SendAsync(
-            new AddDeviceModelCommand(manufacturerId, name));
+        ErrorOr<AddDeviceModelCommandResponse> second = await dispatcher.SendAtManufacturerVersionAsync(
+            manufacturerId.Value, new AddDeviceModelCommand(manufacturerId, name));
 
         Assert.True(second.IsError, "A name this manufacturer already uses must be refused.");
         Error error = Assert.Single(second.Errors);
@@ -119,8 +121,10 @@ public sealed class DeviceModelTests(SerginWebApiFactory<Program> factory)
         ManufacturerId second = await CreateManufacturerAsync(dispatcher, NewManufacturerName());
         DeviceModelName name = NewModelName();
 
-        ErrorOr<AddDeviceModelCommandResponse> underFirst = await dispatcher.SendAsync(new AddDeviceModelCommand(first, name));
-        ErrorOr<AddDeviceModelCommandResponse> underSecond = await dispatcher.SendAsync(new AddDeviceModelCommand(second, name));
+        ErrorOr<AddDeviceModelCommandResponse> underFirst =
+            await dispatcher.SendAtManufacturerVersionAsync(first.Value, new AddDeviceModelCommand(first, name));
+        ErrorOr<AddDeviceModelCommandResponse> underSecond =
+            await dispatcher.SendAtManufacturerVersionAsync(second.Value, new AddDeviceModelCommand(second, name));
 
         Assert.False(underFirst.IsError, underFirst.IsError ? underFirst.FirstError.Description : string.Empty);
         Assert.False(underSecond.IsError, underSecond.IsError ? underSecond.FirstError.Description : string.Empty);
@@ -225,8 +229,8 @@ public sealed class DeviceModelTests(SerginWebApiFactory<Program> factory)
 
     private static async Task<Guid> AddModelAsync(ISerginDispatcher dispatcher, ManufacturerId manufacturerId, DeviceModelName name)
     {
-        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAsync(
-            new AddDeviceModelCommand(manufacturerId, name));
+        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAtManufacturerVersionAsync(
+            manufacturerId.Value, new AddDeviceModelCommand(manufacturerId, name));
 
         Assert.False(added.IsError, added.IsError ? added.FirstError.Description : string.Empty);
 

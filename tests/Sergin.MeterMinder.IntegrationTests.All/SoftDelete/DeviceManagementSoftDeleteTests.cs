@@ -15,6 +15,7 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
+using Sergin.MeterMinder.IntegrationTests.All.Concurrency;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Securities.Users;
@@ -47,13 +48,13 @@ public sealed class DeviceManagementSoftDeleteTests(SerginWebApiFactory<Program>
         DeviceId deviceId = new($"device-{Guid.CreateVersion7()}");
         Guid id = await CreateDeviceAsync(dispatcher, deviceId, modelId);
 
-        ErrorOr<DeleteDeviceCommandResponse> deleted = await dispatcher.SendAsync(new DeleteDeviceCommand(id));
+        ErrorOr<DeleteDeviceCommandResponse> deleted = await dispatcher.SendAtDeviceVersionAsync(id, new DeleteDeviceCommand(id));
         Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
 
         ErrorOr<DeviceQueryResponse> detail = await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(id));
         Assert.Equal(ErrorType.NotFound, detail.FirstError.Type);
 
-        ErrorOr<DeleteDeviceCommandResponse> again = await dispatcher.SendAsync(new DeleteDeviceCommand(id));
+        ErrorOr<DeleteDeviceCommandResponse> again = await dispatcher.SendAtDeviceVersionAsync(id, new DeleteDeviceCommand(id));
         Assert.Equal(ErrorType.NotFound, again.FirstError.Type);
 
         Guid replacement = await CreateDeviceAsync(dispatcher, deviceId, modelId);
@@ -74,7 +75,7 @@ public sealed class DeviceManagementSoftDeleteTests(SerginWebApiFactory<Program>
         Guid id = await CreateDeviceAsync(dispatcher, new DeviceId($"device-{Guid.CreateVersion7()}"), modelId);
 
         int before = await CountDevicesAsync(dispatcher);
-        Assert.False((await dispatcher.SendAsync(new DeleteDeviceCommand(id))).IsError);
+        Assert.False((await dispatcher.SendAtDeviceVersionAsync(id, new DeleteDeviceCommand(id))).IsError);
         int after = await CountDevicesAsync(dispatcher);
 
         Assert.Equal(before - 1, after);
@@ -91,7 +92,7 @@ public sealed class DeviceManagementSoftDeleteTests(SerginWebApiFactory<Program>
             dispatcher, new DeviceId($"device-{Guid.CreateVersion7()}"), await AddDeviceModelAsync(dispatcher, manufacturerId));
 
         ErrorOr<DeleteManufacturerCommandResponse> deleted =
-            await dispatcher.SendAsync(new DeleteManufacturerCommand(manufacturerId.Value));
+            await dispatcher.SendAtManufacturerVersionAsync(manufacturerId.Value, new DeleteManufacturerCommand(manufacturerId.Value));
 
         Error error = Assert.Single(deleted.Errors);
         Assert.Equal(ErrorType.Validation, error.Type);
@@ -111,10 +112,10 @@ public sealed class DeviceManagementSoftDeleteTests(SerginWebApiFactory<Program>
 
         // A deleted device no longer holds its model's manufacturer.
         Guid deviceId = await CreateDeviceAsync(dispatcher, new DeviceId($"device-{Guid.CreateVersion7()}"), modelId);
-        Assert.False((await dispatcher.SendAsync(new DeleteDeviceCommand(deviceId))).IsError);
+        Assert.False((await dispatcher.SendAtDeviceVersionAsync(deviceId, new DeleteDeviceCommand(deviceId))).IsError);
 
         ErrorOr<DeleteManufacturerCommandResponse> deleted =
-            await dispatcher.SendAsync(new DeleteManufacturerCommand(manufacturerId.Value));
+            await dispatcher.SendAtManufacturerVersionAsync(manufacturerId.Value, new DeleteManufacturerCommand(manufacturerId.Value));
         Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
 
         ErrorOr<ManufacturerQueryResponse> detail =
@@ -188,8 +189,8 @@ public sealed class DeviceManagementSoftDeleteTests(SerginWebApiFactory<Program>
 
     private static async Task<DeviceModelInternalId> AddDeviceModelAsync(ISerginDispatcher dispatcher, ManufacturerId manufacturerId)
     {
-        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAsync(
-            new AddDeviceModelCommand(manufacturerId, new DeviceModelName($"model-{Guid.CreateVersion7()}")));
+        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAtManufacturerVersionAsync(
+            manufacturerId.Value, new AddDeviceModelCommand(manufacturerId, new DeviceModelName($"model-{Guid.CreateVersion7()}")));
 
         Assert.False(added.IsError, added.IsError ? added.FirstError.Description : string.Empty);
         return new DeviceModelInternalId(added.Value.Id);
