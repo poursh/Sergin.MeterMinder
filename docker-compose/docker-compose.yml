@@ -32,7 +32,7 @@ services:
       sergin.dashboard:
         condition: service_started
       sergin.identity:
-        condition: service_started
+        condition: service_healthy
 
   sergin.database:
     image: postgres:17-alpine
@@ -50,11 +50,9 @@ services:
       retries: 10
 
   # Development only: start-dev keeps everything in an in-memory H2 database, so the realm is rebuilt
-  # from the committed export on every start and nothing here is a production deployment. The app does
-  # not contact Keycloak at boot — the OIDC handler fetches discovery metadata lazily, on first sign-in
-  # — so waiting for the container to start is enough and no healthcheck is needed.
+  # from the committed export on every start and nothing here is a production deployment.
   sergin.identity:
-    image: quay.io/keycloak/keycloak:26.5
+    image: quay.io/keycloak/keycloak:26.7.4
     container_name: Sergin.Identity
     command: ["start-dev", "--import-realm"]
     environment:
@@ -70,13 +68,22 @@ services:
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HOSTNAME_STRICT: "false"
       KC_HTTP_ENABLED: "true"
+      KC_HEALTH_ENABLED: "true"
     ports:
       - 8080:8080
     volumes:
       - ./.files/identity:/opt/keycloak/data/import:ro
+    healthcheck:
+      # No curl/wget in the Keycloak image (security-stripped), so probe the management
+      # health port (9000) with bash's /dev/tcp instead.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/9000 && echo -e 'GET /health/ready HTTP/1.1\\r\\nhost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '200 OK' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
 
   sergin.dashboard:
-    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.4
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.5.2
     container_name: Sergin.Dashboard
     environment:
       ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: true
