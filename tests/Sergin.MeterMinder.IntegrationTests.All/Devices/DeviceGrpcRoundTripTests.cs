@@ -18,6 +18,8 @@ using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Domain.Users;
 using Sergin.SharedKernel.Presentation.Grpc.Dispatching;
 using Grpc.Net.Client;
+using Grpc.Core.Interceptors;
+using Sergin.SharedKernel.Presentation.Grpc.Concurrency;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Devices;
 
@@ -27,7 +29,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Devices;
 /// IGetDeviceQueryRepository instead of Postgres, so it needs no Testcontainers. Proves Local and
 /// Remote agree, byte for byte, for the same input. Both sides are a plain ISender: "Local" is the
 /// server app's own bespoke MediatR registration (InitializeAsync, below); "Remote" is
-/// BuildRemoteSender's bespoke registration, whose GetDeviceByIdQueryCommand handler is
+/// BuildRemoteProvider's bespoke registration, whose GetDeviceByIdQueryCommand handler is
 /// RemoteForwardingHandler&lt;GetDeviceByIdQueryCommand, DeviceQueryResponse&gt; wrapping
 /// GetDeviceByIdGrpcInvoker's real gRPC call into the Kestrel server started here. There is no
 /// dispatcher and no Local/Remote routing decision left anywhere in this file — MediatR dispatches
@@ -40,6 +42,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
     private WebApplication server = null!;
     private GrpcChannel channel = null!;
     private StubDeviceQueryRepository repository = null!;
+    private readonly SeenExpected seenExpected = new();
 
     public async Task InitializeAsync()
     {
@@ -55,22 +58,26 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 
         repository = new StubDeviceQueryRepository();
 
-        builder.Services.AddGrpc();
+        builder.Services.AddGrpc(options => options.Interceptors.Add<ConcurrencyServerInterceptor>());
         builder.Services.AddSingleton<IGetDeviceQueryRepository>(repository);
         builder.Services.AddSingleton<IUserContextFactory>(
             new StubUserContextFactory([DevicesReadPermission]));
         builder.Services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         builder.Services.AddScoped<ConcurrencyContext>();
+        builder.Services.AddSingleton(seenExpected);
 
         // Deliberately no PermissionCheckPipelineBehavior/ValidationPipelineBehavior registered on this
         // "Local" comparison side, even though Task 5's InternalsVisibleTo grant would now let this test
-        // project reference them directly (see BuildRemoteSender, below, which does). This side exists
+        // project reference them directly (see BuildRemoteProvider, below, which does). This side exists
         // purely to prove Local and Remote agree on the handler's own output for the same input; it never
         // enforced permissions before the redesign and doesn't need to now. The forbidden-path test below
-        // is exercised entirely by BuildRemoteSender's own real PermissionCheckPipelineBehavior — this
+        // is exercised entirely by BuildRemoteProvider's own real PermissionCheckPipelineBehavior — this
         // server-side registration plays no part in it.
         builder.Services.AddMediatR(o =>
-            o.RegisterServicesFromAssembly(DeviceManagementApplicationAssemblyReference.Assembly));
+        {
+            o.RegisterServicesFromAssembly(DeviceManagementApplicationAssemblyReference.Assembly);
+            o.AddOpenBehavior(typeof(CaptureExpectedBehavior<,>));
+        });
 
         server = builder.Build();
         server.MapGrpcService<DeviceGrpcService>();
@@ -104,7 +111,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 
         GetDeviceByIdQueryCommand command = new(deviceGuid);
 
-        ISender remoteSender = BuildRemoteSender([DevicesReadPermission]);
+        ISender remoteSender = BuildRemoteProvider([DevicesReadPermission]).GetRequiredService<ISender>();
         ErrorOr<DeviceQueryResponse> remoteResult = await remoteSender.Send(command);
 
         // "Local" comparison goes through the server app's own bespoke MediatR setup wired in
@@ -122,7 +129,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
     [Fact]
     public async Task RemoteDispatch_ForMissingDevice_ReturnsNotFound()
     {
-        ISender sender = BuildRemoteSender([DevicesReadPermission]);
+        ISender sender = BuildRemoteProvider([DevicesReadPermission]).GetRequiredService<ISender>();
 
         ErrorOr<DeviceQueryResponse> result = await sender.Send(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
 
@@ -134,11 +141,11 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
     public async Task RemoteDispatch_WithoutRequiredPermission_ReturnsForbidden()
     {
         // Deliberately queries for a device the shared `repository` field was never given — if the real
-        // PermissionCheckPipelineBehavior (registered below in BuildRemoteSender, reachable only via
+        // PermissionCheckPipelineBehavior (registered below in BuildRemoteProvider, reachable only via
         // Task 5's InternalsVisibleTo grant into the SharedKernel Application assembly) ever stopped
         // running ahead of RemoteForwardingHandler's gRPC call, this would fail as NotFound (from a real
         // round trip that reached the server) instead of Forbidden, not silently pass either way.
-        ISender sender = BuildRemoteSender([]);
+        ISender sender = BuildRemoteProvider([]).GetRequiredService<ISender>();
 
         ErrorOr<DeviceQueryResponse> result =
             await sender.Send(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
@@ -147,14 +154,36 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         Assert.Equal(ErrorType.Forbidden, result.FirstError.Type);
     }
 
-    private ISender BuildRemoteSender(Permission[] permissions)
+    [Fact]
+    public async Task RemoteDispatch_CarriesTheVersion_BothWays()
+    {
+        var deviceGuid = Guid.CreateVersion7();
+        var stored = RowVersion.Create();
+        repository.Add(new DeviceIntenralId(deviceGuid), new DeviceQueryResponse(deviceGuid, "DEV-7", Guid.CreateVersion7(), "XYZ-7"), stored);
+        var sent = RowVersion.Create();
+
+        using ServiceProvider provider = BuildRemoteProvider([DevicesReadPermission]);
+        using IServiceScope scope = provider.CreateScope();
+        ConcurrencyContext concurrency = scope.ServiceProvider.GetRequiredService<ConcurrencyContext>();
+        concurrency.Expected = sent;
+
+        ErrorOr<DeviceQueryResponse> result = await scope.ServiceProvider.GetRequiredService<ISender>()
+            .Send(new GetDeviceByIdQueryCommand(deviceGuid));
+
+        Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
+        Assert.Equal(sent, seenExpected.Value);
+        Assert.Equal(stored, concurrency.Current);
+    }
+
+    private ServiceProvider BuildRemoteProvider(Permission[] permissions)
     {
         ServiceCollection services = new();
 
         services.AddSingleton<IUserContextFactory>(new StubUserContextFactory(permissions));
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         services.AddScoped<ConcurrencyContext>();
-        services.AddSingleton(new DeviceService.DeviceServiceClient(channel));
+        services.AddScoped(provider => new DeviceService.DeviceServiceClient(
+            channel.Intercept(new ConcurrencyClientInterceptor(provider.GetRequiredService<ConcurrencyContext>()))));
         services.AddScoped<IRemoteInvoker<GetDeviceByIdQueryCommand, DeviceQueryResponse>, GetDeviceByIdGrpcInvoker>();
 
         // AddMediatR throws ("No assemblies found to scan") if given no assembly at all, even though the
@@ -175,7 +204,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
             IRequestHandler<GetDeviceByIdQueryCommand, ErrorOr<DeviceQueryResponse>>,
             RemoteForwardingHandler<GetDeviceByIdQueryCommand, DeviceQueryResponse>>();
 
-        return services.BuildServiceProvider().GetRequiredService<ISender>();
+        return services.BuildServiceProvider();
     }
 
     private sealed class StubDeviceQueryRepository : IGetDeviceQueryRepository
@@ -202,5 +231,21 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         public string LastName => "User";
         public string Email => "stub@sergin.local";
         public HashSet<Permission> Permissions { get; } = [.. permissions];
+    }
+
+    private sealed class SeenExpected
+    {
+        public RowVersion? Value { get; set; }
+    }
+
+    private sealed class CaptureExpectedBehavior<TRequest, TResponse>(ConcurrencyContext concurrency, SeenExpected seen)
+        : IPipelineBehavior<TRequest, TResponse>
+        where TRequest : notnull
+    {
+        public Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
+        {
+            seen.Value = concurrency.Expected;
+            return next(cancellationToken);
+        }
     }
 }
