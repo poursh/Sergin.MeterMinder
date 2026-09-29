@@ -1,7 +1,7 @@
 # Optimistic concurrency as an aggregate feature
 
 **Date:** 2026-09-29
-**Status:** Design approved, not implemented
+**Status:** Implemented on feat/optimistic-concurrency (host) and feat/optimistic-concurrency (Sergin.SharedKernel)
 **Builds on:** [2026-09-23-aggregate-configuration-audit-design.md](2026-09-23-aggregate-configuration-audit-design.md),
 [2026-09-28-soft-delete-design.md](2026-09-28-soft-delete-design.md)
 
@@ -80,7 +80,7 @@ request refused for a missing precondition is not worth validating.
 Custom types rather than `Conflict`/`Validation`, so the HTTP status is right with no WebApi special case and
 a Blazor page recognises a stale version by type, not by comparing a code string. `SerginProblemFactory`
 gains a case for each in `GetStatusCode`, `GetTitle` and `GetDetail` (localised on `error.Code` like the
-other non-validation types), and the localisation resources gain both codes' `.title` and detail entries.
+other non-validation types); there are no resource files: `DefaultLocalizer` answers the key.
 
 **Targeted cleanup** — `PermissionCheckPipelineBehavior` builds an `ErrorOr<T>` from an `Error` with inline
 reflection. The new behavior needs the same code, so it moves to an internal
@@ -120,8 +120,12 @@ must be bumped but not checked:
    `CurrentValue = RowVersion.Create()`; an `Added` root gets its first version. A root left `Unchanged`
    while a child changed has only its `row_version` property marked modified — the `AddModel` case. A
    changed child whose root is not tracked throws `InvalidOperationException`: every write goes through the
-   root's behaviour, so the root is always loaded. In `SavedChangesAsync` it writes the new version of the
-   checked root (or of the single root touched, when nothing was checked) to `ConcurrencyContext.Current`.
+   root's behaviour, so the root is always loaded. In `SavedChangesAsync` it publishes to
+   `ConcurrencyContext.Current`: the checked root's new version when one was checked; otherwise, when a
+   version was sent but nothing was checked (the command changed nothing, or only a domain-event handler
+   changed another root), the version that was sent — publishing another root's would hand the caller a
+   version that belongs to a different aggregate; otherwise, when no version was sent (a create), the single
+   root touched.
 
 The final registration order is `ExpectedVersion`, `EventDispatcher`, `AuditStamp`, `SoftDelete`,
 `RowVersionBump`. Postgres does the check atomically:
@@ -176,10 +180,14 @@ Pages:
 
 The filter compiles and is tested but stays unhosted, like the rest of the WebApi layer.
 
-**gRPC** — `RemoteForwardingHandler<TRequest, TResponse>` runs in the caller's scope: it sends `Expected` as
-`sergin-expected-version` request metadata and reads the `sergin-version` response header into `Current`.
-A server interceptor in `Sergin.SharedKernel.Presentation.Grpc` mirrors it: it seeds `Expected` from the
-metadata into the call's scope and writes `Current` to the response header.
+**gRPC** — the client side is `ConcurrencyClientInterceptor`, put on the invoker's channel (not
+`RemoteForwardingHandler<TRequest, TResponse>` itself, because `IRemoteInvoker<,>` cannot take metadata
+without a breaking change): it sends `Expected` as `sergin-expected-version` request metadata and reads
+`Current` back from the `sergin-version` response **trailer**. `ConcurrencyServerInterceptor`, the serving
+host's half, seeds `Expected` from that metadata into the call's scope before the service runs its pipeline
+and writes `Current` to the response trailer afterwards. A malformed `sergin-expected-version` header — not
+parseable as a non-empty GUID — is rejected by `ConcurrencyServerInterceptor` with
+`RpcException(StatusCode.InvalidArgument)` before the pipeline runs, the gRPC analogue of the WebApi 400.
 
 ### 4. DeviceManagement wiring
 
