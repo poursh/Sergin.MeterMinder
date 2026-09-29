@@ -10,8 +10,10 @@ using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Grpc;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
+using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
+using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Domain.Users;
 using Sergin.SharedKernel.Presentation.Grpc.Dispatching;
@@ -58,6 +60,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         builder.Services.AddSingleton<IUserContextFactory>(
             new StubUserContextFactory([DevicesReadPermission]));
         builder.Services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
+        builder.Services.AddScoped<ConcurrencyContext>();
 
         // Deliberately no PermissionCheckPipelineBehavior/ValidationPipelineBehavior registered on this
         // "Local" comparison side, even though Task 5's InternalsVisibleTo grant would now let this test
@@ -97,7 +100,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         var deviceGuid = Guid.CreateVersion7();
         DeviceIntenralId internalId = new(deviceGuid);
         DeviceQueryResponse expected = new(deviceGuid, "DEV-42", Guid.CreateVersion7(), "XYZ-200");
-        repository.Add(internalId, expected);
+        repository.Add(internalId, expected, RowVersion.Create());
 
         GetDeviceByIdQueryCommand command = new(deviceGuid);
 
@@ -150,6 +153,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 
         services.AddSingleton<IUserContextFactory>(new StubUserContextFactory(permissions));
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
+        services.AddScoped<ConcurrencyContext>();
         services.AddSingleton(new DeviceService.DeviceServiceClient(channel));
         services.AddScoped<IRemoteInvoker<GetDeviceByIdQueryCommand, DeviceQueryResponse>, GetDeviceByIdGrpcInvoker>();
 
@@ -176,11 +180,12 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 
     private sealed class StubDeviceQueryRepository : IGetDeviceQueryRepository
     {
-        private readonly Dictionary<DeviceIntenralId, DeviceQueryResponse> devices = [];
+        private readonly Dictionary<DeviceIntenralId, Versioned<DeviceQueryResponse>> devices = [];
 
-        public void Add(DeviceIntenralId id, DeviceQueryResponse response) => devices[id] = response;
+        public void Add(DeviceIntenralId id, DeviceQueryResponse response, RowVersion version) =>
+            devices[id] = new Versioned<DeviceQueryResponse>(response, version);
 
-        public Task<DeviceQueryResponse?> GetDeviceById(DeviceIntenralId Id, CancellationToken cancellationToken = default) =>
+        public Task<Versioned<DeviceQueryResponse>?> GetDeviceById(DeviceIntenralId Id, CancellationToken cancellationToken = default) =>
             Task.FromResult(devices.GetValueOrDefault(Id));
     }
 
