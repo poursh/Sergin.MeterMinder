@@ -84,7 +84,7 @@ other non-validation types); there are no resource files: `DefaultLocalizer` ans
 
 **Targeted cleanup** — `PermissionCheckPipelineBehavior` builds an `ErrorOr<T>` from an `Error` with inline
 reflection. The new behavior needs the same code, so it moves to an internal
-`ErrorOrResponse.From<TResponse>(Error)` helper used by both.
+`ErrorOrResponse.TryFrom<TResponse>(Error, out TResponse)` helper used by both.
 
 ### 2. Model shape, interceptors, exception translation
 
@@ -139,6 +139,15 @@ nothing is persisted.
 
 **Edge case** — `Expected` set but the handler changed nothing: no row is written, so nothing is checked,
 and the send succeeds. There is nothing to lose.
+
+**`row_version` is a real EF concurrency token**, so the check above is narrower than "checked only when
+`Expected` is set" makes it sound: every update to a tracked versioned root is checked against the version
+it was loaded at in that scope, `Expected` or not — EF puts the tracked entity's `OriginalValue` into the
+WHERE clause regardless. An unguarded command that loads and saves the same aggregate, a domain-event
+handler's change, and an outbox consumer's save can all still hit a conflict this way: 412 through the
+pipeline for a command, a retried row for the relay. `Expected`/`ExpectedVersionInterceptor` adds one more
+thing on top — a caller-supplied check across scopes, for when the load and the save are different
+requests, which the tracked `OriginalValue` alone cannot provide.
 
 ### 3. Read side and front-end adapters
 
@@ -228,7 +237,7 @@ fixture.
 1. Work in a git worktree.
 2. **Sergin.SharedKernel PR first**: the carrier, attribute, behavior, errors, builder method, convention,
    both interceptors, exception translation, dispatcher overload, endpoint filter, gRPC propagation, the
-   `ErrorOrResponse` extraction, resources, and its `.claude/CLAUDE.md`.
+   `ErrorOrResponse` extraction, and its `.claude/CLAUDE.md`.
 3. **Sergin.MeterMinder**: the submodule bump, DeviceManagement wiring, migration, pages, tests, and
    `CLAUDE.md` — drop "`RowVersion` exists … no aggregate carries one" and "Concurrency … not built on this
    mechanism yet", and add a Concurrency bullet under Cross-cutting conventions.

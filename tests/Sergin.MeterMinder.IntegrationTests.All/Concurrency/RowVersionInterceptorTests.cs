@@ -148,6 +148,32 @@ public sealed class RowVersionInterceptorTests(SerginWebApiFactory<Program> fact
     }
 
     [Fact]
+    public async Task ExpectedVersion_IsAdvanced_AfterACheckedSave_SoASecondSaveInTheSameScopeSucceeds()
+    {
+        (Guid id, RowVersion? first) = await SaveNewAsync(Pallet.Create(UniqueCode()));
+
+        using IServiceScope scope = ScopeWith(first);
+        TestVersionedDbContext context = scope.ServiceProvider.GetRequiredService<TestVersionedDbContext>();
+        ConcurrencyContext concurrency = scope.ServiceProvider.GetRequiredService<ConcurrencyContext>();
+        Pallet pallet = await context.Pallets.SingleAsync(p => p.Id == id);
+
+        pallet.Rename(UniqueCode());
+        await context.SaveChangesAsync();
+        RowVersion? second = concurrency.Current;
+
+        Assert.NotNull(second);
+        Assert.NotEqual(first!.Value, second.Value);
+
+        pallet.Rename(UniqueCode());
+        await context.SaveChangesAsync();
+        RowVersion? third = concurrency.Current;
+
+        Assert.NotNull(third);
+        Assert.NotEqual(second.Value, third.Value);
+        Assert.Equal(third.Value, await ReadVersionAsync(id));
+    }
+
+    [Fact]
     public async Task RootChangedByAnEventHandler_IsBumped_ButNotChecked()
     {
         (Guid a, RowVersion? versionA) = await SaveNewAsync(Pallet.Create(UniqueCode()));

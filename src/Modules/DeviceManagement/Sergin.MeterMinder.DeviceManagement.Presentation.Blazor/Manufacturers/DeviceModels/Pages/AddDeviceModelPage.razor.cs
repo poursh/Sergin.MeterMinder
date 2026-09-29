@@ -17,6 +17,7 @@ public sealed partial class AddDeviceModelPage
 
     private string? manufacturerName;
     private RowVersion? manufacturerVersion;
+    private IReadOnlyList<Error>? manufacturerLoadErrors;
 
     private MudForm form = default!;
     private bool isValid;
@@ -54,8 +55,8 @@ public sealed partial class AddDeviceModelPage
 
     /// <summary>
     /// Loads the manufacturer to name it in the trail and to keep the version the new model is added against. A
-    /// failure is deliberately silent: the step keeps its placeholder, and an unknown manufacturer is reported
-    /// by the submit as not-found — a breadcrumb label is not worth a second snackbar.
+    /// failure keeps the trail's placeholder silently — a breadcrumb label is not worth a second snackbar — but
+    /// its errors are kept for the submit, which has no version to send in that case.
     /// </summary>
     protected override Task OnParametersSetAsync() => LoadManufacturerAsync();
 
@@ -66,6 +67,7 @@ public sealed partial class AddDeviceModelPage
 
         manufacturerName = loaded.Result.IsError ? null : loaded.Result.Value.Name;
         manufacturerVersion = loaded.Version;
+        manufacturerLoadErrors = loaded.Result.IsError ? loaded.Result.Errors : null;
     }
 
     // One mapping for both the field-by-field validation and the submit, so the two cannot drift.
@@ -81,12 +83,19 @@ public sealed partial class AddDeviceModelPage
             return;
         }
 
+        // A manufacturer that could not be read has no version to send: sending a fabricated one would always
+        // come back stale, so report the load failure instead and let the user retry.
+        if (manufacturerVersion is not { } expectedVersion)
+        {
+            ErrorPresenter.Notify(manufacturerLoadErrors ?? [Error.NotFound()]);
+            await LoadManufacturerAsync();
+            return;
+        }
+
         submitting = true;
 
-        // A manufacturer that could not be read has no version: send a fresh one, so the submit reports the
-        // handler's not-found instead of a missing version.
         VersionedResult<AddDeviceModelCommandResponse> result =
-            await Dispatcher.SendVersionedAsync(ToCommand(), manufacturerVersion ?? RowVersion.Create());
+            await Dispatcher.SendVersionedAsync(ToCommand(), expectedVersion);
 
         submitting = false;
 

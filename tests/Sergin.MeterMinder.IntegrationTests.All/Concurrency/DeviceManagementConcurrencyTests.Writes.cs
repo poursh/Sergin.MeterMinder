@@ -70,6 +70,33 @@ public sealed partial class DeviceManagementConcurrencyTests
     }
 
     [Fact]
+    public async Task DeleteDevice_WithoutAVersion_IsRefusedWith428()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        Guid deviceId = await CreateDeviceAsync(dispatcher);
+
+        ErrorOr<DeleteDeviceCommandResponse> deleted = await dispatcher.SendAsync(new DeleteDeviceCommand(deviceId));
+
+        Assert.Equal(VersionErrors.RequiredType, (int)deleted.FirstError.Type);
+        Assert.False((await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(deviceId))).IsError);
+    }
+
+    [Fact]
+    public async Task DeleteManufacturer_WithoutAVersion_IsRefusedWith428()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
+
+        ErrorOr<DeleteManufacturerCommandResponse> deleted =
+            await dispatcher.SendAsync(new DeleteManufacturerCommand(manufacturerId.Value));
+
+        Assert.Equal(VersionErrors.RequiredType, (int)deleted.FirstError.Type);
+        Assert.False((await dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value))).IsError);
+    }
+
+    [Fact]
     public async Task DeleteDevice_AtAStaleVersion_IsRefused_AndTheDeviceStaysLive()
     {
         using IServiceScope scope = factory.Services.CreateScope();
