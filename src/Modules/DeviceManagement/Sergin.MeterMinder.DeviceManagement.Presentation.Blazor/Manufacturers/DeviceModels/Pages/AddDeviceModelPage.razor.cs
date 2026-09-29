@@ -5,6 +5,8 @@ using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.DeviceModels.Models;
+using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.DeviceModels.Pages;
@@ -14,6 +16,7 @@ public sealed partial class AddDeviceModelPage
     private readonly NewDeviceModelFormModel model = new();
 
     private string? manufacturerName;
+    private RowVersion? manufacturerVersion;
 
     private MudForm form = default!;
     private bool isValid;
@@ -50,16 +53,19 @@ public sealed partial class AddDeviceModelPage
     protected override void OnInitialized() => validation = FormValidator.RulesFor(ToCommand);
 
     /// <summary>
-    /// Loads the manufacturer only to name it in the trail. A failure is deliberately silent: the step keeps
-    /// its placeholder, and an unknown manufacturer is already reported by the submit as not-found — a
-    /// breadcrumb label is not worth a second snackbar.
+    /// Loads the manufacturer to name it in the trail and to keep the version the new model is added against. A
+    /// failure is deliberately silent: the step keeps its placeholder, and an unknown manufacturer is reported
+    /// by the submit as not-found — a breadcrumb label is not worth a second snackbar.
     /// </summary>
-    protected override async Task OnParametersSetAsync()
-    {
-        ErrorOr<ManufacturerQueryResponse> result =
-            await Dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(ManufacturerId));
+    protected override Task OnParametersSetAsync() => LoadManufacturerAsync();
 
-        manufacturerName = result.IsError ? null : result.Value.Name;
+    private async Task LoadManufacturerAsync()
+    {
+        VersionedResult<ManufacturerQueryResponse> loaded =
+            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(ManufacturerId));
+
+        manufacturerName = loaded.Result.IsError ? null : loaded.Result.Value.Name;
+        manufacturerVersion = loaded.Version;
     }
 
     // One mapping for both the field-by-field validation and the submit, so the two cannot drift.
@@ -77,19 +83,27 @@ public sealed partial class AddDeviceModelPage
 
         submitting = true;
 
-        ErrorOr<AddDeviceModelCommandResponse> result = await Dispatcher.SendAsync(ToCommand());
+        // A manufacturer that could not be read has no version: send a fresh one, so the submit reports the
+        // handler's not-found instead of a missing version.
+        VersionedResult<AddDeviceModelCommandResponse> result =
+            await Dispatcher.SendVersionedAsync(ToCommand(), manufacturerVersion ?? RowVersion.Create());
 
         submitting = false;
 
-        if (result.IsError)
+        if (result.Result.IsError)
         {
             // Every error, not the first: a duplicate name arrives as one validation error from the aggregate,
-            // an unknown manufacturer as not-found from the handler.
-            ErrorPresenter.Notify(result.Errors);
+            // an unknown manufacturer as not-found from the handler, a stale manufacturer as a version error.
+            ErrorPresenter.Notify(result.Result.Errors);
+
+            if (result.Result.Errors.Exists(VersionErrors.IsStale))
+            {
+                await LoadManufacturerAsync();
+            }
 
             return;
         }
 
-        Navigation.NavigateTo($"/dm/manufacturers/{ManufacturerId}/models/{result.Value.Id}");
+        Navigation.NavigateTo($"/dm/manufacturers/{ManufacturerId}/models/{result.Result.Value.Id}");
     }
 }
