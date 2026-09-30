@@ -76,6 +76,7 @@ request refused for a missing precondition is not worth validating.
 |---|---|---|---|
 | `Required` | `Error.Custom(428, …)` | `General.VersionRequired` | 428 Precondition Required |
 | `Stale` | `Error.Custom(412, …)` | `General.VersionStale` | 412 Precondition Failed |
+| `NotPublished` | `Error.Unexpected(…)` | `General.VersionNotPublished` | 500 (a caller bug; see Blazor below) |
 
 Custom types rather than `Conflict`/`Validation`, so the HTTP status is right with no WebApi special case and
 a Blazor page recognises a stale version by type, not by comparing a code string. `SerginProblemFactory`
@@ -153,21 +154,25 @@ requests, which the tracked `OriginalValue` alone cannot provide.
 
 **Read side** — a GetOne query selects `row_version` as well. Dapper binds a record through its
 constructor, so the extra column cannot land in `DeviceQueryResponse`; the repository reads it with a split
-mapping and returns `Versioned<T>(T Value, RowVersion Version)`, a new SharedKernel record. The handler sets
-`concurrency.Current = result.Version` and returns `result.Value`. Response records do not change. Two
+mapping and returns `Versioned<T>(T Value, RowVersion Version)`, a new SharedKernel record. The handler derives
+from `VersionedQueryHandler<TQuery, TResponse>` and returns the `Versioned<T>` from `HandleVersioned`; the base
+sets `concurrency.Current` and returns the bare value. Response records do not change. Two
 handlers change: `GetDeviceById` and `GetManufacturerById`. List queries carry no version: nothing on a list
 page writes.
 
 **Blazor** — `ISerginDispatcher` gains:
 
 ```csharp
-Task<VersionedResult<TResponse>> SendVersionedAsync<TResponse>(
+Task<ErrorOr<Versioned<TResponse>>> SendVersionedAsync<TResponse>(
     IRequest<ErrorOr<TResponse>> request,
     RowVersion? expected = null,
     CancellationToken cancellationToken = default);
 ```
 
-`VersionedResult<T>` holds `ErrorOr<T> Result` and `RowVersion? Version`. `ScopedSerginDispatcher` seeds
+The result is the read side's own shape, so a version exists only on success. A send that succeeds but
+publishes no `Current` (it touched no versioned aggregate, or a remote reply carried no version) returns
+`VersionErrors.NotPublished`, an `Unexpected` error: asking such a request for its version is a caller bug.
+`ScopedSerginDispatcher` seeds
 `ConcurrencyContext.Expected` in the child scope, where it already seeds `UserContextAccessor`, and reads
 `Current` back before the scope is disposed. `SendAsync` does not change, so no other page does.
 

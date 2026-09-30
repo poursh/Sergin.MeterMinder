@@ -3,11 +3,15 @@ using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.Create;
+using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels.Commands.Add;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
+using Sergin.SharedKernel.Application;
+using Sergin.SharedKernel.Application.Commands.Queries;
+using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 
@@ -28,14 +32,13 @@ public sealed partial class DeviceManagementConcurrencyTests(SerginWebApiFactory
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
 
-        VersionedResult<ManufacturerQueryResponse> first =
+        ErrorOr<Versioned<ManufacturerQueryResponse>> first =
             await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value));
-        VersionedResult<ManufacturerQueryResponse> second =
+        ErrorOr<Versioned<ManufacturerQueryResponse>> second =
             await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value));
 
-        Assert.False(first.Result.IsError);
-        Assert.NotNull(first.Version);
-        Assert.Equal(first.Version, second.Version);
+        Assert.False(first.IsError);
+        Assert.Equal(first.Value.Version, second.Value.Version);
     }
 
     [Fact]
@@ -45,23 +48,34 @@ public sealed partial class DeviceManagementConcurrencyTests(SerginWebApiFactory
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         Guid deviceId = await CreateDeviceAsync(dispatcher);
 
-        VersionedResult<DeviceQueryResponse> loaded = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(deviceId));
+        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(deviceId));
 
-        Assert.False(loaded.Result.IsError);
-        Assert.NotNull(loaded.Version);
+        Assert.False(loaded.IsError);
     }
 
     [Fact]
-    public async Task GetManufacturerById_ForAMissingRecord_HasNoVersion()
+    public async Task GetManufacturerById_ForAMissingRecord_IsNotFound()
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
-        VersionedResult<ManufacturerQueryResponse> loaded =
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
             await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(Guid.CreateVersion7()));
 
-        Assert.Equal(ErrorType.NotFound, loaded.Result.FirstError.Type);
-        Assert.Null(loaded.Version);
+        Assert.Equal(ErrorType.NotFound, loaded.FirstError.Type);
+    }
+
+    // A list reads no single aggregate, so it publishes no version: asking for one is a caller bug.
+    [Fact]
+    public async Task SendVersioned_ForARequestThatPublishesNoVersion_IsNotPublished()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+
+        ErrorOr<Versioned<ListQueryResponse<GetManufacturerListItem>>> listed =
+            await dispatcher.SendVersionedAsync(new GetManufacturerListQueryCommand(Paggination.Create(10, 1)));
+
+        Assert.Equal(VersionErrors.NotPublished, listed.FirstError);
     }
 
     private static async Task<ManufacturerId> CreateManufacturerAsync(ISerginDispatcher dispatcher)
@@ -75,14 +89,14 @@ public sealed partial class DeviceManagementConcurrencyTests(SerginWebApiFactory
 
     private static async Task<DeviceModelInternalId> AddDeviceModelAsync(ISerginDispatcher dispatcher, ManufacturerId manufacturerId)
     {
-        VersionedResult<ManufacturerQueryResponse> loaded =
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
             await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value));
-        VersionedResult<AddDeviceModelCommandResponse> added = await dispatcher.SendVersionedAsync(
+        ErrorOr<Versioned<AddDeviceModelCommandResponse>> added = await dispatcher.SendVersionedAsync(
             new AddDeviceModelCommand(manufacturerId, new DeviceModelName($"model-{Guid.CreateVersion7()}")),
-            loaded.Version);
-        Assert.False(added.Result.IsError, added.Result.IsError ? added.Result.FirstError.Description : string.Empty);
+            loaded.Value.Version);
+        Assert.False(added.IsError, added.IsError ? added.FirstError.Description : string.Empty);
 
-        return new DeviceModelInternalId(added.Result.Value.Id);
+        return new DeviceModelInternalId(added.Value.Value.Id);
     }
 
     private static async Task<Guid> CreateDeviceAsync(ISerginDispatcher dispatcher)

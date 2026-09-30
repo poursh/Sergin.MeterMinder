@@ -2,6 +2,7 @@ using ErrorOr;
 using MediatR;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetOne;
+using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 
@@ -18,18 +19,20 @@ internal static class VersionedDispatch
     public static async Task<ErrorOr<TResponse>> SendAtManufacturerVersionAsync<TResponse>(
         this ISerginDispatcher dispatcher, Guid manufacturerId, IRequest<ErrorOr<TResponse>> command)
     {
-        VersionedResult<ManufacturerQueryResponse> loaded =
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
             await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId));
 
-        return (await dispatcher.SendVersionedAsync(command, loaded.Version ?? RowVersion.Create())).Result;
+        return (await dispatcher.SendVersionedAsync(command, loaded.IsError ? RowVersion.Create() : loaded.Value.Version))
+            .Then(sent => sent.Value);
     }
 
     public static async Task<ErrorOr<TResponse>> SendAtDeviceVersionAsync<TResponse>(
         this ISerginDispatcher dispatcher, Guid deviceId, IRequest<ErrorOr<TResponse>> command)
     {
-        VersionedResult<DeviceQueryResponse> loaded =
+        ErrorOr<Versioned<DeviceQueryResponse>> loaded =
             await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(deviceId));
 
-        return (await dispatcher.SendVersionedAsync(command, loaded.Version ?? RowVersion.Create())).Result;
+        return (await dispatcher.SendVersionedAsync(command, loaded.IsError ? RowVersion.Create() : loaded.Value.Version))
+            .Then(sent => sent.Value);
     }
 }

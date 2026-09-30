@@ -37,18 +37,17 @@ public sealed partial class DeviceManagementConcurrencyTests
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
 
-        VersionedResult<ManufacturerQueryResponse> loaded =
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
             await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value));
 
-        VersionedResult<AddDeviceModelCommandResponse> first = await dispatcher.SendVersionedAsync(
-            new AddDeviceModelCommand(manufacturerId, new DeviceModelName($"model-{Guid.CreateVersion7()}")), loaded.Version);
-        VersionedResult<AddDeviceModelCommandResponse> replay = await dispatcher.SendVersionedAsync(
-            new AddDeviceModelCommand(manufacturerId, new DeviceModelName($"model-{Guid.CreateVersion7()}")), loaded.Version);
+        ErrorOr<Versioned<AddDeviceModelCommandResponse>> first = await dispatcher.SendVersionedAsync(
+            new AddDeviceModelCommand(manufacturerId, new DeviceModelName($"model-{Guid.CreateVersion7()}")), loaded.Value.Version);
+        ErrorOr<Versioned<AddDeviceModelCommandResponse>> replay = await dispatcher.SendVersionedAsync(
+            new AddDeviceModelCommand(manufacturerId, new DeviceModelName($"model-{Guid.CreateVersion7()}")), loaded.Value.Version);
 
-        Assert.False(first.Result.IsError, first.Result.IsError ? first.Result.FirstError.Description : string.Empty);
-        Assert.NotNull(first.Version);
-        Assert.NotEqual(loaded.Version, first.Version);
-        Assert.True(VersionErrors.IsStale(replay.Result.FirstError));
+        Assert.False(first.IsError, first.IsError ? first.FirstError.Description : string.Empty);
+        Assert.NotEqual(loaded.Value.Version, first.Value.Version);
+        Assert.True(VersionErrors.IsStale(replay.FirstError));
         Assert.Equal(1, await CountModelsAsync(dispatcher, manufacturerId));
     }
 
@@ -60,13 +59,13 @@ public sealed partial class DeviceManagementConcurrencyTests
         ManufacturerId a = await CreateManufacturerAsync(dispatcher);
         ManufacturerId b = await CreateManufacturerAsync(dispatcher);
 
-        VersionedResult<ManufacturerQueryResponse> loadedA =
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loadedA =
             await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(a.Value));
 
-        VersionedResult<AddDeviceModelCommandResponse> added = await dispatcher.SendVersionedAsync(
-            new AddDeviceModelCommand(b, new DeviceModelName($"model-{Guid.CreateVersion7()}")), loadedA.Version);
+        ErrorOr<Versioned<AddDeviceModelCommandResponse>> added = await dispatcher.SendVersionedAsync(
+            new AddDeviceModelCommand(b, new DeviceModelName($"model-{Guid.CreateVersion7()}")), loadedA.Value.Version);
 
-        Assert.True(VersionErrors.IsStale(added.Result.FirstError));
+        Assert.True(VersionErrors.IsStale(added.FirstError));
     }
 
     [Fact]
@@ -103,10 +102,10 @@ public sealed partial class DeviceManagementConcurrencyTests
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         Guid deviceId = await CreateDeviceAsync(dispatcher);
 
-        VersionedResult<DeleteDeviceCommandResponse> deleted =
+        ErrorOr<Versioned<DeleteDeviceCommandResponse>> deleted =
             await dispatcher.SendVersionedAsync(new DeleteDeviceCommand(deviceId), Sergin.SharedKernel.Domain.RowVersion.Create());
 
-        Assert.True(VersionErrors.IsStale(deleted.Result.FirstError));
+        Assert.True(VersionErrors.IsStale(deleted.FirstError));
         Assert.False((await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(deviceId))).IsError);
     }
 
@@ -117,13 +116,13 @@ public sealed partial class DeviceManagementConcurrencyTests
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         Guid deviceId = await CreateDeviceAsync(dispatcher);
 
-        VersionedResult<DeviceQueryResponse> loaded = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(deviceId));
-        Assert.False((await dispatcher.SendVersionedAsync(new DeleteDeviceCommand(deviceId), loaded.Version)).Result.IsError);
+        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(deviceId));
+        Assert.False((await dispatcher.SendVersionedAsync(new DeleteDeviceCommand(deviceId), loaded.Value.Version)).IsError);
 
-        VersionedResult<DeleteDeviceCommandResponse> again =
-            await dispatcher.SendVersionedAsync(new DeleteDeviceCommand(deviceId), loaded.Version);
+        ErrorOr<Versioned<DeleteDeviceCommandResponse>> again =
+            await dispatcher.SendVersionedAsync(new DeleteDeviceCommand(deviceId), loaded.Value.Version);
 
-        Assert.Equal(ErrorType.NotFound, again.Result.FirstError.Type);
+        Assert.Equal(ErrorType.NotFound, again.FirstError.Type);
     }
 
     [Fact]
@@ -133,14 +132,14 @@ public sealed partial class DeviceManagementConcurrencyTests
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
 
-        VersionedResult<ManufacturerQueryResponse> pageLoad =
+        ErrorOr<Versioned<ManufacturerQueryResponse>> pageLoad =
             await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value));
         await AddDeviceModelAsync(dispatcher, manufacturerId);
 
-        VersionedResult<DeleteManufacturerCommandResponse> deleted =
-            await dispatcher.SendVersionedAsync(new DeleteManufacturerCommand(manufacturerId.Value), pageLoad.Version);
+        ErrorOr<Versioned<DeleteManufacturerCommandResponse>> deleted =
+            await dispatcher.SendVersionedAsync(new DeleteManufacturerCommand(manufacturerId.Value), pageLoad.Value.Version);
 
-        Assert.True(VersionErrors.IsStale(deleted.Result.FirstError));
+        Assert.True(VersionErrors.IsStale(deleted.FirstError));
         Assert.False((await dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value))).IsError);
     }
 

@@ -62,12 +62,12 @@ public sealed partial class AddDeviceModelPage
 
     private async Task LoadManufacturerAsync()
     {
-        VersionedResult<ManufacturerQueryResponse> loaded =
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
             await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(ManufacturerId));
 
-        manufacturerName = loaded.Result.IsError ? null : loaded.Result.Value.Name;
-        manufacturerVersion = loaded.Version;
-        manufacturerLoadErrors = loaded.Result.IsError ? loaded.Result.Errors : null;
+        manufacturerName = loaded.IsError ? null : loaded.Value.Value.Name;
+        manufacturerVersion = loaded.IsError ? null : loaded.Value.Version;
+        manufacturerLoadErrors = loaded.IsError ? loaded.Errors : null;
     }
 
     // One mapping for both the field-by-field validation and the submit, so the two cannot drift.
@@ -94,18 +94,18 @@ public sealed partial class AddDeviceModelPage
 
         submitting = true;
 
-        VersionedResult<AddDeviceModelCommandResponse> result =
+        ErrorOr<Versioned<AddDeviceModelCommandResponse>> result =
             await Dispatcher.SendVersionedAsync(ToCommand(), expectedVersion);
 
         submitting = false;
 
-        if (result.Result.IsError)
+        if (result.IsError)
         {
             // Every error, not the first: a duplicate name arrives as one validation error from the aggregate,
             // an unknown manufacturer as not-found from the handler, a stale manufacturer as a version error.
-            ErrorPresenter.Notify(result.Result.Errors);
+            ErrorPresenter.Notify(result.Errors);
 
-            if (result.Result.Errors.Exists(VersionErrors.IsStale))
+            if (result.Errors.Exists(VersionErrors.IsStale))
             {
                 await LoadManufacturerAsync();
             }
@@ -113,6 +113,6 @@ public sealed partial class AddDeviceModelPage
             return;
         }
 
-        Navigation.NavigateTo($"/dm/manufacturers/{ManufacturerId}/models/{result.Result.Value.Id}");
+        Navigation.NavigateTo($"/dm/manufacturers/{ManufacturerId}/models/{result.Value.Value.Id}");
     }
 }

@@ -44,21 +44,21 @@ public sealed partial class ManufacturerDetailPage
     // Keeps the version the manufacturer was read at, so the delete can say which manufacturer it means.
     private async Task LoadAsync()
     {
-        VersionedResult<ManufacturerQueryResponse> loaded =
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
             await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(Id));
 
-        if (loaded.Result.IsError)
+        if (loaded.IsError)
         {
             manufacturer = null;
             version = null;
-            problem = ErrorPresenter.Present(loaded.Result.FirstError);
+            problem = ErrorPresenter.Present(loaded.FirstError);
 
             return;
         }
 
         problem = null;
-        manufacturer = loaded.Result.Value;
-        version = loaded.Version;
+        manufacturer = loaded.Value.Value;
+        version = loaded.Value.Version;
     }
 
     private async Task DeleteAsync()
@@ -76,17 +76,17 @@ public sealed partial class ManufacturerDetailPage
 
         deleting = true;
 
-        VersionedResult<DeleteManufacturerCommandResponse> result =
+        ErrorOr<Versioned<DeleteManufacturerCommandResponse>> result =
             await Dispatcher.SendVersionedAsync(new DeleteManufacturerCommand(Id), version);
 
         deleting = false;
 
-        if (result.Result.IsError)
+        if (result.IsError)
         {
-            ErrorPresenter.Notify(result.Result.Errors);
+            ErrorPresenter.Notify(result.Errors);
 
             // Someone changed the manufacturer (added a model, say) after this page loaded it.
-            if (result.Result.Errors.Exists(VersionErrors.IsStale))
+            if (result.Errors.Exists(VersionErrors.IsStale))
             {
                 await LoadAsync();
             }
