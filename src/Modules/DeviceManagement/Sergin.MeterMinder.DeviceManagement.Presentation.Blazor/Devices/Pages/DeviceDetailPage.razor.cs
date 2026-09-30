@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
+using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Errors;
 
@@ -12,6 +14,7 @@ public sealed partial class DeviceDetailPage
     private DeviceQueryResponse? device;
     private SerginProblem? problem;
     private bool deleting;
+    private RowVersion? version;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -36,20 +39,25 @@ public sealed partial class DeviceDetailPage
         new(device?.DeviceId ?? "Device"),
     ];
 
-    protected override async Task OnParametersSetAsync()
-    {
-        ErrorOr<DeviceQueryResponse> result = await Dispatcher.SendAsync(new GetDeviceByIdQueryCommand(Id));
+    protected override Task OnParametersSetAsync() => LoadAsync();
 
-        if (result.IsError)
+    // Keeps the version the device was read at, so the delete can say which device it means.
+    private async Task LoadAsync()
+    {
+        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(Id));
+
+        if (loaded.IsError)
         {
             device = null;
-            problem = ErrorPresenter.Present(result.FirstError);
+            version = null;
+            problem = ErrorPresenter.Present(loaded.FirstError);
 
             return;
         }
 
         problem = null;
-        device = result.Value;
+        device = loaded.Value.Value;
+        version = loaded.Value.Version;
     }
 
     private async Task DeleteAsync()
@@ -67,13 +75,20 @@ public sealed partial class DeviceDetailPage
 
         deleting = true;
 
-        ErrorOr<DeleteDeviceCommandResponse> result = await Dispatcher.SendAsync(new DeleteDeviceCommand(Id));
+        ErrorOr<Versioned<DeleteDeviceCommandResponse>> result =
+            await Dispatcher.SendVersionedAsync(new DeleteDeviceCommand(Id), version);
 
         deleting = false;
 
         if (result.IsError)
         {
             ErrorPresenter.Notify(result.Errors);
+
+            // Someone changed the device after this page loaded it: show what is there now, with its version.
+            if (result.Errors.Exists(VersionErrors.IsStale))
+            {
+                await LoadAsync();
+            }
 
             return;
         }

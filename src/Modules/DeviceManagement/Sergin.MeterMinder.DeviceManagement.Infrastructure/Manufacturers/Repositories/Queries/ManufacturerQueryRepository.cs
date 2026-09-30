@@ -5,6 +5,8 @@ using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.Get
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Queries;
+using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Infrastracture.Data;
 
 namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Manufacturers.Repositories.Queries;
@@ -15,20 +17,27 @@ internal sealed class ManufacturerQueryRepository(
     // Every read filters deleted_at_utc IS NULL (SoftDeleteColumns.NotDeletedSql) on the table it reads: raw
     // SQL is not reached by EF's soft-delete query filter. A joined table is not filtered, so a live row still
     // shows the name of a deleted row it points at.
-    public async Task<ManufacturerQueryResponse?> GetManufacturerById(
+    // row_version is split off into its own mapped part: ManufacturerQueryResponse binds through its constructor,
+    // which has no parameter for it, and the version travels beside the response, not on it.
+    public async Task<Versioned<ManufacturerQueryResponse>?> GetManufacturerById(
         ManufacturerId id, CancellationToken cancellationToken = default)
     {
         using DbConnection connection = await connectionFactory.CreateConnectionAsync();
 
         string queries =
            """
-            SELECT id, name, address
+            SELECT id, name, address, row_version AS rowVersion
             FROM dm.manufacturer
             WHERE id = @Id AND deleted_at_utc IS NULL;
             """;
 
-        return await connection.QuerySingleOrDefaultAsync<ManufacturerQueryResponse>(
-            queries, new { Id = id.Value });
+        IEnumerable<Versioned<ManufacturerQueryResponse>> rows = await connection.QueryAsync<ManufacturerQueryResponse, Guid, Versioned<ManufacturerQueryResponse>>(
+            queries,
+            (manufacturer, rowVersion) => new Versioned<ManufacturerQueryResponse>(manufacturer, RowVersion.Create(rowVersion)),
+            new { Id = id.Value },
+            splitOn: "rowVersion");
+
+        return rows.SingleOrDefault();
     }
 
     public async Task<ListQueryResponse<GetManufacturerListItem>> GetListAsync(

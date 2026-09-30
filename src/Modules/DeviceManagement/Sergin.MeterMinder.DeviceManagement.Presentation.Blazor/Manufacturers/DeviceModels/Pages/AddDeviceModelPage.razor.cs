@@ -5,6 +5,8 @@ using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.DeviceModels.Models;
+using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.DeviceModels.Pages;
@@ -14,6 +16,8 @@ public sealed partial class AddDeviceModelPage
     private readonly NewDeviceModelFormModel model = new();
 
     private string? manufacturerName;
+    private RowVersion? manufacturerVersion;
+    private IReadOnlyList<Error>? manufacturerLoadErrors;
 
     private MudForm form = default!;
     private bool isValid;
@@ -50,16 +54,20 @@ public sealed partial class AddDeviceModelPage
     protected override void OnInitialized() => validation = FormValidator.RulesFor(ToCommand);
 
     /// <summary>
-    /// Loads the manufacturer only to name it in the trail. A failure is deliberately silent: the step keeps
-    /// its placeholder, and an unknown manufacturer is already reported by the submit as not-found — a
-    /// breadcrumb label is not worth a second snackbar.
+    /// Loads the manufacturer to name it in the trail and to keep the version the new model is added against. A
+    /// failure keeps the trail's placeholder silently — a breadcrumb label is not worth a second snackbar — but
+    /// its errors are kept for the submit, which has no version to send in that case.
     /// </summary>
-    protected override async Task OnParametersSetAsync()
-    {
-        ErrorOr<ManufacturerQueryResponse> result =
-            await Dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(ManufacturerId));
+    protected override Task OnParametersSetAsync() => LoadManufacturerAsync();
 
-        manufacturerName = result.IsError ? null : result.Value.Name;
+    private async Task LoadManufacturerAsync()
+    {
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
+            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(ManufacturerId));
+
+        manufacturerName = loaded.IsError ? null : loaded.Value.Value.Name;
+        manufacturerVersion = loaded.IsError ? null : loaded.Value.Version;
+        manufacturerLoadErrors = loaded.IsError ? loaded.Errors : null;
     }
 
     // One mapping for both the field-by-field validation and the submit, so the two cannot drift.
@@ -75,21 +83,36 @@ public sealed partial class AddDeviceModelPage
             return;
         }
 
+        // A manufacturer that could not be read has no version to send: sending a fabricated one would always
+        // come back stale, so report the load failure instead and let the user retry.
+        if (manufacturerVersion is not { } expectedVersion)
+        {
+            ErrorPresenter.Notify(manufacturerLoadErrors ?? [Error.NotFound()]);
+            await LoadManufacturerAsync();
+            return;
+        }
+
         submitting = true;
 
-        ErrorOr<AddDeviceModelCommandResponse> result = await Dispatcher.SendAsync(ToCommand());
+        ErrorOr<Versioned<AddDeviceModelCommandResponse>> result =
+            await Dispatcher.SendVersionedAsync(ToCommand(), expectedVersion);
 
         submitting = false;
 
         if (result.IsError)
         {
             // Every error, not the first: a duplicate name arrives as one validation error from the aggregate,
-            // an unknown manufacturer as not-found from the handler.
+            // an unknown manufacturer as not-found from the handler, a stale manufacturer as a version error.
             ErrorPresenter.Notify(result.Errors);
+
+            if (result.Errors.Exists(VersionErrors.IsStale))
+            {
+                await LoadManufacturerAsync();
+            }
 
             return;
         }
 
-        Navigation.NavigateTo($"/dm/manufacturers/{ManufacturerId}/models/{result.Value.Id}");
+        Navigation.NavigateTo($"/dm/manufacturers/{ManufacturerId}/models/{result.Value.Value.Id}");
     }
 }

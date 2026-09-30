@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetOne;
+using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Errors;
 
@@ -12,6 +14,7 @@ public sealed partial class ManufacturerDetailPage
     private ManufacturerQueryResponse? manufacturer;
     private SerginProblem? problem;
     private bool deleting;
+    private RowVersion? version;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -36,20 +39,26 @@ public sealed partial class ManufacturerDetailPage
         new(manufacturer?.Name ?? "Manufacturer"),
     ];
 
-    protected override async Task OnParametersSetAsync()
-    {
-        ErrorOr<ManufacturerQueryResponse> result = await Dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(Id));
+    protected override Task OnParametersSetAsync() => LoadAsync();
 
-        if (result.IsError)
+    // Keeps the version the manufacturer was read at, so the delete can say which manufacturer it means.
+    private async Task LoadAsync()
+    {
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
+            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(Id));
+
+        if (loaded.IsError)
         {
             manufacturer = null;
-            problem = ErrorPresenter.Present(result.FirstError);
+            version = null;
+            problem = ErrorPresenter.Present(loaded.FirstError);
 
             return;
         }
 
         problem = null;
-        manufacturer = result.Value;
+        manufacturer = loaded.Value.Value;
+        version = loaded.Value.Version;
     }
 
     private async Task DeleteAsync()
@@ -67,13 +76,20 @@ public sealed partial class ManufacturerDetailPage
 
         deleting = true;
 
-        ErrorOr<DeleteManufacturerCommandResponse> result = await Dispatcher.SendAsync(new DeleteManufacturerCommand(Id));
+        ErrorOr<Versioned<DeleteManufacturerCommandResponse>> result =
+            await Dispatcher.SendVersionedAsync(new DeleteManufacturerCommand(Id), version);
 
         deleting = false;
 
         if (result.IsError)
         {
             ErrorPresenter.Notify(result.Errors);
+
+            // Someone changed the manufacturer (added a model, say) after this page loaded it.
+            if (result.Errors.Exists(VersionErrors.IsStale))
+            {
+                await LoadAsync();
+            }
 
             return;
         }

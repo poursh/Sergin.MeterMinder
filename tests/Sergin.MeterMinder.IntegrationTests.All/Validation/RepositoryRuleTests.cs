@@ -11,6 +11,7 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
+using Sergin.MeterMinder.IntegrationTests.All.Concurrency;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.IntegrationTests;
@@ -223,8 +224,8 @@ public sealed class RepositoryRuleTests(SerginWebApiFactory<Program> factory)
     {
         ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
 
-        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAsync(
-            new AddDeviceModelCommand(manufacturerId, new DeviceModelName($"model-{Guid.CreateVersion7()}")));
+        ErrorOr<AddDeviceModelCommandResponse> added = await dispatcher.SendAtManufacturerVersionAsync(
+            manufacturerId.Value, new AddDeviceModelCommand(manufacturerId, new DeviceModelName($"model-{Guid.CreateVersion7()}")));
 
         Assert.False(added.IsError, added.IsError ? added.FirstError.Description : string.Empty);
 

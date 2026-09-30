@@ -3,6 +3,8 @@ using Sergin.MeterMinder.DeviceManagement.Application.Devices;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetList;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Queries;
+using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
@@ -15,21 +17,29 @@ internal sealed class DeviceQueryRepository(
     // Every read filters deleted_at_utc IS NULL (SoftDeleteColumns.NotDeletedSql) on the table it reads: raw
     // SQL is not reached by EF's soft-delete query filter. A joined table is not filtered, so a live row still
     // shows the name of a deleted row it points at.
-    public async Task<DeviceQueryResponse?> GetDeviceById(
+    // row_version is split off into its own mapped part: DeviceQueryResponse binds through its constructor, which
+    // has no parameter for it, and the version travels beside the response, not on it.
+    public async Task<Versioned<DeviceQueryResponse>?> GetDeviceById(
         DeviceIntenralId Id, CancellationToken cancellationToken = default)
     {
         using DbConnection connection = await connectionFactory.CreateConnectionAsync();
 
         string queries =
            """
-            SELECT d.id, d.device_id AS deviceId, d.device_model_id AS deviceModelId, dm_.name AS deviceModelName
+            SELECT d.id, d.device_id AS deviceId, d.device_model_id AS deviceModelId, dm_.name AS deviceModelName,
+                   d.row_version AS rowVersion
             FROM dm.device d
             JOIN dm.device_model dm_ ON dm_.id = d.device_model_id
             WHERE d.id = @Id AND d.deleted_at_utc IS NULL;
             """;
 
-        return await connection.QuerySingleOrDefaultAsync<DeviceQueryResponse>(
-            queries, new { Id = Id.Value });
+        IEnumerable<Versioned<DeviceQueryResponse>> rows = await connection.QueryAsync<DeviceQueryResponse, Guid, Versioned<DeviceQueryResponse>>(
+            queries,
+            (device, rowVersion) => new Versioned<DeviceQueryResponse>(device, RowVersion.Create(rowVersion)),
+            new { Id = Id.Value },
+            splitOn: "rowVersion");
+
+        return rows.SingleOrDefault();
     }
 
     public async Task<ListQueryResponse<GetDeviceListItem>> GetListAsync(

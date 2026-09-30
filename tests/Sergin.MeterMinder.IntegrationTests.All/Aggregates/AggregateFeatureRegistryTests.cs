@@ -25,9 +25,11 @@ public sealed class AggregateFeatureRegistryTests
         var registry = AggregateFeatureRegistry.FromConfigurationTypes(
             [typeof(SoftDeletableUnmappedEntityAggregateFeatureConfiguration)]);
 
-        Assert.Equal(new AggregateFeatures(Audited: true, SoftDeletable: true), registry.For(typeof(UnmappedEntity)));
         Assert.Equal(
-            new AggregateFeatures(Audited: false, SoftDeletable: true),
+            new AggregateFeatures(Audited: true, SoftDeletable: true, Versioned: false),
+            registry.For(typeof(UnmappedEntity)));
+        Assert.Equal(
+            new AggregateFeatures(Audited: false, SoftDeletable: true, Versioned: false),
             registry.ForChild(typeof(UnmappedEntity), typeof(UnmappedChild)));
     }
 
