@@ -56,3 +56,11 @@ internal sealed class MalformedPermissionConfiguration : ICommandConfiguration<C
     public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
         builder.RequirePermissions("not a permission");
 }
+
+internal abstract record AbstractTestCommand : ICommand<Success>;
+
+internal sealed class AbstractRequestConfiguration : ICommandConfiguration<AbstractTestCommand>
+{
+    public void Configure(CommandConfigurationBuilder<AbstractTestCommand> builder) =>
+        builder.RequirePermissions("permission.test.things.delete");
+}

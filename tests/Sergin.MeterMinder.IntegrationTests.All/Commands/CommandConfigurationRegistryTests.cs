@@ -75,6 +75,17 @@ public sealed class CommandConfigurationRegistryTests
     }
 
     [Fact]
+    public void ConfigurationForAnAbstractRequest_Throws_NamingIt()
+    {
+        // Lookup is by the exact type sent, so a policy on an abstract base would never apply to anything.
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            CommandConfigurationRegistry.FromConfigurationTypes([typeof(AbstractRequestConfiguration)]));
+
+        Assert.Contains(typeof(AbstractTestCommand).FullName!, error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(AbstractRequestConfiguration), error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MalformedPermission_Throws_NamingTheConfiguration_WithTheCauseInside()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
