@@ -11,12 +11,14 @@
     <MudCard>
         <MudCardContent>
             <MudText Typo="Typo.h5">@device.DeviceId</MudText>
-            @* Text, not a link: the model's page is nested under its manufacturer, and this read model
-               deliberately carries no manufacturer id (spec, Decision 4). *@
-            <MudText Typo="Typo.body2">Model: @device.DeviceModelName</MudText>
+            <MudText Typo="Typo.body2">
+                Model:
+                <MudLink Href="@($"/dm/manufacturers/{device.ManufacturerId}/models/{device.DeviceModelId}")">@device.DeviceModelName</MudLink>
+            </MudText>
             <MudText Typo="Typo.body2">@device.Id</MudText>
         </MudCardContent>
         <MudCardActions>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="@($"/dm/devices/{Id}/edit")">Edit</MudButton>
             <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="deleting" OnClick="DeleteAsync">Delete</MudButton>
         </MudCardActions>
     </MudCard>

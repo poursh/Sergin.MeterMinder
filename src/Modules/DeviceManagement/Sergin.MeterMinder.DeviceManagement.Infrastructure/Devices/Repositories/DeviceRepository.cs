@@ -24,6 +24,12 @@ internal class DeviceRepository(IDeviceManagementDbContext dbContext)
             cancellationToken);
     }
 
+    public Task<bool> AnyUsingModelAsync(DeviceModelInternalId modelId, CancellationToken cancellationToken = default)
+        => AnyAsync(d => d.DeviceModelId == modelId, cancellationToken);
+
     public Task<bool> IsTakenAsync(DeviceId key, CancellationToken cancellationToken = default)
         => AnyAsync(d => d.DeviceId == key, cancellationToken);
+
+    public Task<bool> IsTakenByOtherAsync(DeviceId key, DeviceIntenralId exceptId, CancellationToken cancellationToken = default)
+        => AnyAsync(d => d.DeviceId == key && d.Id != exceptId, cancellationToken);
 }

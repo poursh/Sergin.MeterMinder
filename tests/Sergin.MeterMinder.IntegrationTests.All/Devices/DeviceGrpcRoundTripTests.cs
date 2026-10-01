@@ -107,7 +107,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         // Seeding the stub with an unrelated internal id here would make every lookup miss.
         var deviceGuid = Guid.CreateVersion7();
         DeviceIntenralId internalId = new(deviceGuid);
-        DeviceQueryResponse expected = new(deviceGuid, "DEV-42", Guid.CreateVersion7(), "XYZ-200");
+        DeviceQueryResponse expected = new(deviceGuid, "DEV-42", Guid.CreateVersion7(), "XYZ-200", Guid.CreateVersion7(), "ACME");
         repository.Add(internalId, expected, RowVersion.Create());
 
         GetDeviceByIdQueryCommand command = new(deviceGuid);
@@ -160,7 +160,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
     {
         var deviceGuid = Guid.CreateVersion7();
         var stored = RowVersion.Create();
-        repository.Add(new DeviceIntenralId(deviceGuid), new DeviceQueryResponse(deviceGuid, "DEV-7", Guid.CreateVersion7(), "XYZ-7"), stored);
+        repository.Add(new DeviceIntenralId(deviceGuid), new DeviceQueryResponse(deviceGuid, "DEV-7", Guid.CreateVersion7(), "XYZ-7", Guid.CreateVersion7(), "ACME"), stored);
         var sent = RowVersion.Create();
 
         using ServiceProvider provider = BuildRemoteProvider([DevicesReadPermission]);

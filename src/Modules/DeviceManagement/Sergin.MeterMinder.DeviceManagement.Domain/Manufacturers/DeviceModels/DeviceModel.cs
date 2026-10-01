@@ -26,6 +26,9 @@ public class DeviceModel : Entity<DeviceModelInternalId>
             Name = name
         };
     }
+
+    // internal: Manufacturer.RenameModel is the only caller; it holds the name-uniqueness invariant.
+    internal void Rename(DeviceModelName name) => Name = name;
 }
 
 public sealed record DeviceModelInternalId(Guid Value);

@@ -15,9 +15,10 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Devices;
 /// <summary>
 /// Both device read models carry the model's name next to its id — DeviceQueryRepository joins
 /// dm.device_model in both raw-SQL queries — so the list and detail pages show a name, not a Guid. The
-/// manufacturer is deliberately absent from these read models (spec, Decision 4). Written through the real
+/// detail read model also carries the manufacturer, so the detail page can link the model (dm-full-crud spec,
+/// Decision 7); the list item stays model-only. Written through the real
 /// command handlers and read back through ISerginDispatcher from a scope, the way a Blazor page does, so the
-/// reads genuinely round-trip through Postgres. The last test renders the detail page itself:
+/// reads genuinely round-trip through Postgres. The last test renders the detail page itself and finds the model link:
 /// OnParametersSetAsync runs during server-side prerendering, so the name is in the HTML a plain GET returns.
 /// The list page is not rendered the same way on purpose — MudTable's ServerData loads after first render,
 /// which prerendering never reaches, so its rows are absent from that HTML and the read-model assertion is
@@ -48,12 +49,13 @@ public sealed class DeviceReadModelTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
-    public async Task GetDeviceById_CarriesDeviceModelName()
+    public async Task GetDeviceById_CarriesDeviceModelAndManufacturer()
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
-        ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
+        string manufacturerName = $"manufacturer-{Guid.CreateVersion7()}";
+        ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher, manufacturerName);
         DeviceModelName modelName = NewDeviceModelName();
         DeviceModelInternalId modelId = await AddDeviceModelAsync(dispatcher, manufacturerId, modelName);
         Guid id = await CreateDeviceAsync(dispatcher, NewDeviceId(), modelId);
@@ -63,10 +65,12 @@ public sealed class DeviceReadModelTests(SerginWebApiFactory<Program> factory)
         Assert.False(device.IsError, device.IsError ? device.FirstError.Description : string.Empty);
         Assert.Equal(modelId.Value, device.Value.DeviceModelId);
         Assert.Equal(modelName.Value, device.Value.DeviceModelName);
+        Assert.Equal(manufacturerId.Value, device.Value.ManufacturerId);
+        Assert.Equal(manufacturerName, device.Value.ManufacturerName);
     }
 
     [Fact]
-    public async Task DeviceDetailPage_RendersDeviceModelName_NotItsId()
+    public async Task DeviceDetailPage_LinksTheModelByName()
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
@@ -81,20 +85,18 @@ public sealed class DeviceReadModelTests(SerginWebApiFactory<Program> factory)
         string html = await response.Content.ReadAsStringAsync();
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains($"Model: {modelName.Value}", html, StringComparison.Ordinal);
-        // Neither the model's nor the manufacturer's id is visible text on this page.
-        Assert.DoesNotContain(modelId.Value.ToString(), html, StringComparison.Ordinal);
-        Assert.DoesNotContain(manufacturerId.Value.ToString(), html, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/dm/manufacturers/{manufacturerId.Value}/models/{modelId.Value}\"", html, StringComparison.Ordinal);
+        Assert.Contains($">{modelName.Value}</a>", html, StringComparison.Ordinal);
     }
 
     private static DeviceModelName NewDeviceModelName() => new($"model-{Guid.CreateVersion7()}");
 
     private static DeviceId NewDeviceId() => new($"device-{Guid.CreateVersion7()}");
 
-    private static async Task<ManufacturerId> CreateManufacturerAsync(ISerginDispatcher dispatcher)
+    private static async Task<ManufacturerId> CreateManufacturerAsync(ISerginDispatcher dispatcher, string? name = null)
     {
         ErrorOr<CreateManufacturerCommandResponse> created = await dispatcher.SendAsync(
-            new CreateManufacturerCommand(new ManufacturerName($"manufacturer-{Guid.CreateVersion7()}"), Address: null));
+            new CreateManufacturerCommand(new ManufacturerName(name ?? $"manufacturer-{Guid.CreateVersion7()}"), Address: null));
 
         Assert.False(created.IsError, created.IsError ? created.FirstError.Description : string.Empty);
 

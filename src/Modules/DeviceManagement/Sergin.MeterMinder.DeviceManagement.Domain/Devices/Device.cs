@@ -22,11 +22,17 @@ public class Device : AggregateRoot<DeviceIntenralId>
             DeviceModelId = deviceModelId
         };
     }
+
+    public void Update(DeviceId deviceId, DeviceModelInternalId deviceModelId)
+    {
+        DeviceId = deviceId;
+        DeviceModelId = deviceModelId;
+    }
 }
 
 public sealed record DeviceIntenralId(Guid Value);
 
-// MaxLength: the one number CreateDeviceCommandValidator and NewDeviceFormModel's [StringLength] both
+// MaxLength: the one number CreateDeviceCommandValidator and UpdateDeviceCommandValidator both
 // read, so the limit is never repeated as a literal.
 public sealed record DeviceId(string Value)
 {

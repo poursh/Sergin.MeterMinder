@@ -98,6 +98,36 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
         Assert.Contains(Current("Device"), strip, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// An edit page for a record that does not exist still renders: the problem panel instead of the form, and a
+    /// trail whose record step keeps its placeholder but still links to the detail page by the route id.
+    /// </summary>
+    [Theory]
+    [InlineData("/dm/devices/" + UnseededId + "/edit", "/dm/devices", "Device", "Edit")]
+    [InlineData("/dm/manufacturers/" + UnseededId + "/edit", "/dm/manufacturers", "Manufacturer", "Edit")]
+    public async Task EditPage_ForAnUnknownRecord_LinksItsListAndRecord_AndNamesItselfLast(
+        string path, string listHref, string recordPlaceholder, string title)
+    {
+        string strip = await GetBreadcrumbStripAsync(path);
+        string recordHref = path[..path.LastIndexOf('/')];
+
+        Assert.Contains($"href=\"{listHref}\"", strip, StringComparison.Ordinal);
+        Assert.Contains($"<a href=\"{recordHref}\">{recordPlaceholder}</a>", strip, StringComparison.Ordinal);
+        Assert.Contains(Current(title), strip, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RenameModelPage_ForAnUnknownModel_LinksManufacturerAndModel_AndNamesItselfLast()
+    {
+        const string ModelId = "01920000-0000-7000-8000-000000000002";
+        string strip = await GetBreadcrumbStripAsync($"/dm/manufacturers/{UnseededId}/models/{ModelId}/edit");
+
+        Assert.Contains("href=\"/dm/manufacturers\"", strip, StringComparison.Ordinal);
+        Assert.Contains($"<a href=\"/dm/manufacturers/{UnseededId}\">Manufacturer</a>", strip, StringComparison.Ordinal);
+        Assert.Contains($"<a href=\"/dm/manufacturers/{UnseededId}/models/{ModelId}\">Device model</a>", strip, StringComparison.Ordinal);
+        Assert.Contains(Current("Rename"), strip, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task DetailPage_HasNoBackButton()
     {

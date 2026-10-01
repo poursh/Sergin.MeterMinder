@@ -2,13 +2,17 @@ global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.C
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
+global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Update;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Create;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetList;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOne;
+global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Update;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Add;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetList;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetOne;
+global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Rename;
+global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Remove;
 global using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetList;
 global using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 global using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetList;
