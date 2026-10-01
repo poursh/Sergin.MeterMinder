@@ -74,6 +74,27 @@ public class Manufacturer : AggregateRoot<ManufacturerId>
         return model;
     }
 
+    /// <summary>
+    /// Removes one of this manufacturer's models. The model is dropped from the collection; Manufacturer is
+    /// soft-deletable and the model inherits it, so <c>SoftDeleteInterceptor</c> turns the orphaned row into a
+    /// soft delete rather than a DELETE. Whether a device still uses the model is not visible from inside this
+    /// aggregate; <c>RemoveDeviceModelCommandValidator</c> checks it.
+    /// Requires the manufacturer to have been loaded with its models (<c>GetWithModelsAsync</c>).
+    /// </summary>
+    public ErrorOr<Deleted> RemoveModel(DeviceModelInternalId id)
+    {
+        DeviceModel? model = models.Find(candidate => candidate.Id == id);
+
+        if (model is null)
+        {
+            return Error.NotFound();
+        }
+
+        models.Remove(model);
+
+        return Result.Deleted;
+    }
+
     // Error.Validation, so it renders through the path already built for validator errors: Description shown,
     // one snackbar in Blazor, one ValidationProblem entry on the API. The code and text are what MustBeUniqueIn
     // would have produced for a Name property.

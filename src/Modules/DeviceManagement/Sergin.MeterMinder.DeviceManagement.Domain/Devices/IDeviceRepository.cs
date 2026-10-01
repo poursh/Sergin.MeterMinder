@@ -1,4 +1,5 @@
 ﻿using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Domain.Repositories;
 
 namespace Sergin.MeterMinder.DeviceManagement.Domain.Devices;
@@ -12,6 +13,12 @@ public interface IDeviceRepository : IRepository<Device, DeviceIntenralId>, IUni
     /// by the soft-delete query filter.
     /// </summary>
     Task<bool> AnyUsingManufacturerAsync(ManufacturerId manufacturerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Whether any live device uses the model — what <c>RemoveDeviceModelCommandValidator</c> refuses a removal
+    /// over. Deleted devices are hidden by the soft-delete query filter.
+    /// </summary>
+    Task<bool> AnyUsingModelAsync(DeviceModelInternalId modelId, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Whether a live device other than <paramref name="exceptId"/> already uses <paramref name="key"/> —

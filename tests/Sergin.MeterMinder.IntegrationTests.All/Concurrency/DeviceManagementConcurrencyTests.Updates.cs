@@ -104,4 +104,35 @@ public sealed partial class DeviceManagementConcurrencyTests
 
         Assert.True(VersionErrors.IsStale(renamed.FirstError));
     }
+
+    [Fact]
+    public async Task RemoveDeviceModel_WithoutAVersion_IsRefusedWith428()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
+        DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId);
+
+        ErrorOr<RemoveDeviceModelCommandResponse> removed =
+            await dispatcher.SendAsync(new RemoveDeviceModelCommand(manufacturerId, model.Value));
+
+        Assert.Equal(VersionErrors.RequiredType, (int)removed.FirstError.Type);
+    }
+
+    [Fact]
+    public async Task RemoveDeviceModel_WithAStaleVersion_IsRefused_AndTheModelStays()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
+        ErrorOr<Versioned<ManufacturerQueryResponse>> before =
+            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value));
+        DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId);
+
+        ErrorOr<Versioned<RemoveDeviceModelCommandResponse>> removed = await dispatcher.SendVersionedAsync(
+            new RemoveDeviceModelCommand(manufacturerId, model.Value), before.Value.Version);
+
+        Assert.True(VersionErrors.IsStale(removed.FirstError));
+        Assert.False((await dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(manufacturerId.Value, model.Value))).IsError);
+    }
 }
