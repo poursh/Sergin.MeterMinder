@@ -10,6 +10,7 @@ using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Devices.Endpoints.
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Devices.Endpoints.Delete;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Devices.Endpoints.GetList;
 using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Devices.Endpoints.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Devices.Endpoints.Update;
 
 namespace Sergin.MeterMinder.DeviceManagement.Devices;
 
@@ -31,6 +32,7 @@ internal static class DeviceInstallationExtensions
         new GetDeviceEndpoint().MapEndpoint(routeBuilder);
         new GetDeviceListEndpoint().MapEndpoint(routeBuilder);
         new DeleteDeviceEndpoint().MapEndpoint(routeBuilder);
+        new UpdateDeviceEndpoint().MapEndpoint(routeBuilder);
 
         return routeBuilder;
     }
