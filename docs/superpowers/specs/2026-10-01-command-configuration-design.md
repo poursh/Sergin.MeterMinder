@@ -1,7 +1,7 @@
 # Command configuration
 
 **Date:** 2026-10-01
-**Status:** Design approved; not yet implemented
+**Status:** Implemented on feature/command-configuration (host, Sergin.SharedKernel, Sergin.UserAccess)
 **Builds on:** [2026-09-23-aggregate-configuration-audit-design.md](2026-09-23-aggregate-configuration-audit-design.md),
 [2026-09-29-optimistic-concurrency-design.md](2026-09-29-optimistic-concurrency-design.md)
 
@@ -91,8 +91,8 @@ internal sealed class DeleteDeviceCommandConfiguration : ICommandConfiguration<D
 
 ### Registry
 
-`CommandConfigurationRegistry` copies `AggregateFeatureRegistry`'s shape: `FromAssemblies(...)` scans for
-closed `ICommandConfiguration<>` implementations, runs each through `Activator` with
+`CommandConfigurationRegistry` copies `AggregateFeatureRegistry`'s shape: `FromSources(...)` /
+`FromConfigurationTypes(...)` take closed `ICommandConfiguration<>` implementations, runs each through `Activator` with
 `BindingFlags.DoNotWrapExceptions`, and answers `For(Type requestType)`.
 
 It refuses to build, naming the offending type(s), when:
@@ -106,18 +106,22 @@ It refuses to build, naming the offending type(s), when:
 
 ### Sources and registration (`AddSerginCore`)
 
-`CommandConfigurationAssembly(Assembly Assembly)` is a singleton source record, the same pattern as
-`AssemblyIntegrationEventSource`. `AddSerginCore` registers one per local module `ContractsAssembly` and one
-per remote module `ContractsAssembly`, and registers the registry as a singleton built from every source:
+`CommandConfigurationSource` is a singleton source, the same pattern as `AssemblyIntegrationEventSource`:
+`CommandConfigurationSource.FromAssembly(assembly)` collects an assembly's configuration types and
+`CommandConfigurationSource.FromTypes(...)` names them explicitly. Sources carry types, not assemblies, so a
+test host adds explicit types and never scans the test assembly, which holds deliberately broken
+configurations. `AddSerginCore` registers one per local module `ContractsAssembly` and one per remote module
+`ContractsAssembly`, and registers the registry as a singleton built from every source:
 
 ```csharp
-builder.Services.AddSingleton(provider => CommandConfigurationRegistry.FromAssemblies(
-    provider.GetServices<CommandConfigurationAssembly>().Select(source => source.Assembly)));
+builder.Services.AddSingleton(provider =>
+    CommandConfigurationRegistry.FromSources(provider.GetServices<CommandConfigurationSource>()));
 ```
 
-Built from sources rather than eagerly, so a test host can register its own assembly for test-only
-commands. A small hosted service, `CommandConfigurationGuard`, resolves the registry in `StartAsync`, so a
-bad configuration fails host start in every environment, not the first send.
+Built from sources rather than eagerly, so a test host can register its own request types.
+`UseSerginWebUiAsync` and `UseSerginWebApiAsync` resolve the registry beside
+`AggregateFeatureGuard.EnsureApplied`, the existing start-guard precedent, so a bad configuration fails host
+start in every environment, not the first send.
 
 ### Behaviors
 
@@ -135,11 +139,12 @@ Every attributed record gets a configuration and loses its attributes:
 
 - DeviceManagement (this repo): 13 records — Devices GetOne/GetList/Delete/Update; Manufacturers
   GetOne/GetList/Delete/Update; DeviceModels GetOne/GetList/Add/Rename/Remove.
-- UserAccess (submodule): `GetUserByIdQueryCommand`, `GetUserListQueryCommand`,
-  `ProvisionExternalUserCommand`.
+- UserAccess (submodule): `GetUserByIdQueryCommand` and `GetUserListQueryCommand`.
+  `ProvisionExternalUserCommand` never had an attribute and stays unconfigured: it runs inside the OIDC
+  callback, before any permission exists.
 - Tests: the test-only commands in `Events/OutboxTestTypes.cs` and
-  `Concurrency/ExpectedVersionPipelineTests.cs`; their hosts register the test assembly as a
-  `CommandConfigurationAssembly`.
+  `Concurrency/ExpectedVersionPipelineTests.cs`; their hosts add the configuration types through
+  `CommandConfigurationSource.FromTypes` (or build the registry directly).
 
 Doc comments that name the attributes are updated (`ExpectedVersionEndpointFilter`, `ScopedSerginDispatcher`,
 `UserContextAccessor`, `RelayUserContext`, `IExternalIdentityResolver`, `IListQueryHandler`,
@@ -160,7 +165,7 @@ skills.
 Three repos, landing together because the attributes are deleted:
 
 1. **Sergin.SharedKernel** — mechanism, behaviors, `AddSerginCore`, guard, attribute deletion, docs.
-2. **Sergin.UserAccess** — three configurations, docs, `add-feature` skill.
+2. **Sergin.UserAccess** — two configurations, docs, `add-feature` skill.
 3. **Sergin.MeterMinder** — DeviceManagement configurations, tests, docs, `add-feature` skill, both
    submodule bumps.
 
