@@ -1,7 +1,6 @@
 using ErrorOr;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;

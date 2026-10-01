@@ -1,7 +1,7 @@
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 
-namespace Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetList;
+namespace Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetList;
 
 [RequiredPermissions("permission.dm.manufacturers.read")]
 public sealed record GetManufacturerListQueryCommand : ListQuery<GetManufacturerListItem>

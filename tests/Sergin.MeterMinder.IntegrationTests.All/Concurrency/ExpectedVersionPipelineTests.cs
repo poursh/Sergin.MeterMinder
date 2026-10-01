@@ -1,7 +1,6 @@
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
-using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;

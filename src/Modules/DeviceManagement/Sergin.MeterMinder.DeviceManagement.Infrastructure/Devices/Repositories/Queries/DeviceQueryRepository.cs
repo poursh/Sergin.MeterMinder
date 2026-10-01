@@ -1,12 +1,12 @@
 ﻿using System.Data.Common;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices;
-using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetList;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Infrastracture.Data;
-using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 
 namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Devices.Repositories.Queries;

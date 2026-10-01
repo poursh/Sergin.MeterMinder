@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.Delete;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
 using Sergin.SharedKernel.Presentation.WebApi.Endpoints.Results;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.Delete;

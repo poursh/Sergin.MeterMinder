@@ -1,13 +1,10 @@
 using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
-using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
-using Sergin.UserAccess.Application.Users.Commands.Create;
-using Sergin.UserAccess.Application.Users.Commands.GetOne;
 using Sergin.UserAccess.Domain.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Validation;
