@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetList;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetList;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Presentation.WebApi.Endpoints.Results;
 

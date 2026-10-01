@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.Delete;
-using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;

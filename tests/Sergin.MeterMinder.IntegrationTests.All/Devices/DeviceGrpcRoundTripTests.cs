@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Application;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Grpc;

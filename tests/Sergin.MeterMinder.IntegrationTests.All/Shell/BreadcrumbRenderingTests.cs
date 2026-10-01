@@ -4,7 +4,6 @@ using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.UserAccess.Application.Users.Commands.Create;
 using Sergin.UserAccess.Domain.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;

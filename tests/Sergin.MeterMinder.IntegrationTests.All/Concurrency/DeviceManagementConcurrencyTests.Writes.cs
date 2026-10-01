@@ -1,11 +1,5 @@
 using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
-using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.Delete;
-using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.Delete;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetOne;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels.Commands.Add;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Application;

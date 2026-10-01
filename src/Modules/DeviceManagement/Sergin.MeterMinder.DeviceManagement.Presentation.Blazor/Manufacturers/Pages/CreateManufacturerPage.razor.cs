@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.Create;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Models;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;

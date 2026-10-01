@@ -1,7 +1,5 @@
 using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
-using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetList;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetList;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.IntegrationTests;

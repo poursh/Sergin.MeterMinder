@@ -1,5 +1,5 @@
 using Microsoft.AspNetCore.Components;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetOne;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Errors;
 

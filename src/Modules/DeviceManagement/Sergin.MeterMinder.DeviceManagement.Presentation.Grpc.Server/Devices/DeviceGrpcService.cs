@@ -1,5 +1,5 @@
 using Grpc.Core;
-using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
 using Sergin.SharedKernel.Presentation.Grpc.Errors;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;

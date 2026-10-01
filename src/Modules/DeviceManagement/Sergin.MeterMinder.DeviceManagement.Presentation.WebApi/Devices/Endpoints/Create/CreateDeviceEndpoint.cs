@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
-using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.Create;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Presentation.WebApi.Endpoints.Results;

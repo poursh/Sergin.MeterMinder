@@ -1,7 +1,7 @@
 using System.Data.Common;
 using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels.Commands.GetList;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetList;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Application;

@@ -1,7 +1,5 @@
 using ErrorOr;
 using MediatR;
-using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
-using Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetOne;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
