@@ -1943,6 +1943,8 @@ In `tests/.../Shell/ModulePageRenderingTests.cs`, add to the `Page_RendersServer
     [InlineData("/dm/devices/01920000-0000-7000-8000-000000000001/edit")]
 ```
 
+Add the same row to the `ModulePage_IsInteractive_NotStaticallyRenderedOnly` theory in the same file — an edit page is useless if it falls back to static SSR.
+
 In `tests/.../Shell/BreadcrumbRenderingTests.cs`, add (Tasks 8 and 9 add `InlineData` rows to this theory):
 
 ```csharp
@@ -2262,6 +2264,8 @@ Add to `ModulePageRenderingTests.Page_RendersServerSide_WithNavFromBothModules`:
     [InlineData("/dm/manufacturers/01920000-0000-7000-8000-000000000001/edit")]
 ```
 
+Add the same row to the `ModulePage_IsInteractive_NotStaticallyRenderedOnly` theory in the same file — an edit page is useless if it falls back to static SSR.
+
 Add to `BreadcrumbRenderingTests.EditPage_ForAnUnknownRecord_LinksItsListAndRecord_AndNamesItselfLast`:
 
 ```csharp
@@ -2488,6 +2492,8 @@ Add to `ModulePageRenderingTests.Page_RendersServerSide_WithNavFromBothModules`:
 ```csharp
     [InlineData("/dm/manufacturers/01920000-0000-7000-8000-000000000001/models/01920000-0000-7000-8000-000000000002/edit")]
 ```
+
+Add the same row to the `ModulePage_IsInteractive_NotStaticallyRenderedOnly` theory in the same file — an edit page is useless if it falls back to static SSR.
 
 Add to `BreadcrumbRenderingTests` (a separate fact — this trail has two placeholder steps):
 
