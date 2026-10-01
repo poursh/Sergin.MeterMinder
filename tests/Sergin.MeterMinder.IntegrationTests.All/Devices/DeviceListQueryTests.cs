@@ -9,8 +9,8 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Devices;
 
 /// <summary>
 /// List features carry their own request record rather than dispatching the shared generic
-/// <c>ListQuery&lt;TItem&gt;</c>, which is what makes them attributable with
-/// <c>[RequiredPermissions]</c>. These cover the two things that shift with it: that the concrete record
+/// <c>ListQuery&lt;TItem&gt;</c>, which is what lets a command configuration
+/// require a permission for them. These cover the two things that shift with it: that the concrete record
 /// still routes to its handler through MediatR, and that PermissionCheckPipelineBehavior passes for the
 /// permissions the host grants its configured development user.
 /// </summary>

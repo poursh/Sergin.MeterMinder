@@ -145,8 +145,8 @@ Whether a module is **Local** or **Remote** is decided at composition time, not 
 ### Reads and writes
 
 - **Writes** go page → command → handler → aggregate method → EF repository → `IUnitOfWork.SaveChangesAsync`. Handlers return `ErrorOr<T>`; the UI renders an error through the same `SerginProblem` mapping an API endpoint would, so both surfaces say the same thing for the same error code.
-- **Reads** go through per-feature query repositories that run raw SQL over `IDbConnectionFactory`, bypassing EF. Every list feature declares its own request record deriving from the abstract `ListQuery<TItem>`, which is what lets it carry `[RequiredPermissions(...)]`.
-- **Permissions** are opt-in per slice: `[RequiredPermissions("permission.<schema>.<resource>.<action>")]` on the request record, enforced by `PermissionCheckPipelineBehavior` against `IUserContext`.
+- **Reads** go through per-feature query repositories that run raw SQL over `IDbConnectionFactory`, bypassing EF. Every list feature declares its own request record deriving from the abstract `ListQuery<TItem>`, which is what lets a command configuration require a permission for it.
+- **Permissions** are opt-in per slice: a `<RecordName>Configuration : ICommandConfiguration<<RecordName>>` beside the request record calls `RequirePermissions("permission.<schema>.<resource>.<action>")`, enforced by `PermissionCheckPipelineBehavior` against `IUserContext`.
 
 ### Events and the outbox
 

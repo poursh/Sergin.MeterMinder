@@ -2,15 +2,16 @@ using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Concurrency;
 
 /// <summary>
-/// ExpectedVersionPipelineBehavior on its own, over a bare MediatR container with test-only commands: a marked
+/// ExpectedVersionPipelineBehavior on its own, over a bare MediatR container with test-only commands: a configured
 /// command without a version is refused before its handler runs, a conflict thrown by the save becomes the
-/// stale-version error, and a version sent with an unmarked command is still honoured. No database.
+/// stale-version error, and a version sent with an unconfigured command is still honoured. No database.
 /// </summary>
 public sealed class ExpectedVersionPipelineTests
 {
@@ -88,6 +89,7 @@ public sealed class ExpectedVersionPipelineTests
 
         services.AddScoped<ConcurrencyContext>();
         services.AddScoped<HandlerCalls>();
+        services.AddSingleton(CommandConfigurationRegistry.FromConfigurationTypes([typeof(GuardedCommandConfiguration)]));
 
         // Pointed at the DM contracts assembly only to give AddMediatR something to scan: it holds records,
         // no handlers, so the explicit registrations below are the only ones.
@@ -103,8 +105,12 @@ public sealed class ExpectedVersionPipelineTests
         return services.BuildServiceProvider();
     }
 
-    [RequiresExpectedVersion]
     internal sealed record GuardedCommand(bool Conflict) : ICommand<Success>;
+
+    internal sealed class GuardedCommandConfiguration : ICommandConfiguration<GuardedCommand>
+    {
+        public void Configure(CommandConfigurationBuilder<GuardedCommand> builder) => builder.RequireExpectedVersion();
+    }
 
     internal sealed record UnguardedCommand(bool Conflict) : ICommand<Success>;
 
