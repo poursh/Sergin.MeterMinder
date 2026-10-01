@@ -17,5 +17,10 @@
             </MudText>
             <MudText Typo="Typo.body2">@deviceModel.Id</MudText>
         </MudCardContent>
+        <MudCardActions>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       Href="@($"/dm/manufacturers/{ManufacturerId}/models/{Id}/edit")">Rename</MudButton>
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="removing" OnClick="RemoveAsync">Remove</MudButton>
+        </MudCardActions>
     </MudCard>
 }

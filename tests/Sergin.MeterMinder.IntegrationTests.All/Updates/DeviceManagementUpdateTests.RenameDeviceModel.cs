@@ -1,3 +1,4 @@
+using System.Net;
 using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
@@ -115,5 +116,23 @@ public sealed partial class DeviceManagementUpdateTests
             new ManufacturerId(Guid.CreateVersion7()), Guid.CreateVersion7(), new DeviceModelName(NewName("model"))));
 
         Assert.Equal(ErrorType.Forbidden, renamed.FirstError.Type);
+    }
+
+    [Fact]
+    public async Task DeviceModelDetailPage_OffersRenameAndRemove()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
+        DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId);
+
+        using HttpClient client = factory.CreateClient();
+        using HttpResponseMessage response = await client.GetAsync(
+            new Uri($"/dm/manufacturers/{manufacturerId.Value}/models/{model.Value}", UriKind.Relative));
+        string html = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains($"href=\"/dm/manufacturers/{manufacturerId.Value}/models/{model.Value}/edit\"", html, StringComparison.Ordinal);
+        Assert.Contains(">Remove<", html, StringComparison.Ordinal);
     }
 }

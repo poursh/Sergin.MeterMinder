@@ -1,0 +1,26 @@
+@page "/dm/manufacturers/{ManufacturerId:guid}/models/{Id:guid}/edit"
+
+<PageTitle>Rename device model</PageTitle>
+
+<SerginBreadcrumbs Trail="Trail" />
+
+<SerginProblemPanel Problem="problem" />
+
+@if (manufacturerVersion is not null)
+{
+    <MudText Typo="Typo.h4" Class="mb-4">Rename device model</MudText>
+
+    <MudForm @ref="form" Model="model" Validation="@validation" @bind-IsValid="isValid"
+             SuppressImplicitSubmission="false" onsubmit="@OnSubmit">
+        <MudCard>
+            <MudCardContent>
+                <MudTextField @bind-Value="model.Name" Label="Name" For="@(() => model.Name)" Immediate="true" />
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                           Color="Color.Primary" Disabled="@(submitting || !isValid)">Save</MudButton>
+                <MudButton Href="@ModelHref">Cancel</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudForm>
+}

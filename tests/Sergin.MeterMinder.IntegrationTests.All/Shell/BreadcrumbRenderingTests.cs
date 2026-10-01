@@ -117,6 +117,18 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
     }
 
     [Fact]
+    public async Task RenameModelPage_ForAnUnknownModel_LinksManufacturerAndModel_AndNamesItselfLast()
+    {
+        const string ModelId = "01920000-0000-7000-8000-000000000002";
+        string strip = await GetBreadcrumbStripAsync($"/dm/manufacturers/{UnseededId}/models/{ModelId}/edit");
+
+        Assert.Contains("href=\"/dm/manufacturers\"", strip, StringComparison.Ordinal);
+        Assert.Contains($"<a href=\"/dm/manufacturers/{UnseededId}\">Manufacturer</a>", strip, StringComparison.Ordinal);
+        Assert.Contains($"<a href=\"/dm/manufacturers/{UnseededId}/models/{ModelId}\">Device model</a>", strip, StringComparison.Ordinal);
+        Assert.Contains(Current("Rename"), strip, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task DetailPage_HasNoBackButton()
     {
         HttpClient client = factory.CreateClient();
