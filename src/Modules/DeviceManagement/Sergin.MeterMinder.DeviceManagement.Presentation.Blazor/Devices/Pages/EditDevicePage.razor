@@ -1,0 +1,43 @@
+@page "/dm/devices/{Id:guid}/edit"
+
+<PageTitle>Edit device</PageTitle>
+
+<SerginBreadcrumbs Trail="Trail" />
+
+<SerginProblemPanel Problem="problem" />
+
+@if (version is not null)
+{
+    <MudText Typo="Typo.h4" Class="mb-4">Edit device</MudText>
+
+    <MudForm @ref="form" Model="model" Validation="@validation" @bind-IsValid="isValid"
+             SuppressImplicitSubmission="false" onsubmit="@OnSubmit">
+        <MudCard>
+            <MudCardContent>
+                <MudTextField @bind-Value="model.DeviceId" Label="Device ID" For="@(() => model.DeviceId)" Immediate="true" />
+
+                @* Page state, not on the command: For= only gives the form-level validation a member path, which finds no rule. *@
+                <MudSelect T="Guid" Value="selectedManufacturerId" ValueChanged="OnManufacturerChangedAsync" Label="Manufacturer"
+                           For="@(() => selectedManufacturerId)">
+                    @foreach (GetManufacturerListItem manufacturer in manufacturers)
+                    {
+                        <MudSelectItem T="Guid" Value="@manufacturer.Id">@manufacturer.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="Guid" @bind-Value="model.DeviceModelId" Label="Model"
+                           For="@(() => model.DeviceModelId)" Disabled="@(selectedManufacturerId == Guid.Empty)">
+                    @foreach (GetDeviceModelListItem deviceModel in deviceModels)
+                    {
+                        <MudSelectItem T="Guid" Value="@deviceModel.Id">@deviceModel.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                           Color="Color.Primary" Disabled="@(submitting || !isValid)">Save</MudButton>
+                <MudButton Href="@($"/dm/devices/{Id}")">Cancel</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudForm>
+}

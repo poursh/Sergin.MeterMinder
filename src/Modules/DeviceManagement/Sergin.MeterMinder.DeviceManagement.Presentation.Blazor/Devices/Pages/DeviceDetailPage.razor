@@ -18,6 +18,7 @@
             <MudText Typo="Typo.body2">@device.Id</MudText>
         </MudCardContent>
         <MudCardActions>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="@($"/dm/devices/{Id}/edit")">Edit</MudButton>
             <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="deleting" OnClick="DeleteAsync">Delete</MudButton>
         </MudCardActions>
     </MudCard>

@@ -27,6 +27,7 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
     [InlineData("/dm/manufacturers/new")]
     [InlineData("/dm/manufacturers/01920000-0000-7000-8000-000000000001/models/new")]
     [InlineData("/dm/manufacturers/01920000-0000-7000-8000-000000000001/models/01920000-0000-7000-8000-000000000002")]
+    [InlineData("/dm/devices/01920000-0000-7000-8000-000000000001/edit")]
     public async Task Page_RendersServerSide_WithNavFromBothModules(string path)
     {
         HttpClient client = factory.CreateClient();
@@ -47,6 +48,7 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
     [InlineData("/dm/devices")]
     [InlineData("/dm/manufacturers")]
     [InlineData("/ua/users")]
+    [InlineData("/dm/devices/01920000-0000-7000-8000-000000000001/edit")]
     public async Task ModulePage_IsInteractive_NotStaticallyRenderedOnly(string path)
     {
         HttpClient client = factory.CreateClient();

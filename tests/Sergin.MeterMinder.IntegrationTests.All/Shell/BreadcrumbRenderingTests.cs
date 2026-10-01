@@ -98,6 +98,23 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
         Assert.Contains(Current("Device"), strip, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// An edit page for a record that does not exist still renders: the problem panel instead of the form, and a
+    /// trail whose record step keeps its placeholder but still links to the detail page by the route id.
+    /// </summary>
+    [Theory]
+    [InlineData("/dm/devices/" + UnseededId + "/edit", "/dm/devices", "Device", "Edit")]
+    public async Task EditPage_ForAnUnknownRecord_LinksItsListAndRecord_AndNamesItselfLast(
+        string path, string listHref, string recordPlaceholder, string title)
+    {
+        string strip = await GetBreadcrumbStripAsync(path);
+        string recordHref = path[..path.LastIndexOf('/')];
+
+        Assert.Contains($"href=\"{listHref}\"", strip, StringComparison.Ordinal);
+        Assert.Contains($"<a href=\"{recordHref}\">{recordPlaceholder}</a>", strip, StringComparison.Ordinal);
+        Assert.Contains(Current(title), strip, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task DetailPage_HasNoBackButton()
     {
