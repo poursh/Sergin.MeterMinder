@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Application.Events.Integration;
 using Sergin.SharedKernel.Hosts.Outbox;
@@ -56,6 +57,7 @@ internal static class OutboxTestHost
                 services.AddTransient<INotificationHandler<IntegrationEventNotification<TestAggregateCreatedIntegrationEvent>>, ThrowingIntegrationHandler>();
                 services.AddTransient<INotificationHandler<IntegrationEventNotification<TestAggregateCreatedIntegrationEvent>>, ChainingIntegrationHandler>();
                 services.AddTransient<IRequestHandler<CreateChildAggregateCommand, ErrorOr<Guid>>, CreateChildAggregateCommandHandler>();
+                services.AddSingleton(CommandConfigurationSource.FromTypes(typeof(CreateChildAggregateCommandConfiguration)));
             });
 
             configure?.Invoke(builder);

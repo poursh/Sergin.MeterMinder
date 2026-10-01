@@ -1,9 +1,7 @@
 using Sergin.SharedKernel.Application.Commands.Queries;
-using Sergin.SharedKernel.Application.Securities.Authorization;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;
 
-[RequiredPermissions("permission.dm.devices.read")]
 public sealed record GetDeviceListQueryCommand : ListQuery<GetDeviceListItem>
 {
     public GetDeviceListQueryCommand(

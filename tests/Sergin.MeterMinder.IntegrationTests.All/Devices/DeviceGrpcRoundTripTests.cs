@@ -11,6 +11,7 @@ using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Grpc;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
+using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
@@ -181,6 +182,11 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         ServiceCollection services = new();
 
         services.AddSingleton<IUserContextFactory>(new StubUserContextFactory(permissions));
+
+        // What AddSerginCore registers for a remote module: its ContractsAssembly's declarations, so the gateway's
+        // permission check refuses before the gRPC hop.
+        services.AddSingleton(CommandConfigurationRegistry.FromSources(
+            [CommandConfigurationSource.FromAssembly(typeof(GetDeviceByIdQueryCommand).Assembly)]));
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         services.AddScoped<ConcurrencyContext>();
         services.AddScoped(provider => new DeviceService.DeviceServiceClient(

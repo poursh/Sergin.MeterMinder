@@ -1,8 +1,8 @@
 using ErrorOr;
 using MediatR;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Events.Integration;
-using Sergin.SharedKernel.Application.Securities.Authorization;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Events;
 
@@ -102,11 +102,16 @@ internal sealed class ThrowingIntegrationHandler(FailureSwitch failure) : IInteg
 }
 
 /// <summary>
-/// A permissioned command no configured user holds the permission for — only the relay identity, which is a
-/// system admin, passes <c>PermissionCheckPipelineBehavior</c> for it.
+/// A command whose configuration requires a permission no configured user holds — only the relay identity,
+/// which is a system admin, passes <c>PermissionCheckPipelineBehavior</c> for it.
 /// </summary>
-[RequiredPermissions("permission.test-events.aggregates.write")]
 internal sealed record CreateChildAggregateCommand(string Name) : ICommand<Guid>;
+
+internal sealed class CreateChildAggregateCommandConfiguration : ICommandConfiguration<CreateChildAggregateCommand>
+{
+    public void Configure(CommandConfigurationBuilder<CreateChildAggregateCommand> builder) =>
+        builder.RequirePermissions("permission.test-events.aggregates.write");
+}
 
 internal sealed class CreateChildAggregateCommandHandler(TestEventsDbContext context) : ICommandHandler<CreateChildAggregateCommand, Guid>
 {
