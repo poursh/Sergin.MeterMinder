@@ -1,0 +1,27 @@
+@page "/dm/manufacturers/{Id:guid}/edit"
+
+<PageTitle>Edit manufacturer</PageTitle>
+
+<SerginBreadcrumbs Trail="Trail" />
+
+<SerginProblemPanel Problem="problem" />
+
+@if (version is not null)
+{
+    <MudText Typo="Typo.h4" Class="mb-4">Edit manufacturer</MudText>
+
+    <MudForm @ref="form" Model="model" Validation="@validation" @bind-IsValid="isValid"
+             SuppressImplicitSubmission="false" onsubmit="@OnSubmit">
+        <MudCard>
+            <MudCardContent>
+                <MudTextField @bind-Value="model.Name" Label="Name" For="@(() => model.Name)" Immediate="true" />
+                <MudTextField @bind-Value="model.Address" Label="Address" For="@(() => model.Address)" Immediate="true" />
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                           Color="Color.Primary" Disabled="@(submitting || !isValid)">Save</MudButton>
+                <MudButton Href="@($"/dm/manufacturers/{Id}")">Cancel</MudButton>
+            </MudCardActions>
+        </MudCard>
+    </MudForm>
+}

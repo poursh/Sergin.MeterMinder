@@ -104,6 +104,7 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
     /// </summary>
     [Theory]
     [InlineData("/dm/devices/" + UnseededId + "/edit", "/dm/devices", "Device", "Edit")]
+    [InlineData("/dm/manufacturers/" + UnseededId + "/edit", "/dm/manufacturers", "Manufacturer", "Edit")]
     public async Task EditPage_ForAnUnknownRecord_LinksItsListAndRecord_AndNamesItselfLast(
         string path, string listHref, string recordPlaceholder, string title)
     {
