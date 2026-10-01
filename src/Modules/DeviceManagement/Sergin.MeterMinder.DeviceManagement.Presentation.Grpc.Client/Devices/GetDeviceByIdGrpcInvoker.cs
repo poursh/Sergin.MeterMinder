@@ -25,6 +25,8 @@ public sealed class GetDeviceByIdGrpcInvoker(DeviceService.DeviceServiceClient c
                 Guid.Parse(reply.Success.Id),
                 reply.Success.DeviceId,
                 Guid.Parse(reply.Success.DeviceModelId),
-                reply.Success.DeviceModelName);
+                reply.Success.DeviceModelName,
+                Guid.Parse(reply.Success.ManufacturerId),
+                reply.Success.ManufacturerName);
     }
 }

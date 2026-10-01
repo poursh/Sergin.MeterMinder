@@ -27,9 +27,11 @@ internal sealed class DeviceQueryRepository(
         string queries =
            """
             SELECT d.id, d.device_id AS deviceId, d.device_model_id AS deviceModelId, dm_.name AS deviceModelName,
+                   m_.id AS manufacturerId, m_.name AS manufacturerName,
                    d.row_version AS rowVersion
             FROM dm.device d
             JOIN dm.device_model dm_ ON dm_.id = d.device_model_id
+            JOIN dm.manufacturer m_ ON m_.id = dm_.manufacturer_id
             WHERE d.id = @Id AND d.deleted_at_utc IS NULL;
             """;
 

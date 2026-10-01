@@ -31,4 +31,6 @@ message DeviceData {
   // manufacturer_id / manufacturer_name shape they replace.
   string device_model_id = 3;
   string device_model_name = 4;
+  string manufacturer_id = 5;
+  string manufacturer_name = 6;
 }
