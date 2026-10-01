@@ -2,8 +2,8 @@
 
 Date: 2026-10-01
 Status: approved in conversation, awaiting written-spec review
-Scope: the `dm` module only (`Device`, `Manufacturer`, and `DeviceModel` as `Manufacturer`'s child), plus one
-small UserAccess migration that seeds permissions.
+Scope: the `dm` module only (`Device`, `Manufacturer`, and `DeviceModel` as `Manufacturer`'s child). No UserAccess
+change (see Decision 6).
 
 ## Goal
 
@@ -53,11 +53,13 @@ vertical slice following the `/add-feature` shape, plus the permissions to guard
    is 428 (`VersionErrors.Required`), a stale one is 412 (`VersionErrors.Stale`) and nothing is saved. A model
    change moves `Manufacturer`'s `row_version`, as `AddModel` does.
 
-6. **New `.update` permissions, seeded for Keycloak admins.** `permission.dm.devices.update` guards
-   `UpdateDevice`; `permission.dm.manufacturers.update` guards `UpdateManufacturer`, `RenameDeviceModel` and
-   `RemoveDeviceModel` (model changes are changes to the manufacturer aggregate). The UserAccess seed never granted
-   the existing `.delete` permissions to `administrator`, so in `Keycloak` mode nobody can delete today; the same
-   UserAccess migration fixes that.
+6. **New `.update` permissions; no seed change.** `permission.dm.devices.update` guards `UpdateDevice`;
+   `permission.dm.manufacturers.update` guards `UpdateManufacturer`, `RenameDeviceModel` and `RemoveDeviceModel`
+   (model changes are changes to the manufacturer aggregate). In `Keycloak` mode the seeded `administrator` role
+   holds `permission.sys.platform-all`, and `IUserContext.HasPermissions` passes every check for it
+   (`IsSystemAdmin`), so admins can update and delete without any new seed row. `viewer` stays read-only. (Amended
+   2026-10-01: the conversation assumed `administrator` lacked the `.delete` permissions and planned a UserAccess
+   seed migration; it does not need one.)
 
 7. **`DeviceQueryResponse` gets its manufacturer back.** The device-models spec (Decision 4) made device read
    models "model only" and named adding `ManufacturerId` as the one-line reversal. `EditDevicePage` needs it to
@@ -204,11 +206,8 @@ The groups already carry `ExpectedVersionEndpointFilter`: a strong `If-Match` be
 
 - Host `appsettings.json`, `Sergin:DevUser:Permissions`: add `permission.dm.devices.update` and
   `permission.dm.manufacturers.update`.
-- **Sergin.UserAccess PR** (lands first): migration `SeedDeviceManagementWritePermissions` inserting into
-  `ua.role_permissions` for `administrator`: `permission.dm.devices.update`, `permission.dm.devices.delete`,
-  `permission.dm.manufacturers.update`, `permission.dm.manufacturers.delete`. `viewer` unchanged. Scaffolded, then
-  hand-converted to a file-scoped namespace. `Down` deletes exactly those four rows. A Keycloak user picks the new
-  permissions up at their next sign-in.
+- Keycloak mode: no change. `administrator` holds `permission.sys.platform-all`; `viewer` gets no write
+  permission.
 
 ## Testing
 
@@ -232,12 +231,14 @@ Extended:
 
 - `DeviceManagementConcurrencyTests`: each new command without a version → 428; with a stale version → 412 and
   nothing persisted.
-- `DeviceModelTests`: `UniqueIndex_IsTheGuaranteeUnderTheRace` gains a rename case if the index refuses it the same
-  way (it should; same composite index).
 - `ModulePageRenderingTests` and `BreadcrumbRenderingTests`: the three edit pages prerender, render interactively,
   and show their trails.
 - `DeviceGrpcRoundTripTests`: the two new `DeviceData` fields round-trip.
-- `Validation/CommandValidationTests` discovery: the four new validators are found.
+- Validator discovery needs no separate test: every slice test that expects a validation error proves its
+  validator was found.
+- `DeviceReadModelTests.DeviceDetailPage_RendersDeviceModelName_NotItsId` asserts the page contains neither the
+  model id nor the manufacturer id. The model link puts both in an `href`, so that test is rewritten to assert the
+  link instead.
 
 ## Interaction with `feature/multitenancy`
 
@@ -254,8 +255,7 @@ The plan should check the multitenancy branch's state before starting and, if it
 
 ## Delivery
 
-1. Sergin.UserAccess PR with the seed migration; merge; bump the submodule here.
-2. Worktree branch `feature/dm-full-crud`, one PR, commits in this order: domain behaviours and repository lookups;
+1. Worktree branch `feature/dm-full-crud`, one PR, commits in this order: domain behaviours and repository lookups;
    the four slices with validators and their tests; read-model and proto change; WebApi endpoints; Blazor pages and
    page tests; docs (`src/Modules/DeviceManagement/CLAUDE.md`, and the root CLAUDE.md's
    "Versioned today / guarded" list and `Sergin:DevUser` permission list).
