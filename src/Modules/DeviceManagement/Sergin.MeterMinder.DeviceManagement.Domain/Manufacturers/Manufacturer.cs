@@ -24,6 +24,12 @@ public class Manufacturer : AggregateRoot<ManufacturerId>
         };
     }
 
+    public void Update(ManufacturerName name, ManufacturerAddress? address)
+    {
+        Name = name;
+        Address = address;
+    }
+
     /// <summary>
     /// The only way a model comes into being. Refuses a name this manufacturer already uses — the invariant
     /// the aggregate exists to hold; <c>ix_device_model_manufacturer_id_name</c> is the guarantee under a race.
