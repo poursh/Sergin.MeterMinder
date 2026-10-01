@@ -63,13 +63,15 @@ public sealed partial class RenameDeviceModelPage
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
-    // Two reads: the model for its current name, the manufacturer for the version the rename is guarded by.
+    // Two reads: the manufacturer for the version the rename is guarded by, then the model for its current name.
+    // Version first: a change to the model between the two reads then makes the version stale, so the submit is
+    // refused instead of overwriting a name this page never showed.
     private async Task LoadAsync()
     {
-        ErrorOr<DeviceModelQueryResponse> loadedModel =
-            await Dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(ManufacturerId, Id));
         ErrorOr<Versioned<ManufacturerQueryResponse>> loadedManufacturer =
             await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(ManufacturerId));
+        ErrorOr<DeviceModelQueryResponse> loadedModel =
+            await Dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(ManufacturerId, Id));
 
         if (loadedModel.IsError || loadedManufacturer.IsError)
         {

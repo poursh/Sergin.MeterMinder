@@ -48,8 +48,12 @@ public sealed partial class DeviceModelDetailPage
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
+    // The manufacturer's version is read before the model: a change to the model between the two reads then makes
+    // the version stale, so Remove is refused instead of removing a model this page shows under an old name.
     private async Task LoadAsync()
     {
+        ErrorOr<Versioned<ManufacturerQueryResponse>> manufacturer =
+            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(ManufacturerId));
         ErrorOr<DeviceModelQueryResponse> result =
             await Dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(ManufacturerId, Id));
 
@@ -64,9 +68,6 @@ public sealed partial class DeviceModelDetailPage
 
         problem = null;
         deviceModel = result.Value;
-
-        ErrorOr<Versioned<ManufacturerQueryResponse>> manufacturer =
-            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(ManufacturerId));
 
         // A failed read leaves no version; RemoveAsync then reports it instead of sending a fabricated one.
         manufacturerVersion = manufacturer.IsError ? null : manufacturer.Value.Version;
