@@ -2,6 +2,7 @@ global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.C
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
+global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Update;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Create;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetList;

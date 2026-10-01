@@ -12,4 +12,11 @@ public interface IDeviceRepository : IRepository<Device, DeviceIntenralId>, IUni
     /// by the soft-delete query filter.
     /// </summary>
     Task<bool> AnyUsingManufacturerAsync(ManufacturerId manufacturerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Whether a live device other than <paramref name="exceptId"/> already uses <paramref name="key"/> —
+    /// <c>IsTakenAsync</c> for an update, where the device's own unchanged id must not count. Advisory: the
+    /// partial unique index <c>ix_device_device_id</c> is the guarantee.
+    /// </summary>
+    Task<bool> IsTakenByOtherAsync(DeviceId key, DeviceIntenralId exceptId, CancellationToken cancellationToken = default);
 }

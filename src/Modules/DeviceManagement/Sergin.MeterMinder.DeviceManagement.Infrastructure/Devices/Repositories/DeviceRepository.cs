@@ -26,4 +26,7 @@ internal class DeviceRepository(IDeviceManagementDbContext dbContext)
 
     public Task<bool> IsTakenAsync(DeviceId key, CancellationToken cancellationToken = default)
         => AnyAsync(d => d.DeviceId == key, cancellationToken);
+
+    public Task<bool> IsTakenByOtherAsync(DeviceId key, DeviceIntenralId exceptId, CancellationToken cancellationToken = default)
+        => AnyAsync(d => d.DeviceId == key && d.Id != exceptId, cancellationToken);
 }

@@ -327,7 +327,7 @@ public sealed partial class DeviceManagementUpdateTests
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, await CreateManufacturerAsync(dispatcher));
-        Guid unknown = Guid.CreateVersion7();
+        var unknown = Guid.CreateVersion7();
 
         ErrorOr<UpdateDeviceCommandResponse> updated = await dispatcher.SendAtDeviceVersionAsync(
             unknown, new UpdateDeviceCommand(unknown, new DeviceId(NewName("device")), model));
@@ -360,7 +360,7 @@ public sealed partial class DeviceManagementUpdateTests
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = AnonymousDispatcher(scope);
-        Guid id = Guid.CreateVersion7();
+        var id = Guid.CreateVersion7();
 
         ErrorOr<UpdateDeviceCommandResponse> updated = await dispatcher.SendAsync(
             new UpdateDeviceCommand(id, new DeviceId(NewName("device")), new DeviceModelInternalId(Guid.CreateVersion7())));
@@ -687,7 +687,7 @@ public sealed partial class DeviceManagementUpdateTests
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
-        Guid unknown = Guid.CreateVersion7();
+        var unknown = Guid.CreateVersion7();
 
         ErrorOr<UpdateManufacturerCommandResponse> updated = await dispatcher.SendAtManufacturerVersionAsync(
             unknown, new UpdateManufacturerCommand(unknown, new ManufacturerName(NewName("manufacturer")), Address: null));
