@@ -39,12 +39,9 @@ public class Manufacturer : AggregateRoot<ManufacturerId>
     /// </summary>
     public ErrorOr<DeviceModel> AddModel(DeviceModelName name)
     {
-        if (models.Any(model => model.Name == name))
+        if (models.Exists(model => model.Name == name))
         {
-            // Error.Validation, so it renders through the path already built for validator errors:
-            // Description shown, one snackbar in Blazor, one ValidationProblem entry on the API. The code and
-            // text are what MustBeUniqueIn would have produced for a Name property.
-            return Error.Validation(nameof(DeviceModel.Name), "'Name' is already in use.");
+            return NameInUse();
         }
 
         var model = DeviceModel.Create(Id, name);
@@ -52,6 +49,35 @@ public class Manufacturer : AggregateRoot<ManufacturerId>
 
         return model;
     }
+
+    /// <summary>
+    /// Renames one of this manufacturer's models. Refuses a name another model of this manufacturer already uses,
+    /// with the same error <see cref="AddModel"/> returns; renaming a model to its own current name succeeds.
+    /// Requires the manufacturer to have been loaded with its models (<c>GetWithModelsAsync</c>).
+    /// </summary>
+    public ErrorOr<DeviceModel> RenameModel(DeviceModelInternalId id, DeviceModelName name)
+    {
+        DeviceModel? model = models.Find(candidate => candidate.Id == id);
+
+        if (model is null)
+        {
+            return Error.NotFound();
+        }
+
+        if (models.Exists(other => other.Id != id && other.Name == name))
+        {
+            return NameInUse();
+        }
+
+        model.Rename(name);
+
+        return model;
+    }
+
+    // Error.Validation, so it renders through the path already built for validator errors: Description shown,
+    // one snackbar in Blazor, one ValidationProblem entry on the API. The code and text are what MustBeUniqueIn
+    // would have produced for a Name property.
+    private static Error NameInUse() => Error.Validation(nameof(DeviceModel.Name), "'Name' is already in use.");
 }
 
 public sealed record ManufacturerId(Guid Value);

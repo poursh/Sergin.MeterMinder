@@ -72,4 +72,36 @@ public sealed partial class DeviceManagementConcurrencyTests
         Assert.True(VersionErrors.IsStale(updated.FirstError));
         Assert.Equal(loaded.Value.Value.Name, (await dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(id.Value))).Value.Name);
     }
+
+    [Fact]
+    public async Task RenameDeviceModel_WithoutAVersion_IsRefusedWith428()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
+        DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId);
+
+        ErrorOr<RenameDeviceModelCommandResponse> renamed = await dispatcher.SendAsync(
+            new RenameDeviceModelCommand(manufacturerId, model.Value, new DeviceModelName($"model-{Guid.CreateVersion7()}")));
+
+        Assert.Equal(VersionErrors.RequiredType, (int)renamed.FirstError.Type);
+    }
+
+    [Fact]
+    public async Task RenameDeviceModel_WithAStaleVersion_IsRefused()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
+        ErrorOr<Versioned<ManufacturerQueryResponse>> before =
+            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value));
+        // Adding the model moves the manufacturer's version, so `before` is now stale.
+        DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId);
+
+        ErrorOr<Versioned<RenameDeviceModelCommandResponse>> renamed = await dispatcher.SendVersionedAsync(
+            new RenameDeviceModelCommand(manufacturerId, model.Value, new DeviceModelName($"model-{Guid.CreateVersion7()}")),
+            before.Value.Version);
+
+        Assert.True(VersionErrors.IsStale(renamed.FirstError));
+    }
 }
