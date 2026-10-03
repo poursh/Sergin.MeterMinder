@@ -35,6 +35,8 @@ public sealed class CommandConfigurationPlacementTests
 
         public Assembly ContractsAssembly => typeof(DeleteDeviceCommand).Assembly;
 
+        public Assembly ConfigurationsAssembly => typeof(DeleteDeviceCommand).Assembly;
+
         public void AddServices(IServiceCollection services, IConfigurationSection configuration)
         {
         }
