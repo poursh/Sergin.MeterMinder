@@ -81,8 +81,8 @@ Rejected alternatives:
 | `.Application` | unchanged — handlers never read policy |
 | `.Presentation.*` | unchanged — they reference Contracts and now see no policy types |
 
-`Sergin.MeterMinder.slnx` lists each new project in the module's `Application` solution folder next to
-Contracts.
+`Sergin.MeterMinder.slnx` lists each new project in the module's solution folder (`/src/Modules/<Module>/`),
+next to Contracts.
 
 ### DbContext
 
