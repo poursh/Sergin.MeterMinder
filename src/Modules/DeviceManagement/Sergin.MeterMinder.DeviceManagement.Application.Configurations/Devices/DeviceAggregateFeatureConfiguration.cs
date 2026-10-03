@@ -1,7 +1,7 @@
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.SharedKernel.Application.Aggregates;
 
-namespace Sergin.MeterMinder.DeviceManagement.Application.Devices;
+namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 
 internal sealed class DeviceAggregateFeatureConfiguration : IAggregateFeatureConfiguration<Device>
 {

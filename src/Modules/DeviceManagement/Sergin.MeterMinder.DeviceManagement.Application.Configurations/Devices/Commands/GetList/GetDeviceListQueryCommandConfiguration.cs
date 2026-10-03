@@ -1,6 +1,7 @@
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 
-namespace Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;
+namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices.Commands.GetList;
 
 internal sealed class GetDeviceListQueryCommandConfiguration : ICommandConfiguration<GetDeviceListQueryCommand>
 {

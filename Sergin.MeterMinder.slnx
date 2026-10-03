@@ -31,6 +31,7 @@
   <Folder Name="/src/Modules/" />
   <Folder Name="/src/Modules/DeviceManagement/">
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Application.Contracts/Sergin.MeterMinder.DeviceManagement.Application.Contracts.csproj" />
+    <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Application.Configurations/Sergin.MeterMinder.DeviceManagement.Application.Configurations.csproj" />
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Application/Sergin.MeterMinder.DeviceManagement.Application.csproj" />
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Domain/Sergin.MeterMinder.DeviceManagement.Domain.csproj" />
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Infrastructure.Data/Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.csproj" />
@@ -48,6 +49,7 @@
   </Folder>
   <Folder Name="/src/Modules/UserAccess/">
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Application.Contracts/Sergin.UserAccess.Application.Contracts.csproj" />
+    <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Application.Configurations/Sergin.UserAccess.Application.Configurations.csproj" />
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Application/Sergin.UserAccess.Application.csproj" />
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Domain/Sergin.UserAccess.Domain.csproj" />
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Infrastructure.Data/Sergin.UserAccess.Infrastructure.Data.csproj" />

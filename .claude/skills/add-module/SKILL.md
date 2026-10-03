@@ -20,11 +20,12 @@ The seven below are plain `Microsoft.NET.Sdk` (not `.Web`) class libraries — `
 |---|---|---|
 | `Sergin.<Module>.Domain` | `SharedKernel.Domain` | `global using ErrorOr;` / `global using Ardalis.GuardClauses;` |
 | `Sergin.<Module>.Application.Contracts` | `SharedKernel.Application`, `<Module>.Domain` | `global using ErrorOr;` / `Sergin.SharedKernel.Domain` / `Sergin.SharedKernel.Application` — **not** `Sergin.<Module>.Domain` yet (see note below) |
+| `Sergin.<Module>.Application.Configurations` | `<Module>.Application.Contracts` (only — `SharedKernel.Application` and `.Domain` arrive through it) | (none) |
 | `Sergin.<Module>.Application` | `SharedKernel.Application`, `<Module>.Domain`, `<Module>.Application.Contracts` | same globals as `.Application.Contracts`, since handlers need the same domain/SharedKernel imports plus the request/response types `.Application.Contracts` now holds |
 | `Sergin.<Module>.Infrastructure` | `SharedKernel.Infrastructure`, `<Module>.Application`, `<Module>.Infrastructure.Data` | `global using Dapper;` / `global using static Dapper.SqlMapper;` |
-| `Sergin.<Module>.Infrastructure.Data` | `SharedKernel.Infrastructure.Data.EFCore`, `<Module>.Application` | (none needed yet — add if EF namespaces get noisy) |
+| `Sergin.<Module>.Infrastructure.Data` | `SharedKernel.Infrastructure.Data.EFCore`, `<Module>.Application`, `<Module>.Application.Configurations` | (none needed yet — add if EF namespaces get noisy) |
 | `Sergin.<Module>.Presentation.WebApi` | `SharedKernel.Presentation.WebApi`, `<Module>.Application.Contracts` | `global using ErrorOr;` / `MediatR` / `Sergin.SharedKernel.Presentation` / `Sergin.SharedKernel.Presentation.WebApi` / `Sergin.SharedKernel.Presentation.WebApi.Endpoints` |
-| `Sergin.<Module>` (composition root, no suffix) | `<Module>.Infrastructure`, `<Module>.Presentation.WebApi`, `SharedKernel.Modules` (+ `<Module>.Presentation.Blazor` if the module has a UI) | (none) |
+| `Sergin.<Module>` (composition root, no suffix) | `<Module>.Infrastructure`, `<Module>.Presentation.WebApi`, `<Module>.Application.Configurations`, `SharedKernel.Modules` (+ `<Module>.Presentation.Blazor` if the module has a UI) | (none) |
 
 The composition root's csproj also needs:
 ```xml
@@ -75,6 +76,9 @@ In `Sergin.<Module>.Application/`:
 In `Sergin.<Module>.Application.Contracts/`:
 - `<Module>ApplicationContractsAssemblyReference.cs` — `public static class <Module>ApplicationContractsAssemblyReference { public static readonly Assembly Assembly = typeof(<Module>ApplicationContractsAssemblyReference).Assembly; }`, wrapping `typeof(...).Assembly` for `ISerginModule.ContractsAssembly`. **Note this is a third, separate assembly-reference type from both `<Module>ApplicationAssemblyReference` and `<Module>BlazorAssemblyReference`** — don't conflate any of the three.
 
+In `Sergin.<Module>.Application.Configurations/`:
+- `<Module>ApplicationConfigurationsAssemblyReference.cs` — same shape again (`public static class <Module>ApplicationConfigurationsAssemblyReference { public static readonly Assembly Assembly = typeof(<Module>ApplicationConfigurationsAssemblyReference).Assembly; }`), for `ISerginModule.ConfigurationsAssembly` and, once the module configures an aggregate, the `DbContext`'s `AggregateFeatures` override. This project holds every `<Record>Configuration` and `<Root>AggregateFeatureConfiguration` the module will declare, in folders mirroring the record's or root's own; `AddSerginCore` reads both registries from it and refuses a configuration in `.Application` or `.Application.Contracts`. A fresh module has none, so the project starts with the marker alone.
+
 ## 3. Infrastructure.Data: DbContext, design-time factory, schema
 
 In `Sergin.<Module>.Infrastructure.Data/`:
@@ -103,7 +107,7 @@ In `Sergin.<Module>.Infrastructure.Data/`:
 Create `Sergin.<Module>/<Module>Module.cs` — copy `Sergin.UserAccess/UserAccessModule.cs` exactly, renaming `UserAccess` → `<Module>` and swapping the schema/DbContext/assembly-reference types:
 
 - `public sealed class <Module>Module : ISerginWebApiModule, ISerginWebUiModule` (both from `Sergin.SharedKernel.Modules`; drop `ISerginWebUiModule` for an API-only module). Both interfaces extend the core `ISerginModule` — **one class per module implements every capability the module exposes**, and each host picks the ones it cares about.
-- `Schema` → `<Module>DbContext.Schema`; `ApplicationAssembly` → `<Module>ApplicationAssemblyReference.Assembly`; `ContractsAssembly` → `<Module>ApplicationContractsAssemblyReference.Assembly`.
+- `Schema` → `<Module>DbContext.Schema`; `ApplicationAssembly` → `<Module>ApplicationAssemblyReference.Assembly`; `ContractsAssembly` → `<Module>ApplicationContractsAssemblyReference.Assembly`; `ConfigurationsAssembly` → `<Module>ApplicationConfigurationsAssemblyReference.Assembly`.
 - `AddServices` → `services.AddModuleDbContext<<Module>DbContext, I<Module>DbContext, I<Module>UnitOfWork>(configuration, <Module>DbContext.Schema);` plus per-aggregate `Add<X>Dependencies()` calls (none yet on a fresh module).
 - `MigrateAsync` → `services.MigrateDbContextAsync<<Module>DbContext>();`
 - `MapEndpoints` → per-aggregate `Map<X>Endpoints()` calls (empty method body on a fresh module). *(`ISerginWebApiModule`)*
@@ -124,7 +128,7 @@ Route templates in the new module's pages must start with `/<schema>/` — a sta
 
 ## 6. Register in `Sergin.MeterMinder.slnx`
 
-Add a new `<Folder Name="/src/Modules/<Module>/">` (mirroring the DeviceManagement/UserAccess folders) listing the five non-Presentation projects, plus a `<Folder Name="/src/Modules/<Module>/Presentation/">` for the presentation projects — both `.Presentation.WebApi` and (if present) `.Presentation.Blazor`. That split (presentation projects sit in their own subfolder) matches both existing modules.
+Add a new `<Folder Name="/src/Modules/<Module>/">` (mirroring the DeviceManagement/UserAccess folders) listing the non-Presentation projects (Domain, Application.Contracts, Application.Configurations directly after Contracts, Application, Infrastructure, Infrastructure.Data, and the composition root), plus a `<Folder Name="/src/Modules/<Module>/Presentation/">` for the presentation projects — both `.Presentation.WebApi` and (if present) `.Presentation.Blazor`. That split (presentation projects sit in their own subfolder) matches both existing modules.
 
 ## After scaffolding
 

@@ -5,7 +5,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
 /// <summary>
 /// An entity no DbContext maps, used by the registry and guard tests. Never scanned by a host: the
-/// registry is only ever built from a module's ApplicationAssembly, not from this test assembly, so
+/// registry is only ever built from a module's ConfigurationsAssembly, not from this test assembly, so
 /// the deliberately broken configurations below cannot reach the real host.
 /// </summary>
 internal sealed class UnmappedEntity : AggregateRoot<Guid>;
