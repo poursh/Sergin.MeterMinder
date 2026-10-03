@@ -1,6 +1,7 @@
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOne;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 
-namespace Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOne;
+namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.Commands.GetOne;
 
 internal sealed class GetManufacturerByIdQueryCommandConfiguration : ICommandConfiguration<GetManufacturerByIdQueryCommand>
 {

@@ -1,6 +1,7 @@
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 
-namespace Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
+namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices.Commands.Delete;
 
 internal sealed class DeleteDeviceCommandConfiguration : ICommandConfiguration<DeleteDeviceCommand>
 {
