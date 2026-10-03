@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.IntegrationTests.All.Commands;
 using Sergin.SharedKernel.Application.Aggregates;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
@@ -76,5 +77,15 @@ public sealed class AggregateFeatureRegistryTests
         // scan found both classes without the test depending on their exact count.
         Assert.Throws<InvalidOperationException>(() =>
             AggregateFeatureRegistry.FromAssemblies([typeof(AggregateFeatureRegistryTests).Assembly]));
+    }
+
+    [Fact]
+    public void ConfigurationTypesIn_ListsOnlyAggregateFeatureConfigurations()
+    {
+        IReadOnlyCollection<Type> types =
+            AggregateFeatureRegistry.ConfigurationTypesIn(typeof(AggregateFeatureRegistryTests).Assembly);
+
+        Assert.Contains(typeof(UnmappedEntityAggregateFeatureConfiguration), types);
+        Assert.DoesNotContain(typeof(ConfiguredTestCommandConfiguration), types);
     }
 }
