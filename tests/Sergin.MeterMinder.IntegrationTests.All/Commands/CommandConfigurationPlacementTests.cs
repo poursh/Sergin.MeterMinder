@@ -63,6 +63,16 @@ public sealed class CommandConfigurationPlacementTests
             CreateBuilder().AddSerginCore([], [new PlacementRemoteModule(MisplacedAssembly, DmConfigurations)]));
 
         Assert.Contains(CommandConfiguration, error.Message, StringComparison.Ordinal);
+        Assert.Contains(AggregateConfiguration, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ConfigurationsAssemblyAlsoApplication_Composes()
+    {
+        IConfigurationSection section =
+            CreateBuilder().AddSerginCore([new PlacementModule(DmConfigurations, DmContracts, DmConfigurations)]);
+
+        Assert.NotNull(section);
     }
 
     [Fact]

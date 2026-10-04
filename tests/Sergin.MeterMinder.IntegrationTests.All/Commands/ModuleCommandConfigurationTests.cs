@@ -1,3 +1,4 @@
+using System.Reflection;
 using Sergin.MeterMinder.DeviceManagement.Application;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
@@ -5,6 +6,7 @@ using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Add;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.UserAccess.Application;
 using Sergin.UserAccess.Application.Configurations;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.GetOne;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.ProvisionExternalUser;
@@ -26,9 +28,20 @@ public sealed class ModuleCommandConfigurationTests
     [Fact]
     public void ContractsAndApplicationAssemblies_HoldNoConfigurations()
     {
-        Assert.Empty(CommandConfigurationSource.FromAssembly(typeof(DeleteDeviceCommand).Assembly).ConfigurationTypes);
-        Assert.Empty(CommandConfigurationSource.FromAssembly(typeof(GetUserByIdQueryCommand).Assembly).ConfigurationTypes);
-        Assert.Empty(AggregateFeatureRegistry.ConfigurationTypesIn(DeviceManagementApplicationAssemblyReference.Assembly));
+        Assembly[] assemblies =
+        [
+            typeof(DeleteDeviceCommand).Assembly,
+            DeviceManagementApplicationAssemblyReference.Assembly,
+            typeof(GetUserByIdQueryCommand).Assembly,
+            UserAccessApplicationAssemblyReference.Assembly,
+        ];
+
+        foreach (Assembly assembly in assemblies)
+        {
+            Assert.Empty(CommandConfigurationSource.FromAssembly(assembly).ConfigurationTypes);
+            Assert.Empty(AggregateFeatureRegistry.ConfigurationTypesIn(assembly));
+        }
+
         Assert.Equal(2, AggregateFeatureRegistry.ConfigurationTypesIn(
             DeviceManagementApplicationConfigurationsAssemblyReference.Assembly).Count);
     }
