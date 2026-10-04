@@ -26,7 +26,6 @@ vertical slice following the `/add-feature` shape, plus the permissions to guard
 - Restoring or purging soft-deleted rows.
 - Generalizing the self-excluding uniqueness rule into SharedKernel (see Decision 2).
 - Making manufacturer names unique. They are not unique today and stay that way.
-- Changing a device's or manufacturer's region (see "Interaction with `feature/multitenancy`").
 
 ## Decisions
 
@@ -239,19 +238,6 @@ Extended:
 - `DeviceReadModelTests.DeviceDetailPage_RendersDeviceModelName_NotItsId` asserts the page contains neither the
   model id nor the manufacturer id. The model link puts both in an `href`, so that test is rewritten to assert the
   link instead.
-
-## Interaction with `feature/multitenancy`
-
-`feature/multitenancy` (33 commits, unmerged) adds region scoping to `CreateDevice`/`CreateManufacturer`
-(`MustBeRegionInScope`, `PlaceIn`, a region picker) and edits all three dm query repositories. Whichever branch
-merges second rebases and adapts:
-
-- If multitenancy lands first: the update commands get the same scope rule on the loaded aggregate (a caller may
-  only update what their scope can see); the edit pages show the region read-only; `DeviceQueryRepository`'s GetOne
-  change is reapplied on top of its scoped SQL. Moving an aggregate between regions remains out of scope.
-- If this lands first: the multitenancy branch adds region scoping to the four new commands as part of its rebase.
-
-The plan should check the multitenancy branch's state before starting and, if it has merged, fold its rules in.
 
 ## Delivery
 
