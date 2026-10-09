@@ -1,4 +1,4 @@
-<Solution>
+﻿<Solution>
   <Configurations>
     <Platform Name="Any CPU" />
     <Platform Name="x64" />
@@ -85,6 +85,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Sergin.MeterMinder.IntegrationTests.All/Sergin.MeterMinder.IntegrationTests.All.csproj" />
+    <Project Path="tests/Sergin.UserAccess.UnitTests/Sergin.UserAccess.UnitTests.csproj" />
   </Folder>
   <Project Path="docker-compose/docker-compose.dcproj">
     <Platform Project="AnyCPU" />

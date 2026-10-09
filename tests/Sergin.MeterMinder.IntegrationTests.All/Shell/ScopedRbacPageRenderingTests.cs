@@ -1,0 +1,61 @@
+using System.Net;
+using Sergin.SharedKernel.IntegrationTests;
+using Sergin.UserAccess.Domain.Scopes;
+
+namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
+
+/// <summary>
+/// The scope and role pages prerender with their data: the seeded root scope and the seeded viewer role are
+/// always there, so these need no setup.
+/// </summary>
+[Collection(nameof(IntegrationTestCollection))]
+public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> factory)
+{
+    private const string ViewerRoleId = "01920000-0000-7000-8000-0000000000a2";
+
+    [Fact]
+    public async Task ScopeTree_ListsTheRoot()
+    {
+        string html = await GetAsync("/ua/scopes");
+
+        Assert.Contains($"href=\"/ua/scopes/{Scope.RootId.Value}\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RootScopeDetail_ShowsTheGlobalRolesUsableThere()
+    {
+        string html = await GetAsync($"/ua/scopes/{Scope.RootId.Value}");
+
+        Assert.Contains("The root of the tree", html, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/ua/roles/{ViewerRoleId}\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ViewerRoleDetail_ShowsItsPermissions()
+    {
+        string html = await GetAsync($"/ua/roles/{ViewerRoleId}");
+
+        Assert.Contains("permission.dm.devices.read", html, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/ua/scopes/{Scope.RootId.Value}\"", html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("/ua/scopes/new")]
+    [InlineData("/ua/roles/new?scopeId=01920000-0000-7000-8000-0000000000b1")]
+    public async Task CreatePages_Render(string path)
+    {
+        string html = await GetAsync(path);
+
+        Assert.Contains("Create", html, StringComparison.Ordinal);
+    }
+
+    private async Task<string> GetAsync(string path)
+    {
+        using HttpClient client = factory.CreateClient();
+        using HttpResponseMessage response = await client.GetAsync(new Uri(path, UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        return await response.Content.ReadAsStringAsync();
+    }
+}

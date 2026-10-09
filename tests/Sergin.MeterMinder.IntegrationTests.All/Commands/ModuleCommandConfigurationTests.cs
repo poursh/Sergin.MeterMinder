@@ -1,4 +1,4 @@
-using System.Reflection;
+﻿using System.Reflection;
 using Sergin.MeterMinder.DeviceManagement.Application;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
@@ -8,6 +8,10 @@ using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.UserAccess.Application;
 using Sergin.UserAccess.Application.Configurations;
+using Sergin.UserAccess.Application.Contracts.Roles.Commands.Rename;
+using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Create;
+using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Move;
+using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.GetOne;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.ProvisionExternalUser;
 
@@ -77,8 +81,32 @@ public sealed class ModuleCommandConfigurationTests
     }
 
     [Fact]
-    public void ModulesDeclareFifteenRequests()
+    public void CreateUser_NeedsGlobalManagePermission()
     {
-        Assert.Equal(15, Registry.ConfiguredTypes.Count);
+        Assert.Equal("permission.ua.users.manage", Assert.Single(Registry.For(typeof(CreateUserCommand)).RequiredPermissions).Value);
+    }
+
+    /// <summary>
+    /// Scoped management commands require no permission here: a regional administrator holds it only in their
+    /// region, so the global claims the pipeline checks would refuse them. Their handlers check it against the
+    /// target scope instead. Edits to one role carry a version; a scope move or delete touches several versioned
+    /// roots (the subtree, the owned roles) in one save, so it cannot.
+    /// </summary>
+    [Fact]
+    public void ScopedManagementCommands_CheckNoGlobalPermission()
+    {
+        CommandSettings renameRole = Registry.For(typeof(RenameRoleCommand));
+
+        Assert.Empty(renameRole.RequiredPermissions);
+        Assert.True(renameRole.RequiresExpectedVersion);
+        Assert.Same(CommandSettings.None, Registry.For(typeof(CreateScopeCommand)));
+        Assert.Same(CommandSettings.None, Registry.For(typeof(MoveScopeCommand)));
+        Assert.Same(CommandSettings.None, Registry.For(typeof(AssignRoleCommand)));
+    }
+
+    [Fact]
+    public void ModulesDeclareTwentyFiveRequests()
+    {
+        Assert.Equal(25, Registry.ConfiguredTypes.Count);
     }
 }
