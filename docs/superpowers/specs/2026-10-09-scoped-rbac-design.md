@@ -47,7 +47,7 @@ Every existing role becomes owned by the root and inheritable (a global role, BR
 
 `ScopedPermissionChecker` loads a user's live grants in one indexed query (assignment scope path, subtree flag, validity window, permissions), caches them per user, and evaluates the target in memory: a grant applies on its own scope, and below it when it covers the subtree. `permission.sys.platform-all` in a role grants everything the role reaches. The cache carries a generation; every write handler calls `Invalidate()` after its save commits, so a revocation is denied on the next check (NFR-3, AC-9). Entries also expire after five minutes.
 
-`IScopeAuthorization` is what handlers call for the signed-in user: global claims pass without a lookup, otherwise the checker is asked, and any exception is a denial (AC-10).
+`IScopeAuthorization` is what handlers call for the signed-in user: it answers by scope only. The claims are never consulted; every check asks the checker by user id, and any exception is a denial (AC-10). The one exception is a system admin (the outbox relay identity, which has no user row). In DevUser mode the bootstrap seeds the configured dev user with the `administrator` role at the root (`IDevUserSeeder`), so the dev host passes scoped checks through a stored grant.
 
 Management permissions (`permission.ua.scopes.*`, `roles.*`, `assignments.manage`) are checked against the target scope inside each handler, not by `RequirePermissions`, because a regional administrator holds them only there.
 
@@ -55,7 +55,7 @@ Management permissions (`permission.ua.scopes.*`, `roles.*`, `assignments.manage
 
 `IAuthorizationScopeContext` (SharedKernel) holds the scope the caller is working in, per DI scope. It is the root until code sets it: a scope picker for an explicit choice (deferred), or the code opening the scope when the system knows the target. Nothing derives it from the user's grants. It travels into a send's scope the way `ConcurrencyContext` does: the Blazor dispatcher and form validator copy the circuit's value, WebApi reads the `X-Sergin-Scope` header, gRPC the `sergin-scope` metadata. Outbox consumers run at the root.
 
-A command configuration opts in with `RequirePermissions(...).InCurrentScope()`; `PermissionCheckPipelineBehavior` then checks those permissions through `IScopeAuthorization` on the context scope (global claims still pass first, any error denies). Everything else stays global. The opt-in is deliberate: DeviceManagement records carry no scope, so checking its commands on a regional scope would let a regional user reach every record. UserAccess management handlers keep checking the record's own scope, since their target is the record, not where the caller is working.
+A command configuration opts in with `RequirePermissions(...).InCurrentScope()`; `PermissionCheckPipelineBehavior` then checks those permissions through `IScopeAuthorization` on the context scope (by scope only; any error denies). Everything else stays global. The opt-in is deliberate: DeviceManagement records carry no scope, so checking its commands on a regional scope would let a regional user reach every record. UserAccess management handlers keep checking the record's own scope, since their target is the record, not where the caller is working.
 
 ## Version guards
 

@@ -110,6 +110,21 @@ internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
     public async Task<Guid> CreateUserAsync(string name) =>
         (await SendAsync(new CreateUserCommand(new UserName($"{name}-{Guid.NewGuid():N}")))).Id;
 
+    /// <summary>
+    /// A real user holding <paramref name="permissions"/> at <paramref name="scopeId"/> over its subtree, through a
+    /// role of its own. Scoped checks answer from stored grants only, so a caller needs a row, not just claims.
+    /// </summary>
+    public async Task<TestCaller> CreateGrantedCallerAsync(Guid scopeId, params Permission[] permissions)
+    {
+        Guid role = await CreateRoleAsync(scopeId, $"granted-{Guid.NewGuid():N}"[..20], inheritable: true, permissions);
+        Guid user = await CreateUserAsync("granted");
+
+        ErrorOr<AssignRoleCommandResponse> assigned = await AssignAsync(user, role, scopeId, includeSubtree: true);
+        Assert.False(assigned.IsError, assigned.IsError ? assigned.FirstError.Description : string.Empty);
+
+        return new TestCaller { Id = new UserId(user) };
+    }
+
     public Task<ErrorOr<AssignRoleCommandResponse>> AssignAsync(
         Guid userId, Guid roleId, Guid scopeId, bool includeSubtree, DateTime? fromUtc = null, DateTime? untilUtc = null) =>
         TrySendAsync(new AssignRoleCommand(userId, roleId, scopeId, includeSubtree, fromUtc, untilUtc));

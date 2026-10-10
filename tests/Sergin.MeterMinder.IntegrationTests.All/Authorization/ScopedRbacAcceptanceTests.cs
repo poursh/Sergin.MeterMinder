@@ -73,8 +73,8 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
     {
         RbacScenario tree = await RbacScenario.BuildAsync(factory);
 
-        // Holds role management everywhere, but not the permission it tries to hand out.
-        TestCaller admin = new(UserAccessPermissions.RolesManage, RbacScenario.Read);
+        // Holds role management over the company, but not the permission it tries to hand out.
+        TestCaller admin = await tree.CreateGrantedCallerAsync(tree.Company, UserAccessPermissions.RolesManage, RbacScenario.Read);
 
         ErrorOr<CreateRoleCommandResponse> result = await tree.TrySendAsync(
             new CreateRoleCommand(tree.North, new RoleName("disconnector"), false, [RbacScenario.Update]), admin);
@@ -185,15 +185,24 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
     }
 
     [Fact]
-    public async Task GlobalPermissions_PassEveryScopeWithoutALookup()
+    public async Task ClaimsAreNotConsulted_OnlyASystemAdminSkipsTheLookup()
+    {
+        RbacScenario tree = await RbacScenario.BuildAsync(factory);
+
+        // Holds the permission as a claim but has no stored grant: refused.
+        Assert.False(await HasAsync(new TestCaller(RbacScenario.Update), tree.North));
+
+        // A system admin (the outbox relay identity) has no row and still passes.
+        Assert.True(await HasAsync(new TestCaller(Permission.AllPlatform), tree.North));
+    }
+
+    private async Task<bool> HasAsync(TestCaller caller, Guid scopeId)
     {
         using IServiceScope scope = factory.Services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = new TestCaller(RbacScenario.Update);
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = caller;
 
-        IScopeAuthorization authorization = scope.ServiceProvider.GetRequiredService<IScopeAuthorization>();
-
-        Assert.True(await authorization.CurrentUserHasAsync(RbacScenario.Update, Guid.NewGuid()));
-        Assert.False(await authorization.CurrentUserHasAsync(RbacScenario.Read, Guid.NewGuid()));
+        return await scope.ServiceProvider.GetRequiredService<IScopeAuthorization>()
+            .CurrentUserHasAsync(RbacScenario.Update, scopeId);
     }
 
     private sealed class ThrowingChecker : IScopedPermissionChecker

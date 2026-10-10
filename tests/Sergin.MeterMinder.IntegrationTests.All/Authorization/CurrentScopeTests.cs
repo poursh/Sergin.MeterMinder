@@ -69,14 +69,17 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
-    public async Task ScopedCommand_PassesAGlobalHolderInAnyScope()
+    public async Task ScopedCommand_PassesARootHolderInAnyScope_AndIgnoresClaims()
     {
         RbacScenario tree = await RbacScenario.BuildAsync(factory);
+        TestCaller rootHolder = await tree.CreateGrantedCallerAsync(AuthorizationScope.RootId, RbacScenario.Update);
         await using WebApplicationFactory<Program> host = CreateHost();
-        TestCaller global = new(RbacScenario.Update);
 
-        Assert.Equal(AuthorizationScope.RootId, (await SendAsync(host, new ScopedCommand(), global, null)).Value);
-        Assert.Equal(tree.South, (await SendAsync(host, new ScopedCommand(), global, tree.South)).Value);
+        Assert.Equal(AuthorizationScope.RootId, (await SendAsync(host, new ScopedCommand(), rootHolder, null)).Value);
+        Assert.Equal(tree.South, (await SendAsync(host, new ScopedCommand(), rootHolder, tree.South)).Value);
+
+        // The permission as a claim, with no stored grant, passes no scoped check.
+        Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new ScopedCommand(), new TestCaller(RbacScenario.Update), tree.South)).FirstError.Type);
     }
 
     [Fact]

@@ -61,7 +61,7 @@ public sealed class ScopedRbacRuleTests(SerginWebApiFactory<Program> factory)
 
         Assert.False((await tree.SendAtRoleVersionAsync(role, new GrantRolePermissionCommand(role, RbacScenario.Update))).IsError);
 
-        TestCaller limited = new(UserAccessPermissions.RolesManage, RbacScenario.Read);
+        TestCaller limited = await tree.CreateGrantedCallerAsync(tree.Company, UserAccessPermissions.RolesManage, RbacScenario.Read);
         ErrorOr<GrantRolePermissionCommandResponse> refused = await tree.SendAtRoleVersionAsync(
             role, new GrantRolePermissionCommand(role, "permission.dm.devices.delete"), limited);
 
