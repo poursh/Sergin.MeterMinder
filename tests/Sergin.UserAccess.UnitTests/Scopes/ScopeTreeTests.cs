@@ -1,5 +1,4 @@
 using ErrorOr;
-using Sergin.UserAccess.Domain.Authorization;
 using Sergin.UserAccess.Domain.Scopes;
 
 namespace Sergin.UserAccess.UnitTests.Scopes;
@@ -44,7 +43,6 @@ public sealed class ScopeTreeTests
         Assert.Equal(south.Id, north.ParentId);
         Assert.Equal(south.Path.Child(north.Id), north.Path);
         Assert.Equal(north.Path.Child(feeder.Id), feeder.Path);
-        Assert.Contains(north.DomainEvents, e => e is AuthorizationChangedDomainEvent { Action: "scope.moved" });
     }
 
     [Fact]

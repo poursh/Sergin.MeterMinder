@@ -1,10 +1,10 @@
 # Scoped RBAC: design
 
-Date: 2026-10-09. Requirements: "Scoped RBAC Authorization: Requirements" (FR-1 to FR-13, BR-1 to BR-8, NFR-1 to NFR-8, AC-1 to AC-10). Scope of this change: the UserAccess module, plus one small SharedKernel seam. DeviceManagement adopting scoped checks is a later change.
+Date: 2026-10-09. Requirements: "Scoped RBAC Authorization: Requirements" (FR-1 to FR-13, BR-1 to BR-8, NFR-1 to NFR-8, AC-1 to AC-10). Scope of this change: the UserAccess module, plus one small SharedKernel seam. DeviceManagement adopting scoped checks is a later change. The authorization audit log (BR-8, NFR-6) is deliberately not built.
 
 ## Problem
 
-Authorization was flat. A user held roles; a role held permissions; at sign-in the union was stamped into the cookie as `sergin:permission` claims, and `PermissionCheckPipelineBehavior` checked those. Nothing could say "this user operates North Region and nothing else". The requirements ask for a tree of scopes, roles owned by scopes, assignments per scope with optional subtree coverage and validity period, a runtime check on a target scope, and an audit log nobody can edit.
+Authorization was flat. A user held roles; a role held permissions; at sign-in the union was stamped into the cookie as `sergin:permission` claims, and `PermissionCheckPipelineBehavior` checked those. Nothing could say "this user operates North Region and nothing else". The requirements ask for a tree of scopes, roles owned by scopes, assignments per scope with optional subtree coverage and validity period, and a runtime check on a target scope.
 
 ## Decisions
 
@@ -16,14 +16,13 @@ Authorization was flat. A user held roles; a role held permissions; at sign-in t
 | Are inheritable roles the default? | **Opt-in per role** (`IsInheritable`). | FR-4 reads "a role marks itself". |
 | Is "this scope only" needed? | **Yes**, `IncludeSubtree` per assignment. | FR-7 is a must. |
 | Does a conflicting move block or flag? | **Block** (validation error). | BR-6, AC-8. |
-| Hard or soft delete? | **Soft** for scopes and roles. | Revoked assignments keep naming what they were for; the audit log stays meaningful. |
+| Hard or soft delete? | **Soft** for scopes and roles. | Revoked assignments keep naming what they were for. |
 
 ## Model (schema `ua`)
 
 - `scopes(id, name, parent_id, path ltree, audit, soft delete, row_version)`. One root, seeded with id `01920000-0000-7000-8000-0000000000b1`. Sibling names unique among live rows.
 - `roles` gains `owner_scope_id` and `is_inheritable`. The global unique index on `name` becomes `(owner_scope_id, name)` among live rows. BR-4 (no repeat along the ancestor line) is a validator rule, advisory like every repository rule.
 - `role_assignments(id, user_id, role_id, scope_id, include_subtree, valid_from_utc, valid_until_utc, revoked_at_utc, revoked_by)` replaces `user_roles`. A child entity of `User`.
-- `authorization_audit_log(id, occurred_at_utc, actor_id, action, entity_type, entity_id, scope_id, details jsonb)`, with a trigger that refuses UPDATE, DELETE and TRUNCATE (SQLSTATE 42501).
 
 Keys to soft-deletable rows use `DeleteBehavior.ClientNoAction`. With `Restrict`, removing a role while its assignments were tracked made EF null the key before the soft-delete interceptor turned the delete into an update.
 
@@ -42,7 +41,6 @@ Every existing role becomes owned by the root and inheritable (a global role, BR
 | BR-5 delete in use | Validators refuse unless `Cascade`; the cascade revokes assignments and soft-deletes owned roles. Only a leaf scope can be deleted. |
 | BR-6 move | `MoveScopeCommandValidator` query: no live assignment in the moved subtree whose role owner is outside it and not above the new parent. `Scope.MoveUnder` refuses the root and cycles. |
 | BR-7 global roles | Root-owned inheritable roles; provisioning assigns `viewer` that way. |
-| BR-8, NFR-6 audit | Every mutator raises `AuthorizationChangedDomainEvent`; one handler appends the log entry in the same save. |
 | FR-13 deactivation | The grant query joins `users.is_active`; sign-in claims are empty for an inactive user. Assignments are kept. |
 
 ## The check

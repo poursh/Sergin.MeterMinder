@@ -1,8 +1,4 @@
-using System.Data.Common;
 using ErrorOr;
-using Microsoft.Extensions.DependencyInjection;
-using Npgsql;
-using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.UserAccess.Application.Contracts;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.Create;
@@ -14,7 +10,6 @@ using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Delete;
 using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Move;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.GetEffective;
 using Sergin.UserAccess.Domain.Roles;
-using Dapper;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 
@@ -160,31 +155,5 @@ public sealed class ScopedRbacRuleTests(SerginWebApiFactory<Program> factory)
         Assert.Equal([RbacScenario.Update.Value], north.Permissions);
         Assert.False(south.IncludeSubtree);
         Assert.Equal([RbacScenario.Read.Value], south.Permissions);
-    }
-
-    [Fact]
-    public async Task EveryChange_IsAudited_AndTheLogRefusesEdits()
-    {
-        RbacScenario tree = await RbacScenario.BuildAsync(factory);
-        Guid role = await tree.CreateRoleAsync(tree.North, "audited", inheritable: true, RbacScenario.Update);
-        Guid ali = await tree.CreateUserAsync("ali");
-        Guid assignment = (await tree.AssignAsync(ali, role, tree.North, includeSubtree: true)).Value.Id;
-
-        using IServiceScope scope = factory.Services.CreateScope();
-        using DbConnection connection = await scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>().CreateConnectionAsync();
-
-        IReadOnlyCollection<string> actions =
-        [
-            .. await connection.QueryAsync<string>(
-                "SELECT action FROM ua.authorization_audit_log WHERE entity_id = ANY(@Ids) ORDER BY occurred_at_utc;",
-                new { Ids = new[] { tree.North, role, assignment } })
-        ];
-
-        Assert.Equal(["scope.created", "role.created", "assignment.created"], actions);
-
-        PostgresException refused = await Assert.ThrowsAsync<PostgresException>(() =>
-            connection.ExecuteAsync("UPDATE ua.authorization_audit_log SET action = 'x' WHERE entity_id = @Id;", new { Id = role }));
-
-        Assert.Equal("42501", refused.SqlState);
     }
 }
