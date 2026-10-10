@@ -75,6 +75,28 @@ public sealed class CommandConfigurationRegistryTests
     }
 
     [Fact]
+    public void InCurrentScope_IsCarriedOnTheSettings()
+    {
+        var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(InCurrentScopeQueryConfiguration)]);
+
+        CommandSettings settings = registry.For(typeof(ConfiguredTestQuery));
+
+        Assert.True(settings.PermissionsInCurrentScope);
+        Assert.False(CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestQueryConfiguration)])
+            .For(typeof(ConfiguredTestQuery)).PermissionsInCurrentScope);
+    }
+
+    [Fact]
+    public void InCurrentScopeWithoutAPermission_Throws_NamingTheQueryAndConfiguration()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            CommandConfigurationRegistry.FromConfigurationTypes([typeof(InCurrentScopeWithoutPermissionConfiguration)]));
+
+        Assert.Contains(typeof(ConfiguredTestQuery).FullName!, error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(InCurrentScopeWithoutPermissionConfiguration), error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ConfigurationForAnAbstractRequest_Throws_NamingIt()
     {
         // Lookup is by the exact type sent, so a policy on an abstract base would never apply to anything.

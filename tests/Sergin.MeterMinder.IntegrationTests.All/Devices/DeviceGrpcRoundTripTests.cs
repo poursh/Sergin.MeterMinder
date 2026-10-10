@@ -22,6 +22,7 @@ using Sergin.SharedKernel.Domain.Users;
 using Sergin.SharedKernel.Presentation.Grpc.Dispatching;
 using Grpc.Net.Client;
 using Grpc.Core.Interceptors;
+using Sergin.SharedKernel.Presentation.Grpc.Authorization;
 using Sergin.SharedKernel.Presentation.Grpc.Concurrency;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Devices;
@@ -61,12 +62,17 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 
         repository = new StubDeviceQueryRepository();
 
-        builder.Services.AddGrpc(options => options.Interceptors.Add<ConcurrencyServerInterceptor>());
+        builder.Services.AddGrpc(options =>
+        {
+            options.Interceptors.Add<ConcurrencyServerInterceptor>();
+            options.Interceptors.Add<AuthorizationScopeServerInterceptor>();
+        });
         builder.Services.AddSingleton<IGetDeviceQueryRepository>(repository);
         builder.Services.AddSingleton<IUserContextFactory>(
             new StubUserContextFactory([DevicesReadPermission]));
         builder.Services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         builder.Services.AddScoped<ConcurrencyContext>();
+        builder.Services.AddScoped<IAuthorizationScopeContext, AuthorizationScopeContext>();
         builder.Services.AddSingleton(seenExpected);
 
         // Deliberately no PermissionCheckPipelineBehavior/ValidationPipelineBehavior registered on this
@@ -178,6 +184,30 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         Assert.Equal(stored, concurrency.Current);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RemoteDispatch_CarriesTheCurrentScope(bool setScope)
+    {
+        var deviceGuid = Guid.CreateVersion7();
+        repository.Add(new DeviceIntenralId(deviceGuid), new DeviceQueryResponse(deviceGuid, "DEV-8", Guid.CreateVersion7(), "XYZ-8", Guid.CreateVersion7(), "ACME"), RowVersion.Create());
+        var picked = Guid.CreateVersion7();
+
+        using ServiceProvider provider = BuildRemoteProvider([DevicesReadPermission]);
+        using IServiceScope scope = provider.CreateScope();
+
+        if (setScope)
+        {
+            scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(picked);
+        }
+
+        ErrorOr<DeviceQueryResponse> result = await scope.ServiceProvider.GetRequiredService<ISender>()
+            .Send(new GetDeviceByIdQueryCommand(deviceGuid));
+
+        Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
+        Assert.Equal(setScope ? picked : AuthorizationScope.RootId, seenExpected.Scope);
+    }
+
     private ServiceProvider BuildRemoteProvider(Permission[] permissions)
     {
         ServiceCollection services = new();
@@ -190,8 +220,16 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
             [CommandConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly)]));
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         services.AddScoped<ConcurrencyContext>();
+
+        // What AddSerginCore registers for scoped checks. A gateway without UserAccess denies every scoped check.
+        services.AddLogging();
+        services.AddScoped<IAuthorizationScopeContext, AuthorizationScopeContext>();
+        services.AddScoped<IScopedPermissionChecker, DenyAllScopedPermissionChecker>();
+        services.AddScoped<IScopeAuthorization, ScopeAuthorization>();
         services.AddScoped(provider => new DeviceService.DeviceServiceClient(
-            channel.Intercept(new ConcurrencyClientInterceptor(provider.GetRequiredService<ConcurrencyContext>()))));
+            channel
+                .Intercept(new ConcurrencyClientInterceptor(provider.GetRequiredService<ConcurrencyContext>()))
+                .Intercept(new AuthorizationScopeClientInterceptor(provider.GetRequiredService<IAuthorizationScopeContext>()))));
         services.AddScoped<IRemoteInvoker<GetDeviceByIdQueryCommand, DeviceQueryResponse>, GetDeviceByIdGrpcInvoker>();
 
         // AddMediatR throws ("No assemblies found to scan") if given no assembly at all, even though the
@@ -244,15 +282,19 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
     private sealed class SeenExpected
     {
         public RowVersion? Value { get; set; }
+
+        public Guid? Scope { get; set; }
     }
 
-    private sealed class CaptureExpectedBehavior<TRequest, TResponse>(ConcurrencyContext concurrency, SeenExpected seen)
+    private sealed class CaptureExpectedBehavior<TRequest, TResponse>(
+        ConcurrencyContext concurrency, IAuthorizationScopeContext scopeContext, SeenExpected seen)
         : IPipelineBehavior<TRequest, TResponse>
         where TRequest : notnull
     {
         public Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
             seen.Value = concurrency.Expected;
+            seen.Scope = scopeContext.ScopeId;
             return next(cancellationToken);
         }
     }

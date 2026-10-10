@@ -126,7 +126,7 @@ internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
 /// <summary>A caller holding exactly the given global permissions.</summary>
 internal sealed class TestCaller(params Permission[] permissions) : IUserContext
 {
-    public UserId Id { get; } = new(Guid.CreateVersion7());
+    public UserId Id { get; init; } = new(Guid.CreateVersion7());
     public string UserName => "test-caller";
     public string FirstName => "Test";
     public string LastName => "Caller";
