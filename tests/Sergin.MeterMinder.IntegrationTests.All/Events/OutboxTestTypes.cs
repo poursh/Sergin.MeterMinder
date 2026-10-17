@@ -103,7 +103,7 @@ internal sealed class ThrowingIntegrationHandler(FailureSwitch failure) : IInteg
 
 /// <summary>
 /// A command whose configuration requires a permission no configured user holds — only the relay identity,
-/// which is a system admin, passes <c>PermissionCheckPipelineBehavior</c> for it.
+/// which is a system identity, passes <c>PermissionCheckPipelineBehavior</c> for it.
 /// </summary>
 internal sealed record CreateChildAggregateCommand(string Name) : ICommand<Guid>;
 

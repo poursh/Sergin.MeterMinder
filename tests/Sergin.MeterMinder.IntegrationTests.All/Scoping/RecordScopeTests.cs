@@ -45,8 +45,8 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
         Assert.False((await SendAsync(host, new RenameAnyManufacturerCommand(manufacturer, "global"), rootHolder, tree.North)).IsError);
         Assert.Equal("global", await NameOfAsync(manufacturer));
 
-        // The relay identity, a system admin, passes every check.
-        Assert.False((await SendAsync(host, new RenameAnyManufacturerCommand(manufacturer, "relay"), new TestCaller { IsSystemAdmin = true }, tree.North)).IsError);
+        // The relay identity, a system identity, passes every check.
+        Assert.False((await SendAsync(host, new RenameAnyManufacturerCommand(manufacturer, "relay"), new TestSystemCaller(), tree.North)).IsError);
     }
 
     private WebApplicationFactory<Program> CreateHost() =>

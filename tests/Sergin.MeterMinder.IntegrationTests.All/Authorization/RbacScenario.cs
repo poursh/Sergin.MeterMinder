@@ -138,7 +138,7 @@ internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
     }
 }
 
-/// <summary>A caller with no stored grants unless a test gives it some; a system admin when asked.</summary>
+/// <summary>A caller with no stored grants unless a test gives it some.</summary>
 internal sealed class TestCaller : IUserContext
 {
     public UserId Id { get; init; } = new(Guid.CreateVersion7());
@@ -146,5 +146,14 @@ internal sealed class TestCaller : IUserContext
     public string FirstName => "Test";
     public string LastName => "Caller";
     public string Email => "test-caller@sergin.local";
-    public bool IsSystemAdmin { get; init; }
+}
+
+/// <summary>A system identity, like the outbox relay: no user row, and it passes every check.</summary>
+internal sealed class TestSystemCaller : ISystemUserContext
+{
+    public UserId Id { get; } = new(Guid.CreateVersion7());
+    public string UserName => "test-system";
+    public string FirstName => "Test";
+    public string LastName => "System";
+    public string Email => "test-system@sergin.local";
 }
