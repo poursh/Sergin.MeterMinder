@@ -45,7 +45,7 @@ The values are internal properties of `SerginDbContext` read from the request's 
 
 **Scope moves.** `Scope.MoveUnder` raises `ScopesMovedDomainEvent` with the moved scope and its subtree; UserAccess translates it to SharedKernel's `ScopesMovedIntegrationEvent` (`sk.scopes.moved.v1`, ids only). Every module context has a `ScopePathRewriteHandler<TContext>`, which re-resolves each id's current path and runs one `UPDATE … SET scope_path WHERE scope_id` per scoped table. It writes the current path, not one carried by the event, so redelivery and reordering are harmless and no inbox is needed. It bypasses interceptors: no row-version bump, no modification stamp.
 
-**Navigation.** `SerginNavMenu` answers `RequiredPermission` through `IScopeAuthorization` on the circuit's scope; `SerginNavItem.AtRoot` checks on the root (UserAccess's Users and Scopes entries).
+**Navigation.** `SerginNavMenu` shows an entry when the user holds its `RequiredPermission` on any scope (`IScopeAuthorization.CurrentUserReachAsync` non-empty), so the drawer does not depend on the scope the circuit works in; the page answers for the current scope. `SerginNavItem.AtRoot` checks on the root instead (UserAccess's Users entry, whose requests are `AtRoot()`).
 
 ## Migration `AddDeviceScope` (dm)
 
