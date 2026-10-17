@@ -80,10 +80,10 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
         Assert.Equal(tree.South, (await SendAsync(host, new ScopedCommand(), rootHolder, tree.South)).Value);
         Assert.Equal(tree.South, (await SendAsync(host, new RootCommand(), rootHolder, tree.South)).Value);
 
-        // The permission as a claim, with no stored grant, passes no check, on the current scope or the root.
-        TestCaller claimOnly = new(RbacScenario.Update);
-        Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new ScopedCommand(), claimOnly, tree.South)).FirstError.Type);
-        Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new RootCommand(), claimOnly, null)).FirstError.Type);
+        // No stored grant passes no check, on the current scope or the root.
+        TestCaller ungranted = new();
+        Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new ScopedCommand(), ungranted, tree.South)).FirstError.Type);
+        Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new RootCommand(), ungranted, null)).FirstError.Type);
     }
 
     [Fact]

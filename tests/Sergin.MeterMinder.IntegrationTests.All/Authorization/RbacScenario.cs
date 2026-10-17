@@ -138,13 +138,13 @@ internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
     }
 }
 
-/// <summary>A caller holding exactly the given global permissions.</summary>
-internal sealed class TestCaller(params Permission[] permissions) : IUserContext
+/// <summary>A caller with no stored grants unless a test gives it some; a system admin when asked.</summary>
+internal sealed class TestCaller : IUserContext
 {
     public UserId Id { get; init; } = new(Guid.CreateVersion7());
     public string UserName => "test-caller";
     public string FirstName => "Test";
     public string LastName => "Caller";
     public string Email => "test-caller@sergin.local";
-    public HashSet<Permission> Permissions { get; } = [.. permissions];
+    public bool IsSystemAdmin { get; init; }
 }

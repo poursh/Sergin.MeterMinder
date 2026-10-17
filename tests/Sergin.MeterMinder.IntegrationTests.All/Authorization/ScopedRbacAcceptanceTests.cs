@@ -185,15 +185,15 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
     }
 
     [Fact]
-    public async Task ClaimsAreNotConsulted_OnlyASystemAdminSkipsTheLookup()
+    public async Task OnlyStoredGrantsCount_AndOnlyASystemAdminSkipsTheLookup()
     {
         RbacScenario tree = await RbacScenario.BuildAsync(factory);
 
-        // Holds the permission as a claim but has no stored grant: refused.
-        Assert.False(await HasAsync(new TestCaller(RbacScenario.Update), tree.North));
+        // No stored grant: refused.
+        Assert.False(await HasAsync(new TestCaller(), tree.North));
 
         // A system admin (the outbox relay identity) has no row and still passes.
-        Assert.True(await HasAsync(new TestCaller(Permission.AllPlatform), tree.North));
+        Assert.True(await HasAsync(new TestCaller { IsSystemAdmin = true }, tree.North));
     }
 
     private async Task<bool> HasAsync(TestCaller caller, Guid scopeId)

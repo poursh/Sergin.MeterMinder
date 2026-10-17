@@ -17,7 +17,7 @@ Scoped RBAC could answer "may this user do P on scope S", but records had no sco
 | What about global data? | An unscoped aggregate lives at the root. Its writes are checked there by the save; global requests say `AtRoot()`. | A regional holder of `manufacturers.update` cannot change the catalog, even when a configuration forgets `AtRoot()`. |
 | What may a read see? | Rows inside the current scope's subtree **and** inside the caller's reach for every required permission. | A scope-only grant at North must not list Feeder 1's devices just because Feeder 1 is below North. |
 | What does an unconfigured request see? | No scoped row (a system admin sees everything). | Fail closed. |
-| Claims? | Authorize nothing. | Every check reads stored grants, so a change applies on the next request. |
+| Claims? | None. `IUserContext` carries identity only, and sign-in stamps only `sergin:user_id`. | Every check reads stored grants, so a change applies on the next request. |
 | Which aggregates? | `Device` only. `Manufacturer` and its `DeviceModel`s stay a global catalog. | `CreateDevicePage` needs the catalog at any scope. |
 | Unprotected creates? | `CreateDevice` requires `devices.update` on the current scope; `CreateManufacturer` and `AddDeviceModel` require `manufacturers.update` `AtRoot()`. | A new device lands in the caller's scope, so creating one is a write there. |
 
@@ -63,4 +63,4 @@ Enables `ltree`, adds both columns nullable, backfills every existing device wit
 
 - `tests/.../Scoping/DeviceScopeTests`: stamping and update keeping the scope; subtree and reach on list and GetOne (subtree grant, scope-only grant, system admin, pipeline refusal); the EF filter per query and per context; an update out of reach changing nothing; a device id taken in another scope as a validation error; `CreateDevice` on the current scope only; a scope move rewriting the stored path, with a repeated event harmless.
 - `tests/.../Scoping/RecordScopeTests`: a manufacturer write without `AtRoot()` refused for a North holder and allowed for a root holder and the relay identity.
-- `tests/.../Authorization/CurrentScopeTests`: every configured command follows the current scope; `AtRoot()` checks the root; claims pass nothing.
+- `tests/.../Authorization/CurrentScopeTests`: every configured command follows the current scope; `AtRoot()` checks the root; a caller with no stored grant passes nothing.

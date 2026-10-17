@@ -68,8 +68,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
             options.Interceptors.Add<AuthorizationScopeServerInterceptor>();
         });
         builder.Services.AddSingleton<IGetDeviceQueryRepository>(repository);
-        builder.Services.AddSingleton<IUserContextFactory>(
-            new StubUserContextFactory([DevicesReadPermission]));
+        builder.Services.AddSingleton<IUserContextFactory>(new StubUserContextFactory());
         builder.Services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         builder.Services.AddScoped<ConcurrencyContext>();
         builder.Services.AddScoped<IAuthorizationScopeContext, AuthorizationScopeContext>();
@@ -208,11 +207,11 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         Assert.Equal(setScope ? picked : AuthorizationScope.RootId, seenExpected.Scope);
     }
 
-    private ServiceProvider BuildRemoteProvider(Permission[] permissions)
+    private ServiceProvider BuildRemoteProvider(Permission[] granted)
     {
         ServiceCollection services = new();
 
-        services.AddSingleton<IUserContextFactory>(new StubUserContextFactory(permissions));
+        services.AddSingleton<IUserContextFactory>(new StubUserContextFactory());
 
         // What AddSerginCore registers for a remote module: its ConfigurationsAssembly's declarations, so the
         // gateway's permission check refuses before the gRPC hop.
@@ -222,11 +221,11 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         services.AddScoped<ConcurrencyContext>();
 
         // What AddSerginCore registers for scoped checks. A gateway without UserAccess would get the deny-all
-        // checker and refuse every request; ClaimsChecker stands in for the remote checker a gateway needs, so the
+        // checker and refuse every request; GrantingChecker stands in for the remote checker a gateway needs, so the
         // test can exercise the gateway's own refusal before the hop.
         services.AddLogging();
         services.AddScoped<IAuthorizationScopeContext, AuthorizationScopeContext>();
-        services.AddScoped<IScopedPermissionChecker, ClaimsChecker>();
+        services.AddScoped<IScopedPermissionChecker>(_ => new GrantingChecker(granted));
         services.AddScoped<IScopePathResolver, UnknownScopePathResolver>();
         services.AddScoped<IScopeAuthorization, ScopeAuthorization>();
         services.AddScoped<RequiredPermissionsContext>();
@@ -269,31 +268,30 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
             Task.FromResult(devices.GetValueOrDefault(Id));
     }
 
-    /// <summary>Grants what the caller's claims list, on every scope.</summary>
-    private sealed class ClaimsChecker(IUserContext user) : IScopedPermissionChecker
+    /// <summary>Grants exactly <paramref name="granted"/>, on every scope.</summary>
+    private sealed class GrantingChecker(Permission[] granted) : IScopedPermissionChecker
     {
         public Task<bool> HasPermissionAsync(Guid userId, Permission permission, Guid scopeId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(user.HasPermission(permission));
+            Task.FromResult(granted.Contains(permission));
 
         public Task<ScopeReach> GetReachAsync(Guid userId, Permission permission, CancellationToken cancellationToken = default) =>
-            Task.FromResult(user.HasPermission(permission)
+            Task.FromResult(granted.Contains(permission)
                 ? ScopeReach.Of([new ScopeReachEntry(AuthorizationScope.RootId, AuthorizationScope.RootPath, IncludeSubtree: true)])
                 : ScopeReach.Nothing);
     }
 
-    private sealed class StubUserContextFactory(Permission[] permissions) : IUserContextFactory
+    private sealed class StubUserContextFactory : IUserContextFactory
     {
-        public IUserContext CreateUserContext() => new StubUserContext(permissions);
+        public IUserContext CreateUserContext() => new StubUserContext();
     }
 
-    private sealed class StubUserContext(Permission[] permissions) : IUserContext
+    private sealed class StubUserContext : IUserContext
     {
         public UserId Id { get; } = new(Guid.NewGuid());
         public string UserName => "stub";
         public string FirstName => "Stub";
         public string LastName => "User";
         public string Email => "stub@sergin.local";
-        public HashSet<Permission> Permissions { get; } = [.. permissions];
     }
 
     private sealed class SeenExpected

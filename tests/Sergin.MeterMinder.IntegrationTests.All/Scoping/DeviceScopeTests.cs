@@ -79,7 +79,7 @@ public sealed class DeviceScopeTests(SerginWebApiFactory<Program> factory)
         Assert.Equal(ErrorType.NotFound, (await GetAsync(companyScopeOnly, north, tree.Company)).FirstError.Type);
 
         // A system admin reaches everything below the current scope.
-        Assert.Equal(4, await CountAsync(new TestCaller(Permission.AllPlatform), tree.Company));
+        Assert.Equal(4, await CountAsync(new TestCaller { IsSystemAdmin = true }, tree.Company));
     }
 
     [Fact]
@@ -346,7 +346,7 @@ public sealed class DeviceScopeTests(SerginWebApiFactory<Program> factory)
     private async Task PublishMovedAsync(IReadOnlyCollection<Guid> scopeIds)
     {
         using IServiceScope scope = factory.Services.CreateScope();
-        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = new TestCaller(Permission.AllPlatform);
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = new TestCaller { IsSystemAdmin = true };
 
         ScopesMovedIntegrationEvent moved = new(Guid.CreateVersion7(), DateTime.UtcNow, scopeIds);
 

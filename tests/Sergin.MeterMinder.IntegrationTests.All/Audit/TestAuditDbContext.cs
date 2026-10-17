@@ -5,7 +5,6 @@ using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Events;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain;
-using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Domain.Users;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
 
@@ -100,6 +99,4 @@ internal sealed record TestUserContext(UserId Id) : IUserContext
     public string LastName => "Test";
 
     public string Email => "audit-test@sergin.local";
-
-    public HashSet<Permission> Permissions { get; } = [];
 }
