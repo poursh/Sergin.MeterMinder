@@ -21,6 +21,7 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                 .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "ltree");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Devices.Device", b =>
@@ -67,6 +68,15 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("row_version");
 
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("scope_id");
+
+                    b.Property<string>("ScopePath")
+                        .IsRequired()
+                        .HasColumnType("ltree")
+                        .HasColumnName("scope_path");
+
                     b.HasKey("Id")
                         .HasName("pk_device");
 
@@ -78,6 +88,14 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                     b.HasIndex("DeviceModelId")
                         .HasDatabaseName("ix_device_device_model_id");
 
+                    b.HasIndex("ScopeId")
+                        .HasDatabaseName("ix_device_scope_id");
+
+                    b.HasIndex("ScopePath")
+                        .HasDatabaseName("ix_device_scope_path");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("ScopePath"), "gist");
+
                     b.ToTable("device", "dm", t =>
                         {
                             t.HasCheckConstraint("ck_device_soft_delete", "(deleted_at_utc IS NULL) = (deleted_by IS NULL)");
@@ -85,6 +103,7 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
 
                     b
                         .HasAnnotation("Sergin:Audited", true)
+                        .HasAnnotation("Sergin:Scoped", true)
                         .HasAnnotation("Sergin:SoftDeletable", true)
                         .HasAnnotation("Sergin:Versioned", true);
                 });

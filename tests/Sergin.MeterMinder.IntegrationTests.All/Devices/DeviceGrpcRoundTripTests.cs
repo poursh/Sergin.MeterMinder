@@ -221,11 +221,16 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         services.AddScoped<ConcurrencyContext>();
 
-        // What AddSerginCore registers for scoped checks. A gateway without UserAccess denies every scoped check.
+        // What AddSerginCore registers for scoped checks. A gateway without UserAccess would get the deny-all
+        // checker and refuse every request; ClaimsChecker stands in for the remote checker a gateway needs, so the
+        // test can exercise the gateway's own refusal before the hop.
         services.AddLogging();
         services.AddScoped<IAuthorizationScopeContext, AuthorizationScopeContext>();
-        services.AddScoped<IScopedPermissionChecker, DenyAllScopedPermissionChecker>();
+        services.AddScoped<IScopedPermissionChecker, ClaimsChecker>();
+        services.AddScoped<IScopePathResolver, UnknownScopePathResolver>();
         services.AddScoped<IScopeAuthorization, ScopeAuthorization>();
+        services.AddScoped<RequiredPermissionsContext>();
+        services.AddScoped<ScopeFilter>();
         services.AddScoped(provider => new DeviceService.DeviceServiceClient(
             channel
                 .Intercept(new ConcurrencyClientInterceptor(provider.GetRequiredService<ConcurrencyContext>()))
@@ -262,6 +267,18 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 
         public Task<Versioned<DeviceQueryResponse>?> GetDeviceById(DeviceIntenralId Id, CancellationToken cancellationToken = default) =>
             Task.FromResult(devices.GetValueOrDefault(Id));
+    }
+
+    /// <summary>Grants what the caller's claims list, on every scope.</summary>
+    private sealed class ClaimsChecker(IUserContext user) : IScopedPermissionChecker
+    {
+        public Task<bool> HasPermissionAsync(Guid userId, Permission permission, Guid scopeId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(user.HasPermission(permission));
+
+        public Task<ScopeReach> GetReachAsync(Guid userId, Permission permission, CancellationToken cancellationToken = default) =>
+            Task.FromResult(user.HasPermission(permission)
+                ? ScopeReach.Of([new ScopeReachEntry(AuthorizationScope.RootId, AuthorizationScope.RootPath, IncludeSubtree: true)])
+                : ScopeReach.Nothing);
     }
 
     private sealed class StubUserContextFactory(Permission[] permissions) : IUserContextFactory

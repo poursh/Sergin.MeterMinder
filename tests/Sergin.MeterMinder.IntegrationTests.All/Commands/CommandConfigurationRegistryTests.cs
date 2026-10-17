@@ -75,25 +75,25 @@ public sealed class CommandConfigurationRegistryTests
     }
 
     [Fact]
-    public void InCurrentScope_IsCarriedOnTheSettings()
+    public void AtRoot_IsCarriedOnTheSettings()
     {
-        var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(InCurrentScopeQueryConfiguration)]);
+        var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(AtRootQueryConfiguration)]);
 
         CommandSettings settings = registry.For(typeof(ConfiguredTestQuery));
 
-        Assert.True(settings.PermissionsInCurrentScope);
+        Assert.True(settings.PermissionsAtRoot);
         Assert.False(CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestQueryConfiguration)])
-            .For(typeof(ConfiguredTestQuery)).PermissionsInCurrentScope);
+            .For(typeof(ConfiguredTestQuery)).PermissionsAtRoot);
     }
 
     [Fact]
-    public void InCurrentScopeWithoutAPermission_Throws_NamingTheQueryAndConfiguration()
+    public void AtRootWithoutAPermission_Throws_NamingTheQueryAndConfiguration()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            CommandConfigurationRegistry.FromConfigurationTypes([typeof(InCurrentScopeWithoutPermissionConfiguration)]));
+            CommandConfigurationRegistry.FromConfigurationTypes([typeof(AtRootWithoutPermissionConfiguration)]));
 
         Assert.Contains(typeof(ConfiguredTestQuery).FullName!, error.Message, StringComparison.Ordinal);
-        Assert.Contains(nameof(InCurrentScopeWithoutPermissionConfiguration), error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(AtRootWithoutPermissionConfiguration), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

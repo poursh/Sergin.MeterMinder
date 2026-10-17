@@ -209,5 +209,8 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
     {
         public Task<bool> HasPermissionAsync(Guid userId, Permission permission, Guid scopeId, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("The check query failed.");
+
+        public Task<ScopeReach> GetReachAsync(Guid userId, Permission permission, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("The reach query failed.");
     }
 }

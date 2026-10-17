@@ -5,5 +5,5 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices
 
 internal sealed class DeviceAggregateFeatureConfiguration : IAggregateFeatureConfiguration<Device>
 {
-    public void Configure(AggregateFeatureBuilder<Device> builder) => builder.Audited().SoftDeletable().Versioned();
+    public void Configure(AggregateFeatureBuilder<Device> builder) => builder.Audited().SoftDeletable().Versioned().Scoped();
 }

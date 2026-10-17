@@ -1,8 +1,10 @@
 ﻿using System.Reflection;
 using Sergin.MeterMinder.DeviceManagement.Application;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Add;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
@@ -66,12 +68,31 @@ public sealed class ModuleCommandConfigurationTests
     }
 
     [Fact]
-    public void AddDeviceModel_NeedsAVersion_ButNoPermission()
+    public void AddDeviceModel_NeedsAVersion_AndTheCatalogPermissionAtTheRoot()
     {
         CommandSettings settings = Registry.For(typeof(AddDeviceModelCommand));
 
         Assert.True(settings.RequiresExpectedVersion);
-        Assert.Empty(settings.RequiredPermissions);
+        Assert.Equal("permission.dm.manufacturers.update", Assert.Single(settings.RequiredPermissions).Value);
+        Assert.True(settings.PermissionsAtRoot);
+    }
+
+    [Fact]
+    public void CreateDevice_NeedsUpdatePermission_InTheCurrentScope()
+    {
+        CommandSettings settings = Registry.For(typeof(CreateDeviceCommand));
+
+        Assert.Equal("permission.dm.devices.update", Assert.Single(settings.RequiredPermissions).Value);
+        Assert.False(settings.PermissionsAtRoot);
+    }
+
+    [Fact]
+    public void CreateManufacturer_NeedsTheCatalogPermission_AtTheRoot()
+    {
+        CommandSettings settings = Registry.For(typeof(CreateManufacturerCommand));
+
+        Assert.Equal("permission.dm.manufacturers.update", Assert.Single(settings.RequiredPermissions).Value);
+        Assert.True(settings.PermissionsAtRoot);
     }
 
     [Fact]
@@ -81,15 +102,17 @@ public sealed class ModuleCommandConfigurationTests
     }
 
     [Fact]
-    public void CreateUser_NeedsGlobalManagePermission()
+    public void CreateUser_NeedsManagePermission_AtTheRoot()
     {
-        Assert.Equal("permission.ua.users.manage", Assert.Single(Registry.For(typeof(CreateUserCommand)).RequiredPermissions).Value);
+        CommandSettings settings = Registry.For(typeof(CreateUserCommand));
+
+        Assert.Equal("permission.ua.users.manage", Assert.Single(settings.RequiredPermissions).Value);
+        Assert.True(settings.PermissionsAtRoot);
     }
 
     /// <summary>
-    /// Scoped management commands require no permission here: a regional administrator holds it only in their
-    /// region, so the global claims the pipeline checks would refuse them. Their handlers check it against the
-    /// target scope instead. Edits to one role carry a version; a scope move or delete touches several versioned
+    /// Scoped management commands require no permission here: the scope they act on is the one the command names,
+    /// not the caller's current scope, so their handlers check it against that target instead. Edits to one role carry a version; a scope move or delete touches several versioned
     /// roots (the subtree, the owned roles) in one save, so it cannot.
     /// </summary>
     [Fact]
@@ -105,8 +128,8 @@ public sealed class ModuleCommandConfigurationTests
     }
 
     [Fact]
-    public void ModulesDeclareTwentyFiveRequests()
+    public void ModulesDeclareTwentySevenRequests()
     {
-        Assert.Equal(25, Registry.ConfiguredTypes.Count);
+        Assert.Equal(27, Registry.ConfiguredTypes.Count);
     }
 }

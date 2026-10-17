@@ -55,7 +55,7 @@ Management permissions (`permission.ua.scopes.*`, `roles.*`, `assignments.manage
 
 `IAuthorizationScopeContext` (SharedKernel) holds the scope the caller is working in, per DI scope. It is the root until code sets it: a scope picker for an explicit choice (deferred), or the code opening the scope when the system knows the target. Nothing derives it from the user's grants. It travels into a send's scope the way `ConcurrencyContext` does: the Blazor dispatcher and form validator copy the circuit's value, WebApi reads the `X-Sergin-Scope` header, gRPC the `sergin-scope` metadata. Outbox consumers run at the root.
 
-A command configuration opts in with `RequirePermissions(...).InCurrentScope()`; `PermissionCheckPipelineBehavior` then checks those permissions through `IScopeAuthorization` on the context scope (by scope only; any error denies). Everything else stays global. The opt-in is deliberate: DeviceManagement records carry no scope, so checking its commands on a regional scope would let a regional user reach every record. UserAccess management handlers keep checking the record's own scope, since their target is the record, not where the caller is working.
+`PermissionCheckPipelineBehavior` checks every permission a configuration requires through `IScopeAuthorization` on the context scope (by scope only; any error denies), or on the root for a configuration that adds `AtRoot()`. There is no opt-in any more: the `InCurrentScope()` flag was removed once records could carry a scope (see `2026-10-17-scoped-aggregates-design.md`), which also narrows reads to the caller's reach and checks every write on the record's own scope. UserAccess management handlers keep checking the record's own scope, since their target is the record, not where the caller is working.
 
 ## Version guards
 
@@ -63,11 +63,10 @@ Scope rename and every role edit carry an expected version. Scope move and scope
 
 ## Known gaps
 
-- A change to a global grant reaches the cookie only at the next sign-in. `CookieOidcRefresher` copies the claims forward rather than asking UserAccess again.
+- Claims are still stamped at sign-in and copied forward by `CookieOidcRefresher`, but they authorize nothing: every check reads stored grants, so a change applies on the next request.
 - The grant cache is per process. A second host instance would need the invalidation broadcast (the outbox is the natural carrier).
 - The drawer's Scopes entry is gated on the global `scopes.read`; a regional administrator reaches the pages by link.
-- The pipeline runs validators before the handler, so before the handler's scoped check: a validator's message (a name in use, a stranding move) can reach a caller the handler would have refused. `InCurrentScope()` runs ahead of validation, but only for checks on the current scope; checks on a record's own scope stay in the handler.
-- DeviceManagement records carry no scope yet, so its checks remain global.
+- The pipeline runs validators before the handler, so before the handler's scoped check: a validator's message (a name in use, a stranding move) can reach a caller the handler would have refused. The pipeline's check on the current scope runs ahead of validation; checks on a record's own scope stay in the handler or in the save's record check.
 
 ## Verification
 

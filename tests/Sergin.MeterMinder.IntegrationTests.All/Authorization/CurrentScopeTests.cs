@@ -15,7 +15,8 @@ using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 
 /// <summary>
-/// IAuthorizationScopeContext and the InCurrentScope() opt-in, on the acceptance tree. Each send goes through
+/// IAuthorizationScopeContext and the permission check on it, on the acceptance tree: every configured permission is
+/// checked on the current scope, and an AtRoot() one on the root. Each send goes through
 /// ISerginDispatcher from a "circuit" scope whose context the test sets, so the dispatcher's copy into the send's
 /// own scope is exercised too. The test commands echo the scope their handler saw.
 /// </summary>
@@ -64,8 +65,8 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
         Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new ScopedCommand(), caller, tree.Company)).FirstError.Type);
         Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new ScopedCommand(), caller, tree.South)).FirstError.Type);
 
-        // Without the opt-in the same permission is still checked against the global claims only.
-        Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new GlobalCommand(), caller, tree.North)).FirstError.Type);
+        // AtRoot() checks the same permission on the root, where Ali holds nothing, whatever scope he works in.
+        Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new RootCommand(), caller, tree.North)).FirstError.Type);
     }
 
     [Fact]
@@ -77,9 +78,12 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
 
         Assert.Equal(AuthorizationScope.RootId, (await SendAsync(host, new ScopedCommand(), rootHolder, null)).Value);
         Assert.Equal(tree.South, (await SendAsync(host, new ScopedCommand(), rootHolder, tree.South)).Value);
+        Assert.Equal(tree.South, (await SendAsync(host, new RootCommand(), rootHolder, tree.South)).Value);
 
-        // The permission as a claim, with no stored grant, passes no scoped check.
-        Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new ScopedCommand(), new TestCaller(RbacScenario.Update), tree.South)).FirstError.Type);
+        // The permission as a claim, with no stored grant, passes no check, on the current scope or the root.
+        TestCaller claimOnly = new(RbacScenario.Update);
+        Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new ScopedCommand(), claimOnly, tree.South)).FirstError.Type);
+        Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new RootCommand(), claimOnly, null)).FirstError.Type);
     }
 
     [Fact]
@@ -103,9 +107,9 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
         factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
             services.AddSingleton(CommandConfigurationSource.FromTypes(
-                typeof(ScopedCommandConfiguration), typeof(GlobalCommandConfiguration)));
+                typeof(ScopedCommandConfiguration), typeof(RootCommandConfiguration)));
             services.AddTransient<IRequestHandler<ScopedCommand, ErrorOr<Guid>>, EchoScopeHandler<ScopedCommand>>();
-            services.AddTransient<IRequestHandler<GlobalCommand, ErrorOr<Guid>>, EchoScopeHandler<GlobalCommand>>();
+            services.AddTransient<IRequestHandler<RootCommand, ErrorOr<Guid>>, EchoScopeHandler<RootCommand>>();
             configure?.Invoke(services);
         }));
 
@@ -126,18 +130,18 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
 
     internal sealed record ScopedCommand : ICommand<Guid>;
 
-    internal sealed record GlobalCommand : ICommand<Guid>;
+    internal sealed record RootCommand : ICommand<Guid>;
 
     internal sealed class ScopedCommandConfiguration : ICommandConfiguration<ScopedCommand>
     {
         public void Configure(CommandConfigurationBuilder<ScopedCommand> builder) =>
-            builder.RequirePermissions(RbacScenario.Update).InCurrentScope();
+            builder.RequirePermissions(RbacScenario.Update);
     }
 
-    internal sealed class GlobalCommandConfiguration : ICommandConfiguration<GlobalCommand>
+    internal sealed class RootCommandConfiguration : ICommandConfiguration<RootCommand>
     {
-        public void Configure(CommandConfigurationBuilder<GlobalCommand> builder) =>
-            builder.RequirePermissions(RbacScenario.Update);
+        public void Configure(CommandConfigurationBuilder<RootCommand> builder) =>
+            builder.RequirePermissions(RbacScenario.Update).AtRoot();
     }
 
     internal sealed class EchoScopeHandler<TCommand>(IAuthorizationScopeContext context) : IRequestHandler<TCommand, ErrorOr<Guid>>
@@ -151,5 +155,8 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
     {
         public Task<bool> HasPermissionAsync(Guid userId, Permission permission, Guid scopeId, CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("The check query failed.");
+
+        public Task<ScopeReach> GetReachAsync(Guid userId, Permission permission, CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("The reach query failed.");
     }
 }

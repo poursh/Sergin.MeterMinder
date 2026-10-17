@@ -37,7 +37,7 @@ public sealed class ScopeTreeTests
         var south = Scope.Create(new ScopeName("South"), company);
         var feeder = Scope.Create(new ScopeName("Feeder"), north);
 
-        ErrorOr<Success> moved = north.MoveUnder(south, [feeder]);
+        ErrorOr<Success> moved = north.MoveUnder(south, [feeder], DateTime.UnixEpoch);
 
         Assert.False(moved.IsError);
         Assert.Equal(south.Id, north.ParentId);
@@ -51,8 +51,8 @@ public sealed class ScopeTreeTests
         var company = Scope.Create(new ScopeName("Company"), root);
         var north = Scope.Create(new ScopeName("North"), company);
 
-        Assert.True(root.MoveUnder(company, []).IsError);
-        Assert.True(company.MoveUnder(north, [north]).IsError);
-        Assert.True(company.MoveUnder(company, [north]).IsError);
+        Assert.True(root.MoveUnder(company, [], DateTime.UnixEpoch).IsError);
+        Assert.True(company.MoveUnder(north, [north], DateTime.UnixEpoch).IsError);
+        Assert.True(company.MoveUnder(company, [north], DateTime.UnixEpoch).IsError);
     }
 }

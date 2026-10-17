@@ -27,7 +27,8 @@ public sealed class DeviceManagementSoftDeleteTests(SerginWebApiFactory<Program>
 {
     private static readonly Guid DevUserId = Guid.Parse("01920000-0000-7000-8000-000000000001");
 
-    private static readonly string[] FilterName = [SoftDeleteColumns.QueryFilterName];
+    // The scope filter too: these reads inspect rows from outside any request, where it hides every device.
+    private static readonly string[] FilterName = [SoftDeleteColumns.QueryFilterName, ScopeColumns.QueryFilterName];
 
     [Fact]
     public async Task DeleteDevice_HidesIt_FreesItsId_AndKeepsTheStampedRow()

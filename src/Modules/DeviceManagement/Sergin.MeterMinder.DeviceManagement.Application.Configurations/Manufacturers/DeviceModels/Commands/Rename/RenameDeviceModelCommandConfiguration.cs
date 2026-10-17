@@ -7,5 +7,5 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufac
 internal sealed class RenameDeviceModelCommandConfiguration : ICommandConfiguration<RenameDeviceModelCommand>
 {
     public void Configure(CommandConfigurationBuilder<RenameDeviceModelCommand> builder) =>
-        builder.RequirePermissions("permission.dm.manufacturers.update").RequireExpectedVersion();
+        builder.RequirePermissions("permission.dm.manufacturers.update").AtRoot().RequireExpectedVersion();
 }

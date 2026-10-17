@@ -57,16 +57,16 @@ internal sealed class MalformedPermissionConfiguration : ICommandConfiguration<C
         builder.RequirePermissions("not a permission");
 }
 
-internal sealed class InCurrentScopeWithoutPermissionConfiguration : ICommandConfiguration<ConfiguredTestQuery>
+internal sealed class AtRootWithoutPermissionConfiguration : ICommandConfiguration<ConfiguredTestQuery>
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.InCurrentScope();
+        builder.AtRoot();
 }
 
-internal sealed class InCurrentScopeQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery>
+internal sealed class AtRootQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery>
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.RequirePermissions("permission.test.things.read").InCurrentScope();
+        builder.RequirePermissions("permission.test.things.read").AtRoot();
 }
 
 internal abstract record AbstractTestCommand : ICommand<Success>;
