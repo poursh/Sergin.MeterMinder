@@ -1,4 +1,5 @@
 using System.Net;
+using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.UserAccess.Domain.Scopes;
 
@@ -28,6 +29,28 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
 
         Assert.Contains("The root of the tree", html, StringComparison.Ordinal);
         Assert.Contains($"href=\"/ua/roles/{ViewerRoleId}\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ScopeDetail_LinksToItsDescendantsOnly()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+
+        string html = await GetAsync($"/ua/scopes/{scenario.North}");
+
+        Assert.Contains($"href=\"/ua/scopes/{scenario.Feeder1}\"", html, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/ua/scopes/{scenario.Feeder2}\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain($"href=\"/ua/scopes/{scenario.South}\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task LeafScopeDetail_SaysItHasNoChildren()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+
+        string html = await GetAsync($"/ua/scopes/{scenario.Feeder1}");
+
+        Assert.Contains("No child scopes.", html, StringComparison.Ordinal);
     }
 
     [Fact]
