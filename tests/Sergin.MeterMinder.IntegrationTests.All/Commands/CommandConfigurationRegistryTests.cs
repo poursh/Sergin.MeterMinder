@@ -74,27 +74,7 @@ public sealed class CommandConfigurationRegistryTests
         Assert.Contains(nameof(VersionedQueryConfiguration), error.Message, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void AtRoot_IsCarriedOnTheSettings()
-    {
-        var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(AtRootQueryConfiguration)]);
 
-        CommandSettings settings = registry.For(typeof(ConfiguredTestQuery));
-
-        Assert.True(settings.PermissionsAtRoot);
-        Assert.False(CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestQueryConfiguration)])
-            .For(typeof(ConfiguredTestQuery)).PermissionsAtRoot);
-    }
-
-    [Fact]
-    public void AtRootWithoutAPermission_Throws_NamingTheQueryAndConfiguration()
-    {
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            CommandConfigurationRegistry.FromConfigurationTypes([typeof(AtRootWithoutPermissionConfiguration)]));
-
-        Assert.Contains(typeof(ConfiguredTestQuery).FullName!, error.Message, StringComparison.Ordinal);
-        Assert.Contains(nameof(AtRootWithoutPermissionConfiguration), error.Message, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void BoundToAScopedRoot_IsCheckedInTheCurrentScope_AndCarriesTheRoot()
@@ -103,7 +83,7 @@ public sealed class CommandConfigurationRegistryTests
             [typeof(ScopedBoundCommandConfiguration), typeof(ScopedTestRootFeatureConfiguration)])
             .For(typeof(ConfiguredTestCommand));
 
-        Assert.False(settings.PermissionsAtRoot);
+        Assert.Equal(PermissionScope.Current, settings.PermissionScope);
         Assert.True(settings.RequiresExpectedVersion);
         Assert.Equal(typeof(ScopedTestRoot), settings.AggregateRoot);
     }
@@ -111,13 +91,13 @@ public sealed class CommandConfigurationRegistryTests
     [Theory]
     [InlineData(typeof(GlobalBoundQueryConfiguration))]
     [InlineData(typeof(UnconfiguredRootBoundQueryConfiguration))]
-    public void BoundToAnUnscopedRoot_IsCheckedAtTheRoot(Type configuration)
+    public void BoundToAnUnscopedRoot_IsCheckedOnAnyScope(Type configuration)
     {
         CommandSettings settings = CommandConfigurationRegistry.FromConfigurationTypes(
             [configuration, typeof(GlobalTestRootFeatureConfiguration)])
             .For(typeof(ConfiguredTestQuery));
 
-        Assert.True(settings.PermissionsAtRoot);
+        Assert.Equal(PermissionScope.Any, settings.PermissionScope);
     }
 
     [Fact]
@@ -126,21 +106,10 @@ public sealed class CommandConfigurationRegistryTests
         CommandSettings settings = CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestQueryConfiguration)])
             .For(typeof(ConfiguredTestQuery));
 
-        Assert.False(settings.PermissionsAtRoot);
+        Assert.Equal(PermissionScope.Current, settings.PermissionScope);
         Assert.Null(settings.AggregateRoot);
     }
 
-    [Fact]
-    public void ExplicitScope_OverridesTheAnswerOfTheRoot()
-    {
-        Assert.False(CommandConfigurationRegistry.FromConfigurationTypes(
-            [typeof(GlobalBoundInCurrentScopeQueryConfiguration), typeof(GlobalTestRootFeatureConfiguration)])
-            .For(typeof(ConfiguredTestQuery)).PermissionsAtRoot);
-
-        Assert.True(CommandConfigurationRegistry.FromConfigurationTypes(
-            [typeof(ScopedBoundAtRootQueryConfiguration), typeof(ScopedTestRootFeatureConfiguration)])
-            .For(typeof(ConfiguredTestQuery)).PermissionsAtRoot);
-    }
 
     [Fact]
     public void FromSources_ReadsTheFeaturesOfTheRoot_FromAnySource()
@@ -151,19 +120,9 @@ public sealed class CommandConfigurationRegistryTests
             CommandConfigurationSource.FromTypes(typeof(ScopedTestRootFeatureConfiguration)),
         ]).For(typeof(ConfiguredTestCommand));
 
-        Assert.False(settings.PermissionsAtRoot);
+        Assert.Equal(PermissionScope.Current, settings.PermissionScope);
     }
 
-    [Fact]
-    public void InCurrentScopeWithoutAPermission_Throws_NamingTheQueryAndConfiguration()
-    {
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            CommandConfigurationRegistry.FromConfigurationTypes([typeof(InCurrentScopeWithoutPermissionConfiguration)]));
-
-        Assert.Contains(typeof(ConfiguredTestQuery).FullName!, error.Message, StringComparison.Ordinal);
-        Assert.Contains(nameof(InCurrentScopeWithoutPermissionConfiguration), error.Message, StringComparison.Ordinal);
-        Assert.Contains("InCurrentScope()", error.Message, StringComparison.Ordinal);
-    }
 
     [Fact]
     public void ExpectedVersionOnAnUnversionedRoot_Throws_NamingTheRootAndConfiguration()

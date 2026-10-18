@@ -19,8 +19,8 @@ using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 namespace Sergin.MeterMinder.IntegrationTests.All.Scoping;
 
 /// <summary>
-/// RecordScopeInterceptor: a save is checked again on the scope of every record it writes. A manufacturer is global
-/// data, so it lives at the root: a command that forgets AtRoot() still cannot let a regional holder change it.
+/// RecordScopeInterceptor: a save is checked again on the scope of every record it writes. A manufacturer belongs to
+/// no scope, so its save only asks that the caller holds the permission on some scope: a regional holder may change it.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
@@ -28,7 +28,7 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
     private static readonly Permission ManufacturersUpdate = "permission.dm.manufacturers.update";
 
     [Fact]
-    public async Task UnscopedRecord_IsCheckedAtTheRoot_EvenWithoutAtRoot()
+    public async Task UnscopedRecord_IsCheckedOnAnyScope()
     {
         RbacScenario tree = await RbacScenario.BuildAsync(factory);
         TestCaller northHolder = await tree.CreateGrantedCallerAsync(tree.North, ManufacturersUpdate);
@@ -37,12 +37,16 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
 
         await using WebApplicationFactory<Program> host = CreateHost();
 
-        // The pipeline passes North's holder at North; the save refuses, since the manufacturer is not North's.
-        ErrorOr<Success> regional = await SendAsync(host, new RenameAnyManufacturerCommand(manufacturer, "regional"), northHolder, tree.North);
-        Assert.Equal(ErrorType.Forbidden, regional.FirstError.Type);
-        Assert.NotEqual("regional", await NameOfAsync(manufacturer));
+        // The pipeline passes North's holder at North, and so does the save: the manufacturer is in no scope.
+        Assert.False((await SendAsync(host, new RenameAnyManufacturerCommand(manufacturer, "regional"), northHolder, tree.North)).IsError);
+        Assert.Equal("regional", await NameOfAsync(manufacturer));
 
         Assert.False((await SendAsync(host, new RenameAnyManufacturerCommand(manufacturer, "global"), rootHolder, tree.North)).IsError);
+        Assert.Equal("global", await NameOfAsync(manufacturer));
+
+        // No grant anywhere is refused, and nothing is saved.
+        ErrorOr<Success> ungranted = await SendAsync(host, new RenameAnyManufacturerCommand(manufacturer, "none"), new TestCaller(), tree.North);
+        Assert.Equal(ErrorType.Forbidden, ungranted.FirstError.Type);
         Assert.Equal("global", await NameOfAsync(manufacturer));
 
         // The relay identity, a system identity, passes every check.
@@ -77,7 +81,7 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
 
     internal sealed record RenameAnyManufacturerCommand(Guid Id, string Name) : ICommand<Success>;
 
-    // Deliberately without AtRoot(): the interceptor is what holds.
+    // Unbound, so the pipeline checks the current scope; the interceptor checks the manufacturer on any scope.
     internal sealed class RenameAnyManufacturerCommandConfiguration : ICommandConfiguration<RenameAnyManufacturerCommand>
     {
         public void Configure(CommandConfigurationBuilder<RenameAnyManufacturerCommand> builder) =>

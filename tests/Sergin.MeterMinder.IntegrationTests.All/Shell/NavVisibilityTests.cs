@@ -9,14 +9,14 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 
 /// <summary>
 /// The drawer shows an entry when the user holds its permission on any scope, not only the one the circuit works
-/// in: a regional user browsing at the root still sees the entries their region's grants open. An AtRoot entry
-/// needs the permission on the root.
+/// in: a regional user browsing at the root still sees the entries their region's grants open, over scoped and
+/// global data alike.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class NavVisibilityTests(SerginWebApiFactory<Program> factory)
 {
     [Fact]
-    public async Task RegionalUser_SeesEntriesGrantedBelowTheRoot_ButNotAtRootOnes()
+    public async Task RegionalUser_SeesEntriesGrantedBelowTheRoot()
     {
         RbacScenario scenario = await RbacScenario.BuildAsync(factory);
         TestCaller regional = await scenario.CreateGrantedCallerAsync(
@@ -26,7 +26,7 @@ public sealed class NavVisibilityTests(SerginWebApiFactory<Program> factory)
 
         Assert.Contains("href=\"/dm/devices\"", html, StringComparison.Ordinal);
         Assert.Contains("href=\"/ua/scopes\"", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("href=\"/ua/users\"", html, StringComparison.Ordinal);
+        Assert.Contains("href=\"/ua/users\"", html, StringComparison.Ordinal);
         Assert.DoesNotContain("href=\"/dm/manufacturers\"", html, StringComparison.Ordinal);
     }
 

@@ -59,17 +59,7 @@ internal sealed class MalformedPermissionConfiguration : ICommandConfiguration<C
         builder.RequirePermissions("not a permission");
 }
 
-internal sealed class AtRootWithoutPermissionConfiguration : ICommandConfiguration<ConfiguredTestQuery>
-{
-    public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.AtRoot();
-}
 
-internal sealed class AtRootQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery>
-{
-    public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.RequirePermissions("permission.test.things.read").AtRoot();
-}
 
 internal abstract record AbstractTestCommand : ICommand<Success>;
 
@@ -115,23 +105,8 @@ internal sealed class UnconfiguredRootBoundQueryConfiguration : ICommandConfigur
         builder.RequirePermissions("permission.test.things.read");
 }
 
-internal sealed class GlobalBoundInCurrentScopeQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery, GlobalTestRoot>
-{
-    public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.RequirePermissions("permission.test.things.read").InCurrentScope();
-}
 
-internal sealed class ScopedBoundAtRootQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery, ScopedTestRoot>
-{
-    public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.RequirePermissions("permission.test.things.read").AtRoot();
-}
 
-internal sealed class InCurrentScopeWithoutPermissionConfiguration : ICommandConfiguration<ConfiguredTestQuery, GlobalTestRoot>
-{
-    public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.InCurrentScope();
-}
 
 internal sealed class VersionOnUnversionedRootConfiguration : ICommandConfiguration<ConfiguredTestCommand, GlobalTestRoot>
 {

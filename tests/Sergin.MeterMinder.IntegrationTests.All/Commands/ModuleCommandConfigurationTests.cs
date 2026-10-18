@@ -20,6 +20,8 @@ using Sergin.UserAccess.Application.Configurations;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.Rename;
 using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Create;
 using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Move;
+using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.GetEffective;
+using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.GetList;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.GetOne;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.ProvisionExternalUser;
@@ -76,13 +78,13 @@ public sealed class ModuleCommandConfigurationTests
     }
 
     [Fact]
-    public void AddDeviceModel_NeedsAVersion_AndTheCatalogPermissionAtTheRoot()
+    public void AddDeviceModel_NeedsAVersion_AndTheCatalogPermissionOnAnyScope()
     {
         CommandSettings settings = Registry.For(typeof(AddDeviceModelCommand));
 
         Assert.True(settings.RequiresExpectedVersion);
         Assert.Equal("permission.dm.manufacturers.update", Assert.Single(settings.RequiredPermissions).Value);
-        Assert.True(settings.PermissionsAtRoot);
+        Assert.Equal(PermissionScope.Any, settings.PermissionScope);
     }
 
     [Fact]
@@ -91,16 +93,16 @@ public sealed class ModuleCommandConfigurationTests
         CommandSettings settings = Registry.For(typeof(CreateDeviceCommand));
 
         Assert.Equal("permission.dm.devices.update", Assert.Single(settings.RequiredPermissions).Value);
-        Assert.False(settings.PermissionsAtRoot);
+        Assert.Equal(PermissionScope.Current, settings.PermissionScope);
     }
 
     [Fact]
-    public void CreateManufacturer_NeedsTheCatalogPermission_AtTheRoot()
+    public void CreateManufacturer_NeedsTheCatalogPermission_OnAnyScope()
     {
         CommandSettings settings = Registry.For(typeof(CreateManufacturerCommand));
 
         Assert.Equal("permission.dm.manufacturers.update", Assert.Single(settings.RequiredPermissions).Value);
-        Assert.True(settings.PermissionsAtRoot);
+        Assert.Equal(PermissionScope.Any, settings.PermissionScope);
     }
 
     [Fact]
@@ -110,12 +112,12 @@ public sealed class ModuleCommandConfigurationTests
     }
 
     [Fact]
-    public void CreateUser_NeedsManagePermission_AtTheRoot()
+    public void CreateUser_NeedsManagePermission_OnAnyScope()
     {
         CommandSettings settings = Registry.For(typeof(CreateUserCommand));
 
         Assert.Equal("permission.ua.users.manage", Assert.Single(settings.RequiredPermissions).Value);
-        Assert.True(settings.PermissionsAtRoot);
+        Assert.Equal(PermissionScope.Any, settings.PermissionScope);
     }
 
     /// <summary>
@@ -136,9 +138,9 @@ public sealed class ModuleCommandConfigurationTests
     }
 
     /// <summary>
-    /// Bound to their aggregate, the scope comes from its features: Device is scoped, so its commands are checked
-    /// in the current scope; Manufacturer and User are not, so theirs are checked at the root without saying
-    /// AtRoot(). The catalog reads say InCurrentScope(), because every scope needs them to create a device.
+    /// Bound to their aggregate, the scope comes from its features: Device is scoped, so its requests are checked
+    /// in the current scope; Manufacturer and User are not, so theirs pass a caller who holds the permission on
+    /// any scope. No configuration chooses the scope itself.
     /// </summary>
     [Fact]
     public void BoundRequests_TakeTheirScopeFromTheAggregate()
@@ -148,11 +150,12 @@ public sealed class ModuleCommandConfigurationTests
         CommandSettings getUser = Registry.For(typeof(GetUserByIdQueryCommand));
 
         Assert.Equal(typeof(Device), deleteDevice.AggregateRoot);
-        Assert.False(deleteDevice.PermissionsAtRoot);
+        Assert.Equal(PermissionScope.Current, deleteDevice.PermissionScope);
+        Assert.Equal(PermissionScope.Current, Registry.For(typeof(GetDeviceListQueryCommand)).PermissionScope);
         Assert.Equal(typeof(Manufacturer), deleteManufacturer.AggregateRoot);
-        Assert.True(deleteManufacturer.PermissionsAtRoot);
+        Assert.Equal(PermissionScope.Any, deleteManufacturer.PermissionScope);
         Assert.Equal(typeof(User), getUser.AggregateRoot);
-        Assert.True(getUser.PermissionsAtRoot);
+        Assert.Equal(PermissionScope.Any, getUser.PermissionScope);
     }
 
     [Theory]
@@ -160,12 +163,23 @@ public sealed class ModuleCommandConfigurationTests
     [InlineData(typeof(GetManufacturerByIdQueryCommand))]
     [InlineData(typeof(GetDeviceModelListQueryCommand))]
     [InlineData(typeof(GetDeviceModelByIdQueryCommand))]
-    public void CatalogReads_AreCheckedInTheCurrentScope(Type request)
+    public void CatalogReads_AreCheckedOnAnyScope(Type request)
     {
         CommandSettings settings = Registry.For(request);
 
         Assert.Equal(typeof(Manufacturer), settings.AggregateRoot);
-        Assert.False(settings.PermissionsAtRoot);
+        Assert.Equal(PermissionScope.Any, settings.PermissionScope);
+    }
+
+    [Theory]
+    [InlineData(typeof(GetUserAssignmentsQueryCommand))]
+    [InlineData(typeof(GetUserEffectivePermissionsQueryCommand))]
+    public void AssignmentReads_AreBoundToTheUser(Type request)
+    {
+        CommandSettings settings = Registry.For(request);
+
+        Assert.Equal(typeof(User), settings.AggregateRoot);
+        Assert.Equal(PermissionScope.Any, settings.PermissionScope);
     }
 
     [Fact]
