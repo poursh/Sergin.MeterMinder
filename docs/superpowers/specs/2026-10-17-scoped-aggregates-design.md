@@ -13,7 +13,7 @@ Scoped RBAC could answer "may this user do P on scope S", but records had no sco
 | Where is "this aggregate lives in a scope" declared? | An aggregate feature, `builder.Scoped()`, next to `Audited()`, `SoftDeletable()`, `Versioned()`. | It is application policy over the whole aggregate; the domain type and the commands do not change. |
 | What does a row store? | `scope_id uuid` and `scope_path ltree` (GiST indexed). | The path makes "inside this subtree" one indexed comparison; the id finds rows after a scope move. |
 | How does a record get its scope? | Stamped from `IAuthorizationScopeContext` on insert; an update never changes it. | No record move in this change. |
-| Which permissions are checked where? | Every configured permission on the current scope. `AtRoot()` checks on the root instead. `InCurrentScope()` is removed. | Once rows carry a scope, there is nothing left for the opt-in to protect, and an opt-in leaves every unconfigured read unfiltered. |
+| Which permissions are checked where? | Every configured permission on the current scope. `AtRoot()` checks on the root instead. The old `InCurrentScope()` opt-in is removed (it returns on 2026-10-18 only as an override for aggregate-bound configurations, below). | Once rows carry a scope, there is nothing left for the opt-in to protect, and an opt-in leaves every unconfigured read unfiltered. |
 | What about global data? | An unscoped aggregate lives at the root. Its writes are checked there by the save; global requests say `AtRoot()`. | A regional holder of `manufacturers.update` cannot change the catalog, even when a configuration forgets `AtRoot()`. |
 | What may a read see? | Rows inside the current scope's subtree **and** inside the caller's reach for every required permission. | A scope-only grant at North must not list Feeder 1's devices just because Feeder 1 is below North. |
 | What does an unconfigured request see? | No scoped row (a system admin sees everything). | Fail closed. |
@@ -24,6 +24,8 @@ Scoped RBAC could answer "may this user do P on scope S", but records had no sco
 ## Mechanism
 
 **Pipeline.** `PermissionCheckPipelineBehavior` checks each permission through `IScopeAuthorization` on the context scope, or the root for `AtRoot()`. On success it publishes the permissions to `RequiredPermissionsContext` and fills `ScopeFilter` with the current scope's path (`IScopePathResolver`) and the intersection of the caller's `ScopeReach` for each permission. Both are restored when the request ends, so a nested send leaves the outer values in place.
+
+**Aggregate-bound configuration (2026-10-18).** A configuration may name its request's main aggregate: `ICommandConfiguration<TCommand, TAggregateRoot>`, with the same builder. The registry reads that root's `AggregateFeatures` from the aggregate feature configurations carried by the same `CommandConfigurationSource`s (so a remote gateway derives the same answer) and resolves `CommandSettings.PermissionsAtRoot` once, at host start: a `Scoped()` root is checked on the current scope, any other root on the root, where its records live. That is the same rule `RecordScopeInterceptor` applies on save, so pipeline and save agree by default and a global write is refused before validation. `AtRoot()` and the new `InCurrentScope()` override the derived answer (the catalog reads use `InCurrentScope()`); an unbound `ICommandConfiguration<TCommand>` stays on the current scope. Binding also lets the registry refuse `RequireExpectedVersion()` on a root that is not `Versioned()`. Both shapes for one request are refused as a duplicate.
 
 **Reach.** `IScopedPermissionChecker.GetReachAsync(userId, permission)` returns one `ScopeReachEntry(ScopeId, Path, IncludeSubtree)` per active grant holding the permission (or `AllPlatform`). A system admin's reach is `Everything`; a failed lookup is `Nothing`. Two reaches intersect entry by entry: two subtrees meet in the deeper one, a single scope survives when the other side covers it.
 
@@ -55,7 +57,7 @@ Enables `ltree`, adds both columns nullable, backfills every existing device wit
 
 - Deleting a scope does not see other modules' records; a device left in a deleted scope is unreachable except by a system admin. A per-module usage probe could refuse the delete later.
 - Path rewrites are eventual, within the relay poll (5 s by default).
-- An unscoped read without `AtRoot()` (the catalog reads) is visible at any scope where the caller holds its permission. Deliberate for the catalog; decided per configuration.
+- An unscoped read marked `InCurrentScope()` (the catalog reads) is visible at any scope where the caller holds its permission. Deliberate for the catalog; decided per configuration.
 - A remote gateway without UserAccess refuses every non-system caller: it needs a real checker before any module runs remotely.
 - An unconfigured command's writes are not record-checked. Every write command that touches a scoped or global aggregate should carry a configuration.
 

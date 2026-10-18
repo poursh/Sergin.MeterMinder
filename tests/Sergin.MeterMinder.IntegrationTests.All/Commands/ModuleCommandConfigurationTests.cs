@@ -5,7 +5,14 @@ using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Create;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetList;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Add;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetList;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.UserAccess.Application;
@@ -16,6 +23,7 @@ using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Move;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.GetOne;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.ProvisionExternalUser;
+using Sergin.UserAccess.Domain.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Commands;
 
@@ -125,6 +133,39 @@ public sealed class ModuleCommandConfigurationTests
         Assert.Same(CommandSettings.None, Registry.For(typeof(CreateScopeCommand)));
         Assert.Same(CommandSettings.None, Registry.For(typeof(MoveScopeCommand)));
         Assert.Same(CommandSettings.None, Registry.For(typeof(AssignRoleCommand)));
+    }
+
+    /// <summary>
+    /// Bound to their aggregate, the scope comes from its features: Device is scoped, so its commands are checked
+    /// in the current scope; Manufacturer and User are not, so theirs are checked at the root without saying
+    /// AtRoot(). The catalog reads say InCurrentScope(), because every scope needs them to create a device.
+    /// </summary>
+    [Fact]
+    public void BoundRequests_TakeTheirScopeFromTheAggregate()
+    {
+        CommandSettings deleteDevice = Registry.For(typeof(DeleteDeviceCommand));
+        CommandSettings deleteManufacturer = Registry.For(typeof(DeleteManufacturerCommand));
+        CommandSettings getUser = Registry.For(typeof(GetUserByIdQueryCommand));
+
+        Assert.Equal(typeof(Device), deleteDevice.AggregateRoot);
+        Assert.False(deleteDevice.PermissionsAtRoot);
+        Assert.Equal(typeof(Manufacturer), deleteManufacturer.AggregateRoot);
+        Assert.True(deleteManufacturer.PermissionsAtRoot);
+        Assert.Equal(typeof(User), getUser.AggregateRoot);
+        Assert.True(getUser.PermissionsAtRoot);
+    }
+
+    [Theory]
+    [InlineData(typeof(GetManufacturerListQueryCommand))]
+    [InlineData(typeof(GetManufacturerByIdQueryCommand))]
+    [InlineData(typeof(GetDeviceModelListQueryCommand))]
+    [InlineData(typeof(GetDeviceModelByIdQueryCommand))]
+    public void CatalogReads_AreCheckedInTheCurrentScope(Type request)
+    {
+        CommandSettings settings = Registry.For(request);
+
+        Assert.Equal(typeof(Manufacturer), settings.AggregateRoot);
+        Assert.False(settings.PermissionsAtRoot);
     }
 
     [Fact]
