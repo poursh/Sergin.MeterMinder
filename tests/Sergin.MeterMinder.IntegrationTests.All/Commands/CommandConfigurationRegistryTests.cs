@@ -74,8 +74,6 @@ public sealed class CommandConfigurationRegistryTests
         Assert.Contains(nameof(VersionedQueryConfiguration), error.Message, StringComparison.Ordinal);
     }
 
-
-
     [Fact]
     public void BoundToAScopedRoot_IsCheckedInTheCurrentScope_AndCarriesTheRoot()
     {
@@ -110,7 +108,6 @@ public sealed class CommandConfigurationRegistryTests
         Assert.Null(settings.AggregateRoot);
     }
 
-
     [Fact]
     public void FromSources_ReadsTheFeaturesOfTheRoot_FromAnySource()
     {
@@ -122,7 +119,6 @@ public sealed class CommandConfigurationRegistryTests
 
         Assert.Equal(PermissionScope.Current, settings.PermissionScope);
     }
-
 
     [Fact]
     public void ExpectedVersionOnAnUnversionedRoot_Throws_NamingTheRootAndConfiguration()

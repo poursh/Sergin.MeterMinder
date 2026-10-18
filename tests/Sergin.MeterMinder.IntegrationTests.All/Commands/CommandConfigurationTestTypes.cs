@@ -59,8 +59,6 @@ internal sealed class MalformedPermissionConfiguration : ICommandConfiguration<C
         builder.RequirePermissions("not a permission");
 }
 
-
-
 internal abstract record AbstractTestCommand : ICommand<Success>;
 
 internal sealed class AbstractRequestConfiguration : ICommandConfiguration<AbstractTestCommand>
@@ -104,9 +102,6 @@ internal sealed class UnconfiguredRootBoundQueryConfiguration : ICommandConfigur
     public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
         builder.RequirePermissions("permission.test.things.read");
 }
-
-
-
 
 internal sealed class VersionOnUnversionedRootConfiguration : ICommandConfiguration<ConfiguredTestCommand, GlobalTestRoot>
 {

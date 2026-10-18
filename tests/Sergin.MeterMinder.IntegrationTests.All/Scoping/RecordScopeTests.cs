@@ -5,11 +5,14 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Application;
+using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Securities;
@@ -20,7 +23,9 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Scoping;
 
 /// <summary>
 /// RecordScopeInterceptor: a save is checked again on the scope of every record it writes. A manufacturer belongs to
-/// no scope, so its save only asks that the caller holds the permission on some scope: a regional holder may change it.
+/// no scope, so its save asks nothing the pipeline did not: a regional holder may change it. A new device is checked on
+/// the scope it is stamped with, even when the request was bound to an unscoped aggregate and never checked the
+/// current scope.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
@@ -44,7 +49,7 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
         Assert.False((await SendAsync(host, new RenameAnyManufacturerCommand(manufacturer, "global"), rootHolder, tree.North)).IsError);
         Assert.Equal("global", await NameOfAsync(manufacturer));
 
-        // No grant anywhere is refused, and nothing is saved.
+        // No grant anywhere is refused by the pipeline, and nothing is saved.
         ErrorOr<Success> ungranted = await SendAsync(host, new RenameAnyManufacturerCommand(manufacturer, "none"), new TestCaller(), tree.North);
         Assert.Equal(ErrorType.Forbidden, ungranted.FirstError.Type);
         Assert.Equal("global", await NameOfAsync(manufacturer));
@@ -53,15 +58,38 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
         Assert.False((await SendAsync(host, new RenameAnyManufacturerCommand(manufacturer, "relay"), new TestSystemCaller(), tree.North)).IsError);
     }
 
+    [Fact]
+    public async Task NewScopedRecord_IsCheckedOnItsStampedScope_UnderAnUnscopedRequest()
+    {
+        RbacScenario tree = await RbacScenario.BuildAsync(factory);
+        TestCaller northHolder = await tree.CreateGrantedCallerAsync(tree.North, ManufacturersUpdate);
+        DeviceModelInternalId model = await CreateModelAsync();
+
+        await using WebApplicationFactory<Program> host = CreateHost();
+
+        // The request is bound to Manufacturer, so the pipeline passes North's holder in South; the device it creates
+        // is stamped South, where the holder has nothing, and the save refuses it.
+        DeviceId inSouth = new($"device-{Guid.CreateVersion7()}");
+        ErrorOr<Success> refused = await SendAsync(host, new CreateDeviceUnderManufacturerCommand(model, inSouth), northHolder, tree.South);
+        Assert.Equal(ErrorType.Forbidden, refused.FirstError.Type);
+        Assert.False(await DeviceExistsAsync(inSouth));
+
+        DeviceId inNorth = new($"device-{Guid.CreateVersion7()}");
+        Assert.False((await SendAsync(host, new CreateDeviceUnderManufacturerCommand(model, inNorth), northHolder, tree.North)).IsError);
+        Assert.True(await DeviceExistsAsync(inNorth));
+    }
+
     private WebApplicationFactory<Program> CreateHost() =>
         factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
-            services.AddSingleton(CommandConfigurationSource.FromTypes(typeof(RenameAnyManufacturerCommandConfiguration)));
+            services.AddSingleton(CommandConfigurationSource.FromTypes(
+                typeof(RenameAnyManufacturerCommandConfiguration), typeof(CreateDeviceUnderManufacturerCommandConfiguration)));
             services.AddTransient<IRequestHandler<RenameAnyManufacturerCommand, ErrorOr<Success>>, RenameAnyManufacturerHandler>();
+            services.AddTransient<IRequestHandler<CreateDeviceUnderManufacturerCommand, ErrorOr<Success>>, CreateDeviceUnderManufacturerHandler>();
         }));
 
     private static async Task<ErrorOr<Success>> SendAsync(
-        WebApplicationFactory<Program> host, RenameAnyManufacturerCommand command, IUserContext caller, Guid scopeId)
+        WebApplicationFactory<Program> host, ICommand<Success> command, IUserContext caller, Guid scopeId)
     {
         using IServiceScope circuit = host.Services.CreateScope();
         circuit.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = caller;
@@ -79,9 +107,35 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
         return (await context.Set<Manufacturer>().AsNoTracking().SingleAsync(manufacturer => manufacturer.Id == id)).Name.Value;
     }
 
+    // Past the scope filter, which is closed outside a request: the question is whether the row was written at all.
+    private async Task<bool> DeviceExistsAsync(DeviceId deviceId)
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        IDeviceManagementDbContext context = scope.ServiceProvider.GetRequiredService<IDeviceManagementDbContext>();
+
+        return await context.Set<Device>().IgnoreQueryFilters().AnyAsync(device => device.DeviceId == deviceId);
+    }
+
+    private async Task<DeviceModelInternalId> CreateModelAsync()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+
+        ErrorOr<CreateManufacturerCommandResponse> manufacturer = await dispatcher.SendAsync(
+            new CreateManufacturerCommand(new ManufacturerName($"maker-{Guid.CreateVersion7()}"), Address: null));
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
+            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturer.Value.Id));
+        ErrorOr<Versioned<AddDeviceModelCommandResponse>> added = await dispatcher.SendVersionedAsync(
+            new AddDeviceModelCommand(new ManufacturerId(manufacturer.Value.Id), new DeviceModelName($"model-{Guid.CreateVersion7()}")),
+            loaded.Value.Version);
+        Assert.False(added.IsError, added.IsError ? added.FirstError.Description : string.Empty);
+
+        return new DeviceModelInternalId(added.Value.Value.Id);
+    }
+
     internal sealed record RenameAnyManufacturerCommand(Guid Id, string Name) : ICommand<Success>;
 
-    // Unbound, so the pipeline checks the current scope; the interceptor checks the manufacturer on any scope.
+    // Unbound, so the pipeline checks the current scope; the manufacturer's save asks nothing more.
     internal sealed class RenameAnyManufacturerCommandConfiguration : ICommandConfiguration<RenameAnyManufacturerCommand>
     {
         public void Configure(CommandConfigurationBuilder<RenameAnyManufacturerCommand> builder) =>
@@ -95,6 +149,28 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
         {
             Manufacturer manufacturer = (await manufacturers.GetAsync(new ManufacturerId(request.Id), cancellationToken))!;
             manufacturer.Update(new ManufacturerName(request.Name), manufacturer.Address);
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+
+            return Result.Success;
+        }
+    }
+
+    internal sealed record CreateDeviceUnderManufacturerCommand(DeviceModelInternalId ModelId, DeviceId DeviceId) : ICommand<Success>;
+
+    // Bound to Manufacturer, which is not scoped, so the pipeline asks only that the permission is held somewhere.
+    internal sealed class CreateDeviceUnderManufacturerCommandConfiguration
+        : ICommandConfiguration<CreateDeviceUnderManufacturerCommand, Manufacturer>
+    {
+        public void Configure(CommandConfigurationBuilder<CreateDeviceUnderManufacturerCommand> builder) =>
+            builder.RequirePermissions(ManufacturersUpdate);
+    }
+
+    internal sealed class CreateDeviceUnderManufacturerHandler(IDeviceRepository devices, IDeviceManagementUnitOfWork unitOfWork)
+        : IRequestHandler<CreateDeviceUnderManufacturerCommand, ErrorOr<Success>>
+    {
+        public async Task<ErrorOr<Success>> Handle(CreateDeviceUnderManufacturerCommand request, CancellationToken cancellationToken)
+        {
+            devices.Insert(Device.Create(request.DeviceId, request.ModelId));
             await unitOfWork.SaveChangesAsync(cancellationToken);
 
             return Result.Success;
