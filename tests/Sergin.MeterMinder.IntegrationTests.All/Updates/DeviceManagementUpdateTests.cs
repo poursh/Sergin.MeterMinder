@@ -77,7 +77,9 @@ public sealed partial class DeviceManagementUpdateTests(SerginWebApiFactory<Prog
         using IServiceScope scope = factory.Services.CreateScope();
         IDeviceManagementDbContext context = scope.ServiceProvider.GetRequiredService<IDeviceManagementDbContext>();
 
+        // Read from outside any request, where the scope filter hides every device.
         return await context.Set<TEntity>()
+            .IgnoreQueryFilters([ScopeColumns.QueryFilterName])
             .Where(match)
             .Select(entity => new ModifiedStamp(
                 EF.Property<DateTime?>(entity, AuditColumns.ModifiedAtUtc),

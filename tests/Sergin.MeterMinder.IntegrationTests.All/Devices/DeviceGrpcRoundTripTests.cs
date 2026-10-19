@@ -22,6 +22,7 @@ using Sergin.SharedKernel.Domain.Users;
 using Sergin.SharedKernel.Presentation.Grpc.Dispatching;
 using Grpc.Net.Client;
 using Grpc.Core.Interceptors;
+using Sergin.SharedKernel.Presentation.Grpc.Authorization;
 using Sergin.SharedKernel.Presentation.Grpc.Concurrency;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Devices;
@@ -61,12 +62,16 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 
         repository = new StubDeviceQueryRepository();
 
-        builder.Services.AddGrpc(options => options.Interceptors.Add<ConcurrencyServerInterceptor>());
+        builder.Services.AddGrpc(options =>
+        {
+            options.Interceptors.Add<ConcurrencyServerInterceptor>();
+            options.Interceptors.Add<AuthorizationScopeServerInterceptor>();
+        });
         builder.Services.AddSingleton<IGetDeviceQueryRepository>(repository);
-        builder.Services.AddSingleton<IUserContextFactory>(
-            new StubUserContextFactory([DevicesReadPermission]));
+        builder.Services.AddSingleton<IUserContextFactory>(new StubUserContextFactory());
         builder.Services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         builder.Services.AddScoped<ConcurrencyContext>();
+        builder.Services.AddScoped<IAuthorizationScopeContext, AuthorizationScopeContext>();
         builder.Services.AddSingleton(seenExpected);
 
         // Deliberately no PermissionCheckPipelineBehavior/ValidationPipelineBehavior registered on this
@@ -178,11 +183,35 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         Assert.Equal(stored, concurrency.Current);
     }
 
-    private ServiceProvider BuildRemoteProvider(Permission[] permissions)
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RemoteDispatch_CarriesTheCurrentScope(bool setScope)
+    {
+        var deviceGuid = Guid.CreateVersion7();
+        repository.Add(new DeviceIntenralId(deviceGuid), new DeviceQueryResponse(deviceGuid, "DEV-8", Guid.CreateVersion7(), "XYZ-8", Guid.CreateVersion7(), "ACME"), RowVersion.Create());
+        var picked = Guid.CreateVersion7();
+
+        using ServiceProvider provider = BuildRemoteProvider([DevicesReadPermission]);
+        using IServiceScope scope = provider.CreateScope();
+
+        if (setScope)
+        {
+            scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(picked);
+        }
+
+        ErrorOr<DeviceQueryResponse> result = await scope.ServiceProvider.GetRequiredService<ISender>()
+            .Send(new GetDeviceByIdQueryCommand(deviceGuid));
+
+        Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
+        Assert.Equal(setScope ? picked : AuthorizationScope.RootId, seenExpected.Scope);
+    }
+
+    private ServiceProvider BuildRemoteProvider(Permission[] granted)
     {
         ServiceCollection services = new();
 
-        services.AddSingleton<IUserContextFactory>(new StubUserContextFactory(permissions));
+        services.AddSingleton<IUserContextFactory>(new StubUserContextFactory());
 
         // What AddSerginCore registers for a remote module: its ConfigurationsAssembly's declarations, so the
         // gateway's permission check refuses before the gRPC hop.
@@ -190,8 +219,21 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
             [CommandConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly)]));
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         services.AddScoped<ConcurrencyContext>();
+
+        // What AddSerginCore registers for scoped checks. A gateway without UserAccess would get the deny-all
+        // checker and refuse every request; GrantingChecker stands in for the remote checker a gateway needs, so the
+        // test can exercise the gateway's own refusal before the hop.
+        services.AddLogging();
+        services.AddScoped<IAuthorizationScopeContext, AuthorizationScopeContext>();
+        services.AddScoped<IScopedPermissionChecker>(_ => new GrantingChecker(granted));
+        services.AddScoped<IScopePathResolver, UnknownScopePathResolver>();
+        services.AddScoped<IScopeAuthorization, ScopeAuthorization>();
+        services.AddScoped<RequiredPermissionsContext>();
+        services.AddScoped<ScopeFilter>();
         services.AddScoped(provider => new DeviceService.DeviceServiceClient(
-            channel.Intercept(new ConcurrencyClientInterceptor(provider.GetRequiredService<ConcurrencyContext>()))));
+            channel
+                .Intercept(new ConcurrencyClientInterceptor(provider.GetRequiredService<ConcurrencyContext>()))
+                .Intercept(new AuthorizationScopeClientInterceptor(provider.GetRequiredService<IAuthorizationScopeContext>()))));
         services.AddScoped<IRemoteInvoker<GetDeviceByIdQueryCommand, DeviceQueryResponse>, GetDeviceByIdGrpcInvoker>();
 
         // AddMediatR throws ("No assemblies found to scan") if given no assembly at all, even though the
@@ -226,33 +268,48 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
             Task.FromResult(devices.GetValueOrDefault(Id));
     }
 
-    private sealed class StubUserContextFactory(Permission[] permissions) : IUserContextFactory
+    /// <summary>Grants exactly <paramref name="granted"/>, on every scope.</summary>
+    private sealed class GrantingChecker(Permission[] granted) : IScopedPermissionChecker
     {
-        public IUserContext CreateUserContext() => new StubUserContext(permissions);
+        public Task<bool> HasPermissionAsync(Guid userId, Permission permission, Guid scopeId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(granted.Contains(permission));
+
+        public Task<ScopeReach> GetReachAsync(Guid userId, Permission permission, CancellationToken cancellationToken = default) =>
+            Task.FromResult(granted.Contains(permission)
+                ? ScopeReach.Of([new ScopeReachEntry(AuthorizationScope.RootId, AuthorizationScope.RootPath, IncludeSubtree: true)])
+                : ScopeReach.Nothing);
     }
 
-    private sealed class StubUserContext(Permission[] permissions) : IUserContext
+    private sealed class StubUserContextFactory : IUserContextFactory
+    {
+        public IUserContext CreateUserContext() => new StubUserContext();
+    }
+
+    private sealed class StubUserContext : IUserContext
     {
         public UserId Id { get; } = new(Guid.NewGuid());
         public string UserName => "stub";
         public string FirstName => "Stub";
         public string LastName => "User";
         public string Email => "stub@sergin.local";
-        public HashSet<Permission> Permissions { get; } = [.. permissions];
     }
 
     private sealed class SeenExpected
     {
         public RowVersion? Value { get; set; }
+
+        public Guid? Scope { get; set; }
     }
 
-    private sealed class CaptureExpectedBehavior<TRequest, TResponse>(ConcurrencyContext concurrency, SeenExpected seen)
+    private sealed class CaptureExpectedBehavior<TRequest, TResponse>(
+        ConcurrencyContext concurrency, IAuthorizationScopeContext scopeContext, SeenExpected seen)
         : IPipelineBehavior<TRequest, TResponse>
         where TRequest : notnull
     {
         public Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
         {
             seen.Value = concurrency.Expected;
+            seen.Scope = scopeContext.ScopeId;
             return next(cancellationToken);
         }
     }

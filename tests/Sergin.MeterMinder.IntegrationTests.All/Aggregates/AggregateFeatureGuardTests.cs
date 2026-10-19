@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
@@ -14,7 +15,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 /// The startup guard that compares declared configurations with the EF models: the real host passes it
 /// (the host starting at all proves that — this collection's factory ran it), a configuration for a type no
 /// context maps is refused, and so is one whose context never applied it (UserAccess's context has no
-/// AggregateFeatures override). Both refusals name the type.
+/// AggregateFeatures override), and so is a type the model scopes that the registry does not. Every refusal names the type.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class AggregateFeatureGuardTests(SerginWebApiFactory<Program> factory)
@@ -62,6 +63,16 @@ public sealed class AggregateFeatureGuardTests(SerginWebApiFactory<Program> fact
 
         Assert.Contains(typeof(User).FullName!, error.Message, StringComparison.Ordinal);
         Assert.Contains("SoftDeletable()", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TypeTheModelScopesButTheRegistryDoesNot_IsRefused()
+    {
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            AggregateFeatureGuard.EnsureApplied(AggregateFeatureRegistry.Empty, Models()));
+
+        Assert.Contains(typeof(Device).FullName!, error.Message, StringComparison.Ordinal);
+        Assert.Contains("scoped in the EF model", error.Message, StringComparison.Ordinal);
     }
 
     private IReadOnlyCollection<IModel> Models()
