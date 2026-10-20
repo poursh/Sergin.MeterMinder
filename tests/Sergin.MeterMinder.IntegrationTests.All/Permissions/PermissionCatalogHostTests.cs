@@ -1,8 +1,10 @@
 using System.Reflection;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Sergin.MeterMinder.DeviceManagement;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain.Securities;
@@ -46,6 +48,57 @@ public sealed class PermissionCatalogHostTests(SerginWebApiFactory<Program> fact
         Assert.Contains(UnregisteredNavModule.Label, error.Message, StringComparison.Ordinal);
         Assert.Contains(typeof(UnregisteredNavModule).FullName!, error.Message, StringComparison.Ordinal);
         Assert.Contains(Unregistered.Permission.Value, error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NavItem_ReadingAMalformedDefinition_FailsStartNamingTheDefinitionsClass()
+    {
+        WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions { EnvironmentName = "Development" });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Sergin:DevUser:Id"] = Guid.NewGuid().ToString(),
+            ["Sergin:DevUser:UserName"] = "dev",
+        });
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(
+            () => builder.AddSerginBlazorApp([new MalformedNavModule()]));
+
+        Assert.Contains(nameof(MalformedNavPermissions), error.Message, StringComparison.Ordinal);
+        Assert.Contains(MalformedNavPermissions.BadName, error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("type initializer", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>A definitions class whose initializer rejects its own name; only the nav entry below reads it.</summary>
+    private static class MalformedNavPermissions
+    {
+        public const string BadName = "not-a-permission-name";
+
+        public static PermissionDefinition Bad { get; } = PermissionDefinition.Create(BadName, "Bad");
+    }
+
+    /// <summary>A UI module whose nav entry reads <see cref="MalformedNavPermissions"/>, so building the catalogue throws.</summary>
+    private sealed class MalformedNavModule : ISerginWebUiModule
+    {
+        private static Assembly NoComponents => typeof(PermissionDefinition).Assembly;
+
+        public string Schema => "testbad";
+
+        public Assembly ApplicationAssembly => NoComponents;
+
+        public Assembly ContractsAssembly => NoComponents;
+
+        public Assembly ConfigurationsAssembly => NoComponents;
+
+        public Assembly UiAssembly => NoComponents;
+
+        public IReadOnlyCollection<SerginNavItem> NavItems =>
+            [new("Bad", "/testbad/things", string.Empty, RequiredPermission: MalformedNavPermissions.Bad)];
+
+        public void AddServices(IServiceCollection services, IConfigurationSection configuration)
+        {
+        }
+
+        public Task MigrateAsync(IServiceProvider services) => Task.CompletedTask;
     }
 
     /// <summary>

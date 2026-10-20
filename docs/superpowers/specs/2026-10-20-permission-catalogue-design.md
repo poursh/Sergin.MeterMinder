@@ -132,7 +132,7 @@ Notes:
 
 The category is derived, not typed:
 
-- **Module** — the `<schema>` segment of the name (`permission.dm.…` is `dm`). Its label is the localiser key `Permissions.<schema>`, which renders the schema verbatim until resources exist, like every other key today.
+- **Module** — the `<schema>` segment of the name (`permission.dm.…` is `dm`). Its label is the localiser key `Permissions.<schema>` when a resource exists for it, and the schema itself (`dm`, `ua`, `sys`) when none does. `DefaultLocalizer` marks a key it echoes back with `ResourceNotFound`, and `LocalizerExtensions.LocalizedOrDefault(key, fallback)` reads that flag; both role pages use it, so the raw key is never shown.
 - **Group** — the aggregate root that registered the permission. Its label is the root's type name. `Permissions(...)` may later take an optional group label; not in v1.
 - **Permission** — `PermissionDefinition.Label`, localised through `ILocalizer`.
 
@@ -143,15 +143,19 @@ The category is derived, not typed:
 A new singleton in `Sergin.SharedKernel.Application/Securities/Authorization/`.
 
 ```csharp
-public sealed record PermissionCatalogEntry(
-    PermissionDefinition Definition, string Schema, Type AggregateRoot);
+// Definition.Schema is the module; AggregateRoot is null only for PermissionDefinition.AllPlatform.
+public sealed record PermissionCatalogEntry(PermissionDefinition Definition, Type? AggregateRoot);
+
+public sealed record PermissionCatalogModule(string Schema, IReadOnlyList<PermissionCatalogGroup> Groups);
+
+public sealed record PermissionCatalogGroup(string Name, IReadOnlyList<PermissionDefinition> Permissions);
 
 public sealed class PermissionCatalog
 {
     public IReadOnlyCollection<PermissionCatalogEntry> Entries { get; }
     public bool Contains(PermissionDefinition definition);
     public bool TryGet(Permission permission, [NotNullWhen(true)] out PermissionDefinition? definition);
-    public IReadOnlyList<IGrouping<string, IGrouping<Type, PermissionCatalogEntry>>> Grouped();
+    public IReadOnlyList<PermissionCatalogModule> Grouped(); // module > aggregate > permission, each ordinal
 }
 ```
 
@@ -164,9 +168,11 @@ public sealed class PermissionCatalog
 Each refusal fails host start and names the offending type and permission.
 
 1. One permission registered by two aggregates, or two definitions with the same name.
-2. A registered permission whose `<schema>` segment is not the registering module's schema. `CommandConfigurationSource` gains a `Schema`; `AddSerginCore` already builds one source per module and knows `module.Schema`. `sys` is reserved for SharedKernel.
+2. A registered permission whose `<schema>` segment is not the registering module's schema. `CommandConfigurationSource` gains a `Schema`; `AddSerginCore` already builds one source per module and knows `module.Schema`, and passes it to `FromAssembly(assembly, schema)`, where it is a required argument so the production path cannot skip the check. `FromTypes` has no schema and skips it; a test that wants the check uses `FromTypesInSchema(schema, ...)`. `sys` is reserved for SharedKernel.
 3. A `RequirePermissions(...)` definition that no aggregate registered. Checked while `CommandConfigurationRegistry` is built.
 4. A `SerginNavItem.RequiredPermission` that no aggregate registered. Checked in `UseSerginWebUiAsync`, next to the route-prefix guard.
+
+5. A definitions class whose static initializer throws (a malformed name or label). `StaticInitializationFailure` unwraps the nested `TypeInitializationException`s, which surface first through a `*Navigation` class or an aggregate configuration, and the `InvalidOperationException` names the innermost class that failed and its cause, including the bad value. `PermissionDefinition.Create` puts the name in its own message for that reason.
 
 With no strings at use sites, a typo is a compile error (a missing property). The refusals catch the mistake that remains: a definition that exists but was never registered.
 

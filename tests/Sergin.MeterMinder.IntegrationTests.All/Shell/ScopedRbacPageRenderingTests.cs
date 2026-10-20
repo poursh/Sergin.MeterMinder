@@ -87,6 +87,18 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
         Assert.Contains("permission.ua.nothing.here", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task RoleDetailPage_ListsAMalformedStoredGrantAsUnknown_InsteadOfFailingTheRender()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+        Guid role = await new Permissions.UserAccessPermissionCatalogTests(factory).SeedRoleWithMalformedPermissionAsync(scenario, "Not A Permission!");
+
+        string html = await GetAsync($"/ua/roles/{role}");
+
+        Assert.Contains("Unknown", html, StringComparison.Ordinal);
+        Assert.Contains("Not A Permission!", html, StringComparison.Ordinal);
+    }
+
     [Theory]
     [InlineData("/ua/scopes/new")]
     [InlineData("/ua/roles/new?scopeId=01920000-0000-7000-8000-0000000000b1")]

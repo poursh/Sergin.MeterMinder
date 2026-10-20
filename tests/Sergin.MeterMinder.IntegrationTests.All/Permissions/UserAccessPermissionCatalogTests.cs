@@ -105,4 +105,16 @@ public sealed class UserAccessPermissionCatalogTests(SerginWebApiFactory<Program
 
         return id;
     }
+
+    /// <summary>A role holding a stored string that is not even a well-formed permission name, inserted as raw SQL.</summary>
+    internal async Task<Guid> SeedRoleWithMalformedPermissionAsync(RbacScenario tree, string malformed)
+    {
+        Guid id = await tree.CreateRoleAsync(tree.North, $"broken-{Guid.NewGuid():N}"[..20], inheritable: false, UserPermissions.Read.Permission);
+
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        DbContext db = Assert.IsAssignableFrom<DbContext>(scope.ServiceProvider.GetRequiredService<IUserAccessDbContext>());
+        await db.Database.ExecuteSqlRawAsync("INSERT INTO ua.role_permissions (role_id, permission, created_at_utc, created_by) VALUES ({0}, {1}, now(), {2})", id, malformed, Guid.Empty);
+
+        return id;
+    }
 }

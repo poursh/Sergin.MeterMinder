@@ -40,8 +40,8 @@ public sealed class ModuleCommandConfigurationTests
 {
     private static CommandConfigurationRegistry Registry { get; } = CommandConfigurationRegistry.FromSources(
     [
-        CommandConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly),
-        CommandConfigurationSource.FromAssembly(UserAccessApplicationConfigurationsAssemblyReference.Assembly),
+        CommandConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly, "dm"),
+        CommandConfigurationSource.FromAssembly(UserAccessApplicationConfigurationsAssemblyReference.Assembly, "ua"),
     ]);
 
     [Fact]
@@ -57,7 +57,7 @@ public sealed class ModuleCommandConfigurationTests
 
         foreach (Assembly assembly in assemblies)
         {
-            Assert.Empty(CommandConfigurationSource.FromAssembly(assembly).ConfigurationTypes);
+            Assert.Empty(CommandConfigurationSource.FromAssembly(assembly, "any").ConfigurationTypes);
             Assert.Empty(AggregateFeatureRegistry.ConfigurationTypesIn(assembly));
         }
 

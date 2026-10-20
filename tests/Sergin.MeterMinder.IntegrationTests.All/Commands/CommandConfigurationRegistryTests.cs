@@ -199,7 +199,7 @@ public sealed class CommandConfigurationRegistryTests
     [Fact]
     public void FromAssembly_FindsConfigurationsInTheAssembly()
     {
-        var source = CommandConfigurationSource.FromAssembly(typeof(CommandConfigurationRegistryTests).Assembly);
+        var source = CommandConfigurationSource.FromAssembly(typeof(CommandConfigurationRegistryTests).Assembly, "test");
 
         Assert.Contains(typeof(ConfiguredTestCommandConfiguration), source.ConfigurationTypes);
         Assert.Contains(typeof(TestThingRootConfiguration), source.AggregateConfigurationTypes);
