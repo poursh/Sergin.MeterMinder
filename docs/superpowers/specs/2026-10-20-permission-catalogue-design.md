@@ -1,6 +1,6 @@
 # Permission catalogue: permissions defined per aggregate
 
-Status: design, not implemented. Date: 2026-10-20.
+Status: implemented, 2026-10-20. Date: 2026-10-20.
 
 Builds on `2026-10-01-command-configuration-design.md`, `2026-09-23-aggregate-configuration-audit-design.md` and `2026-10-09-scoped-rbac-design.md`.
 
