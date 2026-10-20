@@ -4,15 +4,15 @@ using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
-using Sergin.UserAccess.Application.Contracts.Roles;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.Create;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.GrantPermission;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.RevokePermission;
-using Sergin.UserAccess.Application.Contracts.Scopes;
-using Sergin.UserAccess.Application.Contracts.Users;
 using Sergin.UserAccess.Domain.Roles;
 using Microsoft.EntityFrameworkCore;
 using Sergin.UserAccess.Infrastructure.Data;
+using Sergin.UserAccess.Application.Configurations.Roles;
+using Sergin.UserAccess.Application.Configurations.Scopes;
+using Sergin.UserAccess.Application.Configurations.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Permissions;
 

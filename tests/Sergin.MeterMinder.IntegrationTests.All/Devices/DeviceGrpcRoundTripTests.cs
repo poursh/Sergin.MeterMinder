@@ -1,4 +1,3 @@
-using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using System.Net;
 using ErrorOr;
 using MediatR;
@@ -25,6 +24,7 @@ using Grpc.Net.Client;
 using Grpc.Core.Interceptors;
 using Sergin.SharedKernel.Presentation.Grpc.Authorization;
 using Sergin.SharedKernel.Presentation.Grpc.Concurrency;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Devices;
 

@@ -1,5 +1,3 @@
-using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers;
-using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using System.Reflection;
 using Sergin.MeterMinder.DeviceManagement.Application;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
@@ -25,10 +23,12 @@ using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Move;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.GetEffective;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.GetList;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
-using Sergin.UserAccess.Application.Contracts.Users;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.GetOne;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.ProvisionExternalUser;
 using Sergin.UserAccess.Domain.Users;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
+using Sergin.UserAccess.Application.Configurations.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Commands;
 

@@ -1,9 +1,9 @@
-using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using System.Net;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.IntegrationTests;
-using Sergin.UserAccess.Application.Contracts.Scopes;
 using Sergin.UserAccess.Domain.Scopes;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
+using Sergin.UserAccess.Application.Configurations.Scopes;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 

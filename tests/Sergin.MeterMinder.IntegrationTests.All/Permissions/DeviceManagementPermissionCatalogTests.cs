@@ -1,10 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
-using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
-using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Permissions;
 

@@ -41,15 +41,15 @@ public sealed class PermissionDefinition
 
 - `Create` is the **only** place a permission name is written as a string. It validates the name through `Permission.Create`.
 - There is no implicit conversion from `string`. A use site cannot pass a name by accident.
-- It lives in `.Domain` because that project is the zero-dependency leaf. `.Application.Contracts`, `.Application`, every presentation project and `Sergin.SharedKernel.Modules` can all reference it.
+- It lives in `.Domain` because that project is the zero-dependency leaf. `.Application.Contracts`, `.Application.Configurations`, `.Application`, every presentation project and `Sergin.SharedKernel.Modules` can all reference it.
 - Equality is by `Permission`. Two definitions with the same name are a startup error (see "Startup refusals").
 
-### Definitions live in Contracts, per aggregate
+### Definitions live in Configurations, per aggregate
 
-One `public static class <Aggregate>Permissions` per aggregate root, in `.Application.Contracts/<Aggregate>/`. The folder mirrors the aggregate's folder in `.Application.Configurations`.
+One `public static class <Aggregate>Permissions` per aggregate root, in `.Application.Configurations/<Aggregate>/`, beside the root's `<Root>AggregateFeatureConfiguration` that registers it.
 
 ```csharp
-namespace Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
+namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 
 public static class DevicePermissions
 {
@@ -64,7 +64,9 @@ public static class DevicePermissions
 }
 ```
 
-Contracts is the right project because every reader can see it: handlers (`.Application`), the nav (`.Presentation.Blazor`), the configurations, and tests. `.Application.Configurations` cannot be that home — its types are `internal` and neither `.Application` nor the presentation projects reference it.
+A definition is policy, so it lives with the rest of the module's policy. Its readers are the configurations (same project), handlers (`.Application`), the nav (`.Presentation.Blazor`) and tests, so `.Application` and `.Presentation.Blazor` reference `.Application.Configurations`. That reference exposes only public types, and every configuration is `internal`; `ModuleConfigurationsAssemblyTests.ConfigurationsAssemblies_ExportOnlyTheMarkerAndPermissionDefinitions` fails if anything other than the marker and `<Aggregate>Permissions` classes becomes public. `.Application.Contracts` stays request and response shapes only.
+
+*Amended 2026-10-20, after implementation: the definitions first shipped in `.Application.Contracts` and were moved here on the same branch.*
 
 Initial set:
 
@@ -200,6 +202,7 @@ A stored grant of a permission later removed from code stays as a dead row. `Per
 - **`const string` names.** Use sites still hold strings, which this design rules out, and a string carries no label.
 - **Generic `PermissionDefinition<TAggregateRoot>`** carrying its own category. Gives categories without registration, but the aggregate configuration should be the one registration point.
 - **Registration on each command configuration.** A permission used by five commands gets five registrations and no natural owner.
+- **Definitions in `.Application.Contracts`.** Every reader already references Contracts, but it puts policy back into the project meant for request and response shapes, and splits an aggregate's permissions from their registration. Shipped first, then moved.
 - **A module-level `IPermissionConfiguration`.** Loses the aggregate grouping. Kept as a future escape hatch for a permission that belongs to no aggregate, such as a report.
 
 ## Open points

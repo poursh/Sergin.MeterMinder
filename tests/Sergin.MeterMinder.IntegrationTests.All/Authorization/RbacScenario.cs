@@ -1,4 +1,3 @@
-using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,6 +17,7 @@ using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
 using Sergin.UserAccess.Domain.Roles;
 using Sergin.UserAccess.Domain.Scopes;
 using Sergin.UserAccess.Domain.Users;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 

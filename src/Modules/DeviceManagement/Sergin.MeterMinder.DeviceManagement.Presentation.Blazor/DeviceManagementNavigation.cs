@@ -1,7 +1,7 @@
 using MudBlazor;
-using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
-using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers;
 using Sergin.SharedKernel.Modules;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor;
 

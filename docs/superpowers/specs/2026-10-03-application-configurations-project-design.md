@@ -81,6 +81,8 @@ Rejected alternatives:
 | `.Application` | unchanged — handlers never read policy |
 | `.Presentation.*` | unchanged — they reference Contracts and now see no policy types |
 
+> Amended 2026-10-20 by `2026-10-20-permission-catalogue-design.md`: `.Application` and `.Presentation.Blazor` now reference `.Application.Configurations` for the module's `<Aggregate>Permissions` definitions. Configurations stay `internal`, so they still see no configuration type.
+
 `Sergin.MeterMinder.slnx` lists each new project in the module's solution folder (`/src/Modules/<Module>/`),
 next to Contracts.
 

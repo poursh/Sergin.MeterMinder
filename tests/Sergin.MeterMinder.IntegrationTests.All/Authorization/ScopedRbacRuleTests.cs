@@ -1,7 +1,5 @@
 using ErrorOr;
 using Sergin.SharedKernel.IntegrationTests;
-using Sergin.UserAccess.Application.Contracts.Roles;
-using Sergin.UserAccess.Application.Contracts.Users;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.Create;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.Delete;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.GetAssignable;
@@ -11,6 +9,8 @@ using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Delete;
 using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Move;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.GetEffective;
 using Sergin.UserAccess.Domain.Roles;
+using Sergin.UserAccess.Application.Configurations.Roles;
+using Sergin.UserAccess.Application.Configurations.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 

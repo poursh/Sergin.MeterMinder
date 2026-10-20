@@ -1,6 +1,6 @@
 using Sergin.SharedKernel.Domain.Securities;
 
-namespace Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers;
+namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 
 /// <summary>The permissions the Manufacturer aggregate owns, device models included. The catalogue is global, so a holder on any scope passes.</summary>
 public static class ManufacturerPermissions

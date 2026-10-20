@@ -1,4 +1,3 @@
-using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.SharedKernel.Application.Commands.Configuration;

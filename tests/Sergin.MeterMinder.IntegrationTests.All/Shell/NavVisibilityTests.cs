@@ -4,8 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.IntegrationTests;
-using Sergin.UserAccess.Application.Contracts.Scopes;
-using Sergin.UserAccess.Application.Contracts.Users;
+using Sergin.UserAccess.Application.Configurations.Scopes;
+using Sergin.UserAccess.Application.Configurations.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 

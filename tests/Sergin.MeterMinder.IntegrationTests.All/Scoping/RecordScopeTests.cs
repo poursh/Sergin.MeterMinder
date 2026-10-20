@@ -1,4 +1,3 @@
-using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers;
 using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -19,6 +18,7 @@ using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Scoping;
 

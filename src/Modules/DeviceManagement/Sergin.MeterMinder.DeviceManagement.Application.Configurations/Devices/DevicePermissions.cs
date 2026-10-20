@@ -1,6 +1,6 @@
 using Sergin.SharedKernel.Domain.Securities;
 
-namespace Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
+namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 
 /// <summary>The permissions the Device aggregate owns. Devices are scoped, so each is checked on the caller's current scope.</summary>
 public static class DevicePermissions
