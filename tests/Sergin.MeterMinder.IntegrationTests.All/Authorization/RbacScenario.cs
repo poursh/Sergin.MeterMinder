@@ -1,5 +1,6 @@
 using ErrorOr;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -17,6 +18,7 @@ using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
 using Sergin.UserAccess.Domain.Roles;
 using Sergin.UserAccess.Domain.Scopes;
 using Sergin.UserAccess.Domain.Users;
+using Sergin.UserAccess.Infrastructure.Data;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 
@@ -104,8 +106,35 @@ internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
     public async Task<Guid> CreateScopeAsync(Guid parentId, string name) =>
         (await SendAsync(new CreateScopeCommand(parentId, new ScopeName(name)))).Id;
 
-    public async Task<Guid> CreateRoleAsync(Guid ownerScopeId, string name, bool inheritable, params Permission[] permissions) =>
-        (await SendAsync(new CreateRoleCommand(ownerScopeId, new RoleName(name), inheritable, permissions))).Id;
+    /// <summary>
+    /// A role holding <paramref name="permissions"/>. The create command refuses a name the catalogue does not
+    /// define, so any such name is written onto the stored role directly: a scenario needs its grants, not the
+    /// command's rule (the DeviceManagement permissions are not defined yet).
+    /// </summary>
+    public async Task<Guid> CreateRoleAsync(Guid ownerScopeId, string name, bool inheritable, params Permission[] permissions)
+    {
+        PermissionCatalog catalog = factory.Services.GetRequiredService<PermissionCatalog>();
+        Permission[] defined = [.. permissions.Where(permission => catalog.TryGet(permission, out _))];
+        Permission[] undefined = [.. permissions.Except(defined)];
+
+        Guid id = (await SendAsync(new CreateRoleCommand(ownerScopeId, new RoleName(name), inheritable, defined))).Id;
+
+        if (undefined.Length > 0)
+        {
+            await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+            var db = (DbContext)scope.ServiceProvider.GetRequiredService<IUserAccessDbContext>();
+            Role role = await db.Set<Role>().FindAsync([new RoleId(id)]) ?? throw new InvalidOperationException("role missing");
+
+            foreach (Permission permission in undefined)
+            {
+                role.Grant(permission);
+            }
+
+            await db.SaveChangesAsync();
+        }
+
+        return id;
+    }
 
     public async Task<Guid> CreateUserAsync(string name) =>
         (await SendAsync(new CreateUserCommand(new UserName($"{name}-{Guid.NewGuid():N}")))).Id;

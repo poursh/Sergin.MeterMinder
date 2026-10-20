@@ -1,7 +1,7 @@
 using ErrorOr;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
-using Sergin.UserAccess.Application.Contracts;
+using Sergin.UserAccess.Application.Contracts.Users;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.GetEffective;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.GetList;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.DeactivateUser;
@@ -17,8 +17,8 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class UserReachTests(SerginWebApiFactory<Program> factory)
 {
-    private static readonly Permission UsersRead = UserAccessPermissions.UsersRead;
-    private static readonly Permission UsersManage = UserAccessPermissions.UsersManage;
+    private static readonly Permission UsersRead = UserPermissions.Read.Permission;
+    private static readonly Permission UsersManage = UserPermissions.Manage.Permission;
 
     [Fact]
     public async Task RegionalAdministrator_CannotActOnSomeoneGrantedAboveTheirRegion()

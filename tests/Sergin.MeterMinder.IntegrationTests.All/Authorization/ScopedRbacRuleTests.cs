@@ -1,6 +1,7 @@
 using ErrorOr;
 using Sergin.SharedKernel.IntegrationTests;
-using Sergin.UserAccess.Application.Contracts;
+using Sergin.UserAccess.Application.Contracts.Roles;
+using Sergin.UserAccess.Application.Contracts.Users;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.Create;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.Delete;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.GetAssignable;
@@ -42,11 +43,11 @@ public sealed class ScopedRbacRuleTests(SerginWebApiFactory<Program> factory)
         await tree.CreateRoleAsync(tree.North, "operator", inheritable: true, RbacScenario.Read);
 
         ErrorOr<CreateRoleCommandResponse> below = await tree.TrySendAsync(
-            new CreateRoleCommand(tree.Feeder1, new RoleName("operator"), false, [RbacScenario.Read]));
+            new CreateRoleCommand(tree.Feeder1, new RoleName("operator"), false, [UserPermissions.Read.Permission]));
         ErrorOr<CreateRoleCommandResponse> above = await tree.TrySendAsync(
-            new CreateRoleCommand(tree.Company, new RoleName("operator"), false, [RbacScenario.Read]));
+            new CreateRoleCommand(tree.Company, new RoleName("operator"), false, [UserPermissions.Read.Permission]));
         ErrorOr<CreateRoleCommandResponse> beside = await tree.TrySendAsync(
-            new CreateRoleCommand(tree.South, new RoleName("operator"), false, [RbacScenario.Read]));
+            new CreateRoleCommand(tree.South, new RoleName("operator"), false, [UserPermissions.Read.Permission]));
 
         Assert.Equal(ErrorType.Validation, below.FirstError.Type);
         Assert.Equal(ErrorType.Validation, above.FirstError.Type);
@@ -59,11 +60,11 @@ public sealed class ScopedRbacRuleTests(SerginWebApiFactory<Program> factory)
         RbacScenario tree = await RbacScenario.BuildAsync(factory);
         Guid role = await tree.CreateRoleAsync(tree.North, "growing", inheritable: false, RbacScenario.Read);
 
-        Assert.False((await tree.SendAtRoleVersionAsync(role, new GrantRolePermissionCommand(role, RbacScenario.Update))).IsError);
+        Assert.False((await tree.SendAtRoleVersionAsync(role, new GrantRolePermissionCommand(role, UserPermissions.Manage.Permission))).IsError);
 
-        TestCaller limited = await tree.CreateGrantedCallerAsync(tree.Company, UserAccessPermissions.RolesManage, RbacScenario.Read);
+        TestCaller limited = await tree.CreateGrantedCallerAsync(tree.Company, RolePermissions.Manage.Permission, RbacScenario.Read);
         ErrorOr<GrantRolePermissionCommandResponse> refused = await tree.SendAtRoleVersionAsync(
-            role, new GrantRolePermissionCommand(role, "permission.dm.devices.delete"), limited);
+            role, new GrantRolePermissionCommand(role, UserPermissions.AssignmentsManage.Permission), limited);
 
         Assert.Equal(ErrorType.Validation, refused.FirstError.Type);
     }

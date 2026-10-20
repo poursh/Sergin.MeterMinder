@@ -1,6 +1,7 @@
 using System.Net;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.IntegrationTests;
+using Sergin.UserAccess.Application.Contracts.Scopes;
 using Sergin.UserAccess.Domain.Scopes;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
@@ -60,6 +61,29 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
 
         Assert.Contains("permission.dm.devices.read", html, StringComparison.Ordinal);
         Assert.Contains($"href=\"/ua/scopes/{Scope.RootId.Value}\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RoleDetailPage_ShowsAGrantedPermissionByItsLabel()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+        Guid role = await scenario.CreateRoleAsync(scenario.North, "scope-keeper", inheritable: false, ScopePermissions.Manage.Permission);
+
+        string html = await GetAsync($"/ua/roles/{role}");
+
+        Assert.Contains("Create, rename, move and delete scopes", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RoleDetailPage_ListsAGrantMissingFromTheCatalogue()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+        Guid role = await new Permissions.UserAccessPermissionCatalogTests(factory).SeedRoleWithUnknownPermissionAsync(scenario);
+
+        string html = await GetAsync($"/ua/roles/{role}");
+
+        Assert.Contains("Unknown", html, StringComparison.Ordinal);
+        Assert.Contains("permission.ua.nothing.here", html, StringComparison.Ordinal);
     }
 
     [Theory]

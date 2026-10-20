@@ -6,7 +6,8 @@ using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
-using Sergin.UserAccess.Application.Contracts;
+using Sergin.UserAccess.Application.Contracts.Roles;
+using Sergin.UserAccess.Application.Contracts.Users;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.Create;
 using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Move;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
@@ -74,10 +75,10 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
         RbacScenario tree = await RbacScenario.BuildAsync(factory);
 
         // Holds role management over the company, but not the permission it tries to hand out.
-        TestCaller admin = await tree.CreateGrantedCallerAsync(tree.Company, UserAccessPermissions.RolesManage, RbacScenario.Read);
+        TestCaller admin = await tree.CreateGrantedCallerAsync(tree.Company, RolePermissions.Manage.Permission, RbacScenario.Read);
 
         ErrorOr<CreateRoleCommandResponse> result = await tree.TrySendAsync(
-            new CreateRoleCommand(tree.North, new RoleName("disconnector"), false, [RbacScenario.Update]), admin);
+            new CreateRoleCommand(tree.North, new RoleName("disconnector"), false, [UserPermissions.Manage.Permission]), admin);
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorType.Validation, result.FirstError.Type);
