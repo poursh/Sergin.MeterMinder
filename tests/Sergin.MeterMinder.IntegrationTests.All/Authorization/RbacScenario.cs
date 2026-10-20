@@ -1,6 +1,6 @@
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using ErrorOr;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -18,7 +18,6 @@ using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
 using Sergin.UserAccess.Domain.Roles;
 using Sergin.UserAccess.Domain.Scopes;
 using Sergin.UserAccess.Domain.Users;
-using Sergin.UserAccess.Infrastructure.Data;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 
@@ -29,8 +28,8 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 /// </summary>
 internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
 {
-    public static readonly Permission Read = "permission.dm.devices.read";
-    public static readonly Permission Update = "permission.dm.devices.update";
+    public static readonly Permission Read = DevicePermissions.Read.Permission;
+    public static readonly Permission Update = DevicePermissions.Update.Permission;
 
     public Guid Company { get; private set; }
     public Guid North { get; private set; }
@@ -113,27 +112,7 @@ internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
     /// </summary>
     public async Task<Guid> CreateRoleAsync(Guid ownerScopeId, string name, bool inheritable, params Permission[] permissions)
     {
-        PermissionCatalog catalog = factory.Services.GetRequiredService<PermissionCatalog>();
-        Permission[] defined = [.. permissions.Where(permission => catalog.TryGet(permission, out _))];
-        Permission[] undefined = [.. permissions.Except(defined)];
-
-        Guid id = (await SendAsync(new CreateRoleCommand(ownerScopeId, new RoleName(name), inheritable, defined))).Id;
-
-        if (undefined.Length > 0)
-        {
-            await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
-            var db = (DbContext)scope.ServiceProvider.GetRequiredService<IUserAccessDbContext>();
-            Role role = await db.Set<Role>().FindAsync([new RoleId(id)]) ?? throw new InvalidOperationException("role missing");
-
-            foreach (Permission permission in undefined)
-            {
-                role.Grant(permission);
-            }
-
-            await db.SaveChangesAsync();
-        }
-
-        return id;
+        return (await SendAsync(new CreateRoleCommand(ownerScopeId, new RoleName(name), inheritable, permissions))).Id;
     }
 
     public async Task<Guid> CreateUserAsync(string name) =>

@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using System.Net;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.IntegrationTests;
@@ -59,7 +60,7 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
     {
         string html = await GetAsync($"/ua/roles/{ViewerRoleId}");
 
-        Assert.Contains("permission.dm.devices.read", html, StringComparison.Ordinal);
+        Assert.Contains(DevicePermissions.Read.Label, html, StringComparison.Ordinal);
         Assert.Contains($"href=\"/ua/scopes/{Scope.RootId.Value}\"", html, StringComparison.Ordinal);
     }
 

@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.SharedKernel.Application.Commands.Configuration;
@@ -8,5 +9,5 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices
 internal sealed class CreateDeviceCommandConfiguration : ICommandConfiguration<CreateDeviceCommand, Device>
 {
     public void Configure(CommandConfigurationBuilder<CreateDeviceCommand> builder) =>
-        builder.RequirePermissions("permission.dm.devices.update");
+        builder.RequirePermissions(DevicePermissions.Update);
 }

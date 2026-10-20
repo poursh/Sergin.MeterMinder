@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using System.Net;
 using ErrorOr;
 using MediatR;
@@ -41,7 +42,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Devices;
 /// </summary>
 public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 {
-    private static readonly Permission DevicesReadPermission = Permission.Create("permission.dm.devices.read");
+    private static readonly Permission DevicesReadPermission = DevicePermissions.Read.Permission;
 
     private WebApplication server = null!;
     private GrpcChannel channel = null!;

@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers;
 using ErrorOr;
 using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -30,7 +31,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Scoping;
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
 {
-    private static readonly Permission ManufacturersUpdate = "permission.dm.manufacturers.update";
+    private static readonly Permission ManufacturersUpdate = ManufacturerPermissions.Update.Permission;
 
     [Fact]
     public async Task UnscopedRecord_IsCheckedOnAnyScope()

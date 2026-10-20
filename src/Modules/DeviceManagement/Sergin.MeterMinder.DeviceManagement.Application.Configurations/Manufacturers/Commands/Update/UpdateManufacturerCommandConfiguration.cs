@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Update;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Commands.Configuration;
@@ -7,5 +8,5 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufac
 internal sealed class UpdateManufacturerCommandConfiguration : ICommandConfiguration<UpdateManufacturerCommand, Manufacturer>
 {
     public void Configure(CommandConfigurationBuilder<UpdateManufacturerCommand> builder) =>
-        builder.RequirePermissions("permission.dm.manufacturers.update").RequireExpectedVersion();
+        builder.RequirePermissions(ManufacturerPermissions.Update).RequireExpectedVersion();
 }

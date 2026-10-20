@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
@@ -24,7 +25,7 @@ public sealed class ExternalIdentityProvisioningTests(SerginWebApiFactory<Progra
 
         // The migration seeds "viewer" and provisioning assigns it, so a brand-new user can actually
         // see something. Without that they would sign in successfully to an empty application.
-        Assert.True(await HoldsAtRootAsync(result.UserId, "permission.dm.devices.read"));
+        Assert.True(await HoldsAtRootAsync(result.UserId, DevicePermissions.Read.Permission.Value));
         Assert.True(await HoldsAtRootAsync(result.UserId, "permission.ua.users.read"));
     }
 

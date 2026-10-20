@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Commands.Configuration;
@@ -7,5 +8,5 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufac
 internal sealed class DeleteManufacturerCommandConfiguration : ICommandConfiguration<DeleteManufacturerCommand, Manufacturer>
 {
     public void Configure(CommandConfigurationBuilder<DeleteManufacturerCommand> builder) =>
-        builder.RequirePermissions("permission.dm.manufacturers.delete").RequireExpectedVersion();
+        builder.RequirePermissions(ManufacturerPermissions.Delete).RequireExpectedVersion();
 }

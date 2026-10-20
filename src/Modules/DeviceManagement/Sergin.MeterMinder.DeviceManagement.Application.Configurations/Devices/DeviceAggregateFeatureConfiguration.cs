@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.SharedKernel.Application.Aggregates;
 
@@ -5,5 +6,6 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices
 
 internal sealed class DeviceAggregateFeatureConfiguration : IAggregateFeatureConfiguration<Device>
 {
-    public void Configure(AggregateFeatureBuilder<Device> builder) => builder.Audited().SoftDeletable().Versioned().Scoped();
+    public void Configure(AggregateFeatureBuilder<Device> builder) => builder.Audited().SoftDeletable().Versioned().Scoped()
+            .Permissions(DevicePermissions.Read, DevicePermissions.Update, DevicePermissions.Delete);
 }
