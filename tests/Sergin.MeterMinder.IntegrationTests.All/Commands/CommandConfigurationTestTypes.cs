@@ -1,4 +1,5 @@
 using ErrorOr;
+using Sergin.MeterMinder.IntegrationTests.All.Permissions;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
@@ -30,6 +31,12 @@ internal sealed class ConfiguredTestQueryConfiguration : ICommandConfiguration<C
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
         builder.RequirePermissions("permission.test.things.read");
+}
+
+internal sealed class DefinitionConfiguredTestCommandConfiguration : ICommandConfiguration<ConfiguredTestCommand>
+{
+    public void Configure(CommandConfigurationBuilder<ConfiguredTestCommand> builder) =>
+        builder.RequirePermissions(CatalogTestPermissions.Read);
 }
 
 internal sealed class DuplicateConfiguredTestCommandConfiguration : ICommandConfiguration<ConfiguredTestCommand>

@@ -1,4 +1,5 @@
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.MeterMinder.IntegrationTests.All.Permissions;
 using Sergin.SharedKernel.Domain.Securities;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Commands;
@@ -21,6 +22,16 @@ public sealed class CommandConfigurationRegistryTests
         Assert.True(settings.RequiresExpectedVersion);
         Assert.Equal(expected, settings.RequiredPermissions.Select(permission => permission.Value));
         Assert.Equal(typeof(ConfiguredTestCommand), Assert.Single(registry.ConfiguredTypes));
+    }
+
+    [Fact]
+    public void RequirePermissions_WithDefinitions_IsReadAsTheirPermissions()
+    {
+        var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(DefinitionConfiguredTestCommandConfiguration)]);
+
+        CommandSettings settings = registry.For(typeof(ConfiguredTestCommand));
+
+        Assert.Equal([CatalogTestPermissions.Read.Permission], settings.RequiredPermissions);
     }
 
     [Fact]
