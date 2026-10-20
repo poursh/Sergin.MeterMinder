@@ -57,7 +57,8 @@ internal static class OutboxTestHost
                 services.AddTransient<INotificationHandler<IntegrationEventNotification<TestAggregateCreatedIntegrationEvent>>, ThrowingIntegrationHandler>();
                 services.AddTransient<INotificationHandler<IntegrationEventNotification<TestAggregateCreatedIntegrationEvent>>, ChainingIntegrationHandler>();
                 services.AddTransient<IRequestHandler<CreateChildAggregateCommand, ErrorOr<Guid>>, CreateChildAggregateCommandHandler>();
-                services.AddSingleton(CommandConfigurationSource.FromTypes(typeof(CreateChildAggregateCommandConfiguration)));
+                services.AddSingleton(CommandConfigurationSource.FromTypes(
+                    typeof(CreateChildAggregateCommandConfiguration), typeof(TestAggregatePermissionsConfiguration)));
             });
 
             configure?.Invoke(builder);

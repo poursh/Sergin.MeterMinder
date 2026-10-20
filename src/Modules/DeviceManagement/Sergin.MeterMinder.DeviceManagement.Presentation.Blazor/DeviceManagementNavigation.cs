@@ -16,14 +16,14 @@ public static class DeviceManagementNavigation
         "/dm/devices",
         Icons.Material.Filled.Router,
         Order: 100,
-        RequiredPermission: DevicePermissions.Read.Permission.Value);
+        RequiredPermission: DevicePermissions.Read);
 
     public static SerginNavItem Manufacturers { get; } = new(
         "Manufacturers",
         "/dm/manufacturers",
         Icons.Material.Filled.Factory,
         Order: 110,
-        RequiredPermission: ManufacturerPermissions.Read.Permission.Value);
+        RequiredPermission: ManufacturerPermissions.Read);
 
     public static IReadOnlyCollection<SerginNavItem> Items { get; } = [Devices, Manufacturers];
 }

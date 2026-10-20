@@ -1,5 +1,4 @@
 using Sergin.SharedKernel.Application.Commands.Configuration;
-using Sergin.MeterMinder.IntegrationTests.All.Permissions;
 using Sergin.SharedKernel.Domain.Securities;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Commands;
@@ -13,42 +12,32 @@ public sealed class CommandConfigurationRegistryTests
     [Fact]
     public void For_ConfiguredCommand_ReturnsDeclaredSettings_WithPermissionsAppended()
     {
-        var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestCommandConfiguration)]);
+        var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestCommandConfiguration), typeof(TestThingRootConfiguration)]);
 
         CommandSettings settings = registry.For(typeof(ConfiguredTestCommand));
 
         string[] expected = ["permission.test.things.read", "permission.test.things.update", "permission.test.things.delete"];
 
         Assert.True(settings.RequiresExpectedVersion);
-        Assert.Equal(expected, settings.RequiredPermissions.Select(permission => permission.Value));
+        Assert.Equal(expected, settings.RequiredPermissions.Select(permission => permission.Permission.Value));
         Assert.Equal(typeof(ConfiguredTestCommand), Assert.Single(registry.ConfiguredTypes));
-    }
-
-    [Fact]
-    public void RequirePermissions_WithDefinitions_IsReadAsTheirPermissions()
-    {
-        var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(DefinitionConfiguredTestCommandConfiguration)]);
-
-        CommandSettings settings = registry.For(typeof(ConfiguredTestCommand));
-
-        Assert.Equal([CatalogTestPermissions.Read.Permission], settings.RequiredPermissions);
     }
 
     [Fact]
     public void For_ConfiguredQuery_ReturnsItsPermission_AndNoVersion()
     {
-        var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestQueryConfiguration)]);
+        var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestQueryConfiguration), typeof(TestThingRootConfiguration)]);
 
         CommandSettings settings = registry.For(typeof(ConfiguredTestQuery));
 
         Assert.False(settings.RequiresExpectedVersion);
-        Assert.Equal((Permission)"permission.test.things.read", Assert.Single(settings.RequiredPermissions));
+        Assert.Equal(TestThingPermissions.Read, Assert.Single(settings.RequiredPermissions));
     }
 
     [Fact]
     public void For_UnconfiguredRequest_ReturnsNone()
     {
-        var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestCommandConfiguration)]);
+        var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestCommandConfiguration), typeof(TestThingRootConfiguration)]);
 
         Assert.Same(CommandSettings.None, registry.For(typeof(UnconfiguredTestCommand)));
         Assert.Same(CommandSettings.None, CommandConfigurationRegistry.Empty.For(typeof(ConfiguredTestCommand)));
@@ -59,7 +48,7 @@ public sealed class CommandConfigurationRegistryTests
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
             CommandConfigurationRegistry.FromConfigurationTypes(
-                [typeof(ConfiguredTestCommandConfiguration), typeof(DuplicateConfiguredTestCommandConfiguration)]));
+                [typeof(ConfiguredTestCommandConfiguration), typeof(DuplicateConfiguredTestCommandConfiguration), typeof(TestThingRootConfiguration)]));
 
         Assert.Contains(typeof(ConfiguredTestCommand).FullName!, error.Message, StringComparison.Ordinal);
         Assert.Contains(nameof(ConfiguredTestCommandConfiguration), error.Message, StringComparison.Ordinal);
@@ -89,7 +78,7 @@ public sealed class CommandConfigurationRegistryTests
     public void BoundToAScopedRoot_IsCheckedInTheCurrentScope_AndCarriesTheRoot()
     {
         CommandSettings settings = CommandConfigurationRegistry.FromConfigurationTypes(
-            [typeof(ScopedBoundCommandConfiguration), typeof(ScopedTestRootFeatureConfiguration)])
+            [typeof(ScopedBoundCommandConfiguration), typeof(ScopedTestRootFeatureConfiguration), typeof(TestThingRootConfiguration)])
             .For(typeof(ConfiguredTestCommand));
 
         Assert.Equal(PermissionScope.Current, settings.PermissionScope);
@@ -103,7 +92,7 @@ public sealed class CommandConfigurationRegistryTests
     public void BoundToAnUnscopedRoot_IsCheckedOnAnyScope(Type configuration)
     {
         CommandSettings settings = CommandConfigurationRegistry.FromConfigurationTypes(
-            [configuration, typeof(GlobalTestRootFeatureConfiguration)])
+            [configuration, typeof(GlobalTestRootFeatureConfiguration), typeof(TestThingRootConfiguration)])
             .For(typeof(ConfiguredTestQuery));
 
         Assert.Equal(PermissionScope.Any, settings.PermissionScope);
@@ -112,7 +101,7 @@ public sealed class CommandConfigurationRegistryTests
     [Fact]
     public void Unbound_IsCheckedInTheCurrentScope_WithNoRoot()
     {
-        CommandSettings settings = CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestQueryConfiguration)])
+        CommandSettings settings = CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestQueryConfiguration), typeof(TestThingRootConfiguration)])
             .For(typeof(ConfiguredTestQuery));
 
         Assert.Equal(PermissionScope.Current, settings.PermissionScope);
@@ -125,7 +114,7 @@ public sealed class CommandConfigurationRegistryTests
         CommandSettings settings = CommandConfigurationRegistry.FromSources(
         [
             CommandConfigurationSource.FromTypes(typeof(ScopedBoundCommandConfiguration)),
-            CommandConfigurationSource.FromTypes(typeof(ScopedTestRootFeatureConfiguration)),
+            CommandConfigurationSource.FromTypes(typeof(ScopedTestRootFeatureConfiguration), typeof(TestThingRootConfiguration)),
         ]).For(typeof(ConfiguredTestCommand));
 
         Assert.Equal(PermissionScope.Current, settings.PermissionScope);
@@ -136,7 +125,7 @@ public sealed class CommandConfigurationRegistryTests
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
             CommandConfigurationRegistry.FromConfigurationTypes(
-                [typeof(VersionOnUnversionedRootConfiguration), typeof(GlobalTestRootFeatureConfiguration)]));
+                [typeof(VersionOnUnversionedRootConfiguration), typeof(GlobalTestRootFeatureConfiguration), typeof(TestThingRootConfiguration)]));
 
         Assert.Contains(typeof(GlobalTestRoot).FullName!, error.Message, StringComparison.Ordinal);
         Assert.Contains(nameof(VersionOnUnversionedRootConfiguration), error.Message, StringComparison.Ordinal);
@@ -146,7 +135,7 @@ public sealed class CommandConfigurationRegistryTests
     public void BothShapesForOneRequest_Throw_AsADuplicate()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            CommandConfigurationRegistry.FromConfigurationTypes([typeof(BothShapesConfiguration)]));
+            CommandConfigurationRegistry.FromConfigurationTypes([typeof(BothShapesConfiguration), typeof(TestThingRootConfiguration)]));
 
         Assert.Contains(typeof(ConfiguredTestQuery).FullName!, error.Message, StringComparison.Ordinal);
         Assert.Contains(nameof(BothShapesConfiguration), error.Message, StringComparison.Ordinal);
@@ -157,20 +146,42 @@ public sealed class CommandConfigurationRegistryTests
     {
         // Lookup is by the exact type sent, so a policy on an abstract base would never apply to anything.
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            CommandConfigurationRegistry.FromConfigurationTypes([typeof(AbstractRequestConfiguration)]));
+            CommandConfigurationRegistry.FromConfigurationTypes([typeof(AbstractRequestConfiguration), typeof(TestThingRootConfiguration)]));
 
         Assert.Contains(typeof(AbstractTestCommand).FullName!, error.Message, StringComparison.Ordinal);
         Assert.Contains(nameof(AbstractRequestConfiguration), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void MalformedPermission_Throws_NamingTheConfiguration_WithTheCauseInside()
+    public void RequiredPermission_NotRegisteredByAnyAggregate_Fails()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            CommandConfigurationRegistry.FromConfigurationTypes([typeof(MalformedPermissionConfiguration)]));
+            CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestQueryConfiguration)]));
 
-        Assert.Contains(nameof(MalformedPermissionConfiguration), error.Message, StringComparison.Ordinal);
-        Assert.IsAssignableFrom<ArgumentException>(error.InnerException);
+        Assert.Contains(nameof(ConfiguredTestQueryConfiguration), error.Message, StringComparison.Ordinal);
+        Assert.Contains(typeof(ConfiguredTestQuery).FullName!, error.Message, StringComparison.Ordinal);
+        Assert.Contains("permission.test.things.read", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RequiredPermission_RegisteredInAnotherSource_Passes()
+    {
+        CommandSettings settings = CommandConfigurationRegistry.FromSources(
+        [
+            CommandConfigurationSource.FromTypes(typeof(ConfiguredTestQueryConfiguration)),
+            CommandConfigurationSource.FromTypes(typeof(TestThingRootConfiguration)),
+        ]).For(typeof(ConfiguredTestQuery));
+
+        Assert.Single(settings.RequiredPermissions);
+    }
+
+    [Fact]
+    public void RequiredAllPlatform_NeedsNoRegistration()
+    {
+        CommandSettings settings = CommandConfigurationRegistry.FromConfigurationTypes([typeof(AllPlatformTestQueryConfiguration)])
+            .For(typeof(ConfiguredTestQuery));
+
+        Assert.Equal(PermissionDefinition.AllPlatform, Assert.Single(settings.RequiredPermissions));
     }
 
     [Fact]
@@ -179,7 +190,7 @@ public sealed class CommandConfigurationRegistryTests
         var registry = CommandConfigurationRegistry.FromSources(
         [
             CommandConfigurationSource.FromTypes(typeof(ConfiguredTestCommandConfiguration)),
-            CommandConfigurationSource.FromTypes(typeof(ConfiguredTestQueryConfiguration)),
+            CommandConfigurationSource.FromTypes(typeof(ConfiguredTestQueryConfiguration), typeof(TestThingRootConfiguration)),
         ]);
 
         Assert.Equal(2, registry.ConfiguredTypes.Count);
@@ -191,7 +202,7 @@ public sealed class CommandConfigurationRegistryTests
         var source = CommandConfigurationSource.FromAssembly(typeof(CommandConfigurationRegistryTests).Assembly);
 
         Assert.Contains(typeof(ConfiguredTestCommandConfiguration), source.ConfigurationTypes);
-        Assert.Contains(typeof(MalformedPermissionConfiguration), source.ConfigurationTypes);
+        Assert.Contains(typeof(TestThingRootConfiguration), source.AggregateConfigurationTypes);
         Assert.DoesNotContain(typeof(ConfiguredTestCommand), source.ConfigurationTypes);
     }
 }

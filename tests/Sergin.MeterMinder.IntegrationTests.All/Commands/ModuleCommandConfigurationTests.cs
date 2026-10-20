@@ -25,6 +25,7 @@ using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Move;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.GetEffective;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.GetList;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
+using Sergin.UserAccess.Application.Contracts.Users;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.GetOne;
 using Sergin.UserAccess.Application.Contracts.Users.Commands.ProvisionExternalUser;
 using Sergin.UserAccess.Domain.Users;
@@ -70,13 +71,13 @@ public sealed class ModuleCommandConfigurationTests
         CommandSettings settings = Registry.For(typeof(DeleteDeviceCommand));
 
         Assert.True(settings.RequiresExpectedVersion);
-        Assert.Equal(DevicePermissions.Delete.Permission.Value, Assert.Single(settings.RequiredPermissions).Value);
+        Assert.Equal(DevicePermissions.Delete, Assert.Single(settings.RequiredPermissions));
     }
 
     [Fact]
     public void DeviceListQuery_NeedsReadPermission()
     {
-        Assert.Equal(DevicePermissions.Read.Permission.Value, Assert.Single(Registry.For(typeof(GetDeviceListQueryCommand)).RequiredPermissions).Value);
+        Assert.Equal(DevicePermissions.Read, Assert.Single(Registry.For(typeof(GetDeviceListQueryCommand)).RequiredPermissions));
     }
 
     [Fact]
@@ -85,7 +86,7 @@ public sealed class ModuleCommandConfigurationTests
         CommandSettings settings = Registry.For(typeof(AddDeviceModelCommand));
 
         Assert.True(settings.RequiresExpectedVersion);
-        Assert.Equal(ManufacturerPermissions.Update.Permission.Value, Assert.Single(settings.RequiredPermissions).Value);
+        Assert.Equal(ManufacturerPermissions.Update, Assert.Single(settings.RequiredPermissions));
         Assert.Equal(PermissionScope.Any, settings.PermissionScope);
     }
 
@@ -94,7 +95,7 @@ public sealed class ModuleCommandConfigurationTests
     {
         CommandSettings settings = Registry.For(typeof(CreateDeviceCommand));
 
-        Assert.Equal(DevicePermissions.Update.Permission.Value, Assert.Single(settings.RequiredPermissions).Value);
+        Assert.Equal(DevicePermissions.Update, Assert.Single(settings.RequiredPermissions));
         Assert.Equal(PermissionScope.Current, settings.PermissionScope);
     }
 
@@ -103,7 +104,7 @@ public sealed class ModuleCommandConfigurationTests
     {
         CommandSettings settings = Registry.For(typeof(CreateManufacturerCommand));
 
-        Assert.Equal(ManufacturerPermissions.Update.Permission.Value, Assert.Single(settings.RequiredPermissions).Value);
+        Assert.Equal(ManufacturerPermissions.Update, Assert.Single(settings.RequiredPermissions));
         Assert.Equal(PermissionScope.Any, settings.PermissionScope);
     }
 
@@ -118,7 +119,7 @@ public sealed class ModuleCommandConfigurationTests
     {
         CommandSettings settings = Registry.For(typeof(CreateUserCommand));
 
-        Assert.Equal("permission.ua.users.manage", Assert.Single(settings.RequiredPermissions).Value);
+        Assert.Equal(UserPermissions.Manage, Assert.Single(settings.RequiredPermissions));
         Assert.Equal(PermissionScope.Any, settings.PermissionScope);
     }
 

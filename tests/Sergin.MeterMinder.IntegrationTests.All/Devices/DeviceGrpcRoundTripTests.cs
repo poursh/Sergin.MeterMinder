@@ -216,8 +216,11 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 
         // What AddSerginCore registers for a remote module: its ConfigurationsAssembly's declarations, so the
         // gateway's permission check refuses before the gRPC hop.
-        services.AddSingleton(CommandConfigurationRegistry.FromSources(
-            [CommandConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly)]));
+        // Its permission catalogue too, from the same source: ScopeAuthorization denies a definition missing from it.
+        var configurations =
+            CommandConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly, "dm");
+        services.AddSingleton(CommandConfigurationRegistry.FromSources([configurations]));
+        services.AddSingleton(PermissionCatalog.FromSources([configurations]));
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         services.AddScoped<ConcurrencyContext>();
 

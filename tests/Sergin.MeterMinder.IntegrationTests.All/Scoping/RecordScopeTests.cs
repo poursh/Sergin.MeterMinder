@@ -140,7 +140,7 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
     internal sealed class RenameAnyManufacturerCommandConfiguration : ICommandConfiguration<RenameAnyManufacturerCommand>
     {
         public void Configure(CommandConfigurationBuilder<RenameAnyManufacturerCommand> builder) =>
-            builder.RequirePermissions(ManufacturersUpdate);
+            builder.RequirePermissions(ManufacturerPermissions.Update);
     }
 
     internal sealed class RenameAnyManufacturerHandler(IManufacturerRepository manufacturers, IDeviceManagementUnitOfWork unitOfWork)
@@ -163,7 +163,7 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
         : ICommandConfiguration<CreateDeviceUnderManufacturerCommand, Manufacturer>
     {
         public void Configure(CommandConfigurationBuilder<CreateDeviceUnderManufacturerCommand> builder) =>
-            builder.RequirePermissions(ManufacturersUpdate);
+            builder.RequirePermissions(ManufacturerPermissions.Update);
     }
 
     internal sealed class CreateDeviceUnderManufacturerHandler(IDeviceRepository devices, IDeviceManagementUnitOfWork unitOfWork)

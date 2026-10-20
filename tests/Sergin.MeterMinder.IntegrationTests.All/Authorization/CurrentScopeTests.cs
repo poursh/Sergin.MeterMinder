@@ -1,4 +1,5 @@
 using ErrorOr;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -140,13 +141,13 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
     internal sealed class ScopedCommandConfiguration : ICommandConfiguration<ScopedCommand>
     {
         public void Configure(CommandConfigurationBuilder<ScopedCommand> builder) =>
-            builder.RequirePermissions(RbacScenario.Update);
+            builder.RequirePermissions(DevicePermissions.Update);
     }
 
     internal sealed class GlobalCommandConfiguration : ICommandConfiguration<GlobalCommand, GlobalRoot>
     {
         public void Configure(CommandConfigurationBuilder<GlobalCommand> builder) =>
-            builder.RequirePermissions(RbacScenario.Update);
+            builder.RequirePermissions(DevicePermissions.Update);
     }
 
     internal sealed class EchoScopeHandler<TCommand>(IAuthorizationScopeContext context) : IRequestHandler<TCommand, ErrorOr<Guid>>

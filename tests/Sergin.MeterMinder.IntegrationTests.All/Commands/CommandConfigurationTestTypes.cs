@@ -1,10 +1,10 @@
 using ErrorOr;
-using Sergin.MeterMinder.IntegrationTests.All.Permissions;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Domain;
+using Sergin.SharedKernel.Domain.Securities;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Commands;
 
@@ -15,6 +15,28 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Commands;
 /// </summary>
 internal sealed record ConfiguredTestCommand : ICommand<Success>;
 
+/// <summary>The permissions the test configurations require, registered by <see cref="TestThingRoot"/>.</summary>
+internal static class TestThingPermissions
+{
+    public static PermissionDefinition Read { get; } =
+        PermissionDefinition.Create("permission.test.things.read", "View things");
+
+    public static PermissionDefinition Update { get; } =
+        PermissionDefinition.Create("permission.test.things.update", "Change things");
+
+    public static PermissionDefinition Delete { get; } =
+        PermissionDefinition.Create("permission.test.things.delete", "Delete things");
+}
+
+/// <summary>Registers <see cref="TestThingPermissions"/>; passed alongside any configuration that requires them.</summary>
+internal sealed class TestThingRoot : AggregateRoot<Guid>;
+
+internal sealed class TestThingRootConfiguration : IAggregateFeatureConfiguration<TestThingRoot>
+{
+    public void Configure(AggregateFeatureBuilder<TestThingRoot> builder) =>
+        builder.Permissions(TestThingPermissions.Read, TestThingPermissions.Update, TestThingPermissions.Delete);
+}
+
 internal sealed record ConfiguredTestQuery : IQuery<Success>;
 
 internal sealed record UnconfiguredTestCommand : ICommand<Success>;
@@ -22,21 +44,15 @@ internal sealed record UnconfiguredTestCommand : ICommand<Success>;
 internal sealed class ConfiguredTestCommandConfiguration : ICommandConfiguration<ConfiguredTestCommand>
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestCommand> builder) =>
-        builder.RequirePermissions("permission.test.things.read")
-            .RequirePermissions("permission.test.things.update", "permission.test.things.delete")
+        builder.RequirePermissions(TestThingPermissions.Read)
+            .RequirePermissions(TestThingPermissions.Update, TestThingPermissions.Delete)
             .RequireExpectedVersion();
 }
 
 internal sealed class ConfiguredTestQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery>
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.RequirePermissions("permission.test.things.read");
-}
-
-internal sealed class DefinitionConfiguredTestCommandConfiguration : ICommandConfiguration<ConfiguredTestCommand>
-{
-    public void Configure(CommandConfigurationBuilder<ConfiguredTestCommand> builder) =>
-        builder.RequirePermissions(CatalogTestPermissions.Read);
+        builder.RequirePermissions(TestThingPermissions.Read);
 }
 
 internal sealed class DuplicateConfiguredTestCommandConfiguration : ICommandConfiguration<ConfiguredTestCommand>
@@ -60,10 +76,10 @@ internal sealed class VersionedQueryConfiguration : ICommandConfiguration<Config
         builder.RequireExpectedVersion();
 }
 
-internal sealed class MalformedPermissionConfiguration : ICommandConfiguration<ConfiguredTestQuery>
+internal sealed class AllPlatformTestQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery>
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.RequirePermissions("not a permission");
+        builder.RequirePermissions(PermissionDefinition.AllPlatform);
 }
 
 internal abstract record AbstractTestCommand : ICommand<Success>;
@@ -71,7 +87,7 @@ internal abstract record AbstractTestCommand : ICommand<Success>;
 internal sealed class AbstractRequestConfiguration : ICommandConfiguration<AbstractTestCommand>
 {
     public void Configure(CommandConfigurationBuilder<AbstractTestCommand> builder) =>
-        builder.RequirePermissions("permission.test.things.delete");
+        builder.RequirePermissions(TestThingPermissions.Delete);
 }
 
 // Aggregate-bound configurations. No context maps these roots: the registry reads only their feature
@@ -95,25 +111,25 @@ internal sealed class GlobalTestRootFeatureConfiguration : IAggregateFeatureConf
 internal sealed class ScopedBoundCommandConfiguration : ICommandConfiguration<ConfiguredTestCommand, ScopedTestRoot>
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestCommand> builder) =>
-        builder.RequirePermissions("permission.test.things.update").RequireExpectedVersion();
+        builder.RequirePermissions(TestThingPermissions.Update).RequireExpectedVersion();
 }
 
 internal sealed class GlobalBoundQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery, GlobalTestRoot>
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.RequirePermissions("permission.test.things.read");
+        builder.RequirePermissions(TestThingPermissions.Read);
 }
 
 internal sealed class UnconfiguredRootBoundQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery, UnconfiguredTestRoot>
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.RequirePermissions("permission.test.things.read");
+        builder.RequirePermissions(TestThingPermissions.Read);
 }
 
 internal sealed class VersionOnUnversionedRootConfiguration : ICommandConfiguration<ConfiguredTestCommand, GlobalTestRoot>
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestCommand> builder) =>
-        builder.RequirePermissions("permission.test.things.update").RequireExpectedVersion();
+        builder.RequirePermissions(TestThingPermissions.Update).RequireExpectedVersion();
 }
 
 // Both shapes for one request: the duplicate rule refuses it like two classes.
@@ -121,5 +137,5 @@ internal sealed class BothShapesConfiguration
     : ICommandConfiguration<ConfiguredTestQuery>, ICommandConfiguration<ConfiguredTestQuery, GlobalTestRoot>
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.RequirePermissions("permission.test.things.read");
+        builder.RequirePermissions(TestThingPermissions.Read);
 }

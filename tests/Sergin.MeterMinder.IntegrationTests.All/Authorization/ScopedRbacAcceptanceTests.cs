@@ -2,6 +2,7 @@ using ErrorOr;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Securities;
@@ -182,7 +183,7 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
 
         IScopeAuthorization authorization = scope.ServiceProvider.GetRequiredService<IScopeAuthorization>();
 
-        Assert.False(await authorization.CurrentUserHasAsync(RbacScenario.Update, Guid.NewGuid()));
+        Assert.False(await authorization.CurrentUserHasAsync(DevicePermissions.Update, Guid.NewGuid()));
     }
 
     [Fact]
@@ -203,7 +204,7 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
         scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = caller;
 
         return await scope.ServiceProvider.GetRequiredService<IScopeAuthorization>()
-            .CurrentUserHasAsync(RbacScenario.Update, scopeId);
+            .CurrentUserHasAsync(DevicePermissions.Update, scopeId);
     }
 
     private sealed class ThrowingChecker : IScopedPermissionChecker

@@ -44,7 +44,7 @@ public sealed class DeviceManagementPermissionCatalogTests(SerginWebApiFactory<P
         {
             Assert.All(
                 registry.For(type).RequiredPermissions,
-                permission => Assert.True(catalog.TryGet(permission, out _), $"{type.Name} requires unregistered {permission.Value}"));
+                permission => Assert.True(catalog.Contains(permission), $"{type.Name} requires unregistered {permission}"));
         }
     }
 }

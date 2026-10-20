@@ -106,9 +106,9 @@ internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
         (await SendAsync(new CreateScopeCommand(parentId, new ScopeName(name)))).Id;
 
     /// <summary>
-    /// A role holding <paramref name="permissions"/>. The create command refuses a name the catalogue does not
-    /// define, so any such name is written onto the stored role directly: a scenario needs its grants, not the
-    /// command's rule (the DeviceManagement permissions are not defined yet).
+    /// A role owned by <paramref name="ownerScopeId"/> holding <paramref name="permissions"/>, created through
+    /// <see cref="CreateRoleCommand"/> as the development user. Each permission must be in the permission catalogue,
+    /// since the command's validator refuses any other; it is a stored grant, so it stays a <see cref="Permission"/>.
     /// </summary>
     public async Task<Guid> CreateRoleAsync(Guid ownerScopeId, string name, bool inheritable, params Permission[] permissions)
     {
