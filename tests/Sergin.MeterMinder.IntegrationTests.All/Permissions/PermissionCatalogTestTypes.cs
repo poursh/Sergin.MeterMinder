@@ -41,9 +41,9 @@ internal sealed class OtherCatalogTestRootConfiguration : IAggregateFeatureConfi
         builder.Permissions(CatalogTestPermissions.Read);
 }
 
-internal sealed class RelabelledCatalogTestRootConfiguration : IAggregateFeatureConfiguration<OtherCatalogTestRoot>
+internal sealed class RelabelledCatalogTestRootConfiguration : IAggregateFeatureConfiguration<CatalogTestRoot>
 {
-    public void Configure(AggregateFeatureBuilder<OtherCatalogTestRoot> builder) =>
+    public void Configure(AggregateFeatureBuilder<CatalogTestRoot> builder) =>
         builder.Permissions(CatalogTestPermissions.ReadRelabelled);
 }
 

@@ -59,6 +59,9 @@ public sealed class PermissionCatalogTests
             ]));
 
         Assert.Contains("permission.test.things.read", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("more than one label", exception.Message, StringComparison.Ordinal);
+        Assert.Contains("See things", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("more than one aggregate", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
