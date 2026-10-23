@@ -109,6 +109,20 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
         Assert.Contains("Create", html, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The permission picker's popover is closed on first render, so any module or aggregate heading in the page is
+    /// the copy <c>MudSelect</c> renders to register its items, leaking under the field.
+    /// </summary>
+    [Theory]
+    [InlineData($"/ua/roles/{ViewerRoleId}")]
+    [InlineData("/ua/roles/new?scopeId=01920000-0000-7000-8000-0000000000b1")]
+    public async Task RolePages_DoNotLeakThePickerHeadingsOntoThePage(string path)
+    {
+        string html = await GetAsync(path);
+
+        Assert.DoesNotContain("mud-list-subheader", html, StringComparison.Ordinal);
+    }
+
     private async Task<string> GetAsync(string path)
     {
         using HttpClient client = factory.CreateClient();
