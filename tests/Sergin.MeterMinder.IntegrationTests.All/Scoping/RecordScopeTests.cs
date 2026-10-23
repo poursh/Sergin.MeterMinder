@@ -18,6 +18,7 @@ using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Scoping;
 
@@ -30,7 +31,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Scoping;
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
 {
-    private static readonly Permission ManufacturersUpdate = "permission.dm.manufacturers.update";
+    private static readonly Permission ManufacturersUpdate = ManufacturerPermissions.Update.Permission;
 
     [Fact]
     public async Task UnscopedRecord_IsCheckedOnAnyScope()
@@ -82,7 +83,7 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
     private WebApplicationFactory<Program> CreateHost() =>
         factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
-            services.AddSingleton(CommandConfigurationSource.FromTypes(
+            services.AddSingleton(ModuleConfigurationSource.FromTypes(
                 typeof(RenameAnyManufacturerCommandConfiguration), typeof(CreateDeviceUnderManufacturerCommandConfiguration)));
             services.AddTransient<IRequestHandler<RenameAnyManufacturerCommand, ErrorOr<Success>>, RenameAnyManufacturerHandler>();
             services.AddTransient<IRequestHandler<CreateDeviceUnderManufacturerCommand, ErrorOr<Success>>, CreateDeviceUnderManufacturerHandler>();
@@ -139,7 +140,7 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
     internal sealed class RenameAnyManufacturerCommandConfiguration : ICommandConfiguration<RenameAnyManufacturerCommand>
     {
         public void Configure(CommandConfigurationBuilder<RenameAnyManufacturerCommand> builder) =>
-            builder.RequirePermissions(ManufacturersUpdate);
+            builder.RequirePermissions(ManufacturerPermissions.Update);
     }
 
     internal sealed class RenameAnyManufacturerHandler(IManufacturerRepository manufacturers, IDeviceManagementUnitOfWork unitOfWork)
@@ -162,7 +163,7 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
         : ICommandConfiguration<CreateDeviceUnderManufacturerCommand, Manufacturer>
     {
         public void Configure(CommandConfigurationBuilder<CreateDeviceUnderManufacturerCommand> builder) =>
-            builder.RequirePermissions(ManufacturersUpdate);
+            builder.RequirePermissions(ManufacturerPermissions.Update);
     }
 
     internal sealed class CreateDeviceUnderManufacturerHandler(IDeviceRepository devices, IDeviceManagementUnitOfWork unitOfWork)

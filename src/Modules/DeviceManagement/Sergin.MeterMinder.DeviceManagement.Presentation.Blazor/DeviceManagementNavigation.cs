@@ -1,5 +1,7 @@
 using MudBlazor;
 using Sergin.SharedKernel.Modules;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor;
 
@@ -14,14 +16,14 @@ public static class DeviceManagementNavigation
         "/dm/devices",
         Icons.Material.Filled.Router,
         Order: 100,
-        RequiredPermission: "permission.dm.devices.read");
+        RequiredPermission: DevicePermissions.Read);
 
     public static SerginNavItem Manufacturers { get; } = new(
         "Manufacturers",
         "/dm/manufacturers",
         Icons.Material.Filled.Factory,
         Order: 110,
-        RequiredPermission: "permission.dm.manufacturers.read");
+        RequiredPermission: ManufacturerPermissions.Read);
 
     public static IReadOnlyCollection<SerginNavItem> Items { get; } = [Devices, Manufacturers];
 }

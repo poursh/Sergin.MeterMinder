@@ -17,6 +17,7 @@ using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
 using Sergin.UserAccess.Domain.Roles;
 using Sergin.UserAccess.Domain.Scopes;
 using Sergin.UserAccess.Domain.Users;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 
@@ -27,8 +28,8 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 /// </summary>
 internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
 {
-    public static readonly Permission Read = "permission.dm.devices.read";
-    public static readonly Permission Update = "permission.dm.devices.update";
+    public static readonly Permission Read = DevicePermissions.Read.Permission;
+    public static readonly Permission Update = DevicePermissions.Update.Permission;
 
     public Guid Company { get; private set; }
     public Guid North { get; private set; }
@@ -104,8 +105,15 @@ internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
     public async Task<Guid> CreateScopeAsync(Guid parentId, string name) =>
         (await SendAsync(new CreateScopeCommand(parentId, new ScopeName(name)))).Id;
 
-    public async Task<Guid> CreateRoleAsync(Guid ownerScopeId, string name, bool inheritable, params Permission[] permissions) =>
-        (await SendAsync(new CreateRoleCommand(ownerScopeId, new RoleName(name), inheritable, permissions))).Id;
+    /// <summary>
+    /// A role owned by <paramref name="ownerScopeId"/> holding <paramref name="permissions"/>, created through
+    /// <see cref="CreateRoleCommand"/> as the development user. Each permission must be in the permission catalogue,
+    /// since the command's validator refuses any other; it is a stored grant, so it stays a <see cref="Permission"/>.
+    /// </summary>
+    public async Task<Guid> CreateRoleAsync(Guid ownerScopeId, string name, bool inheritable, params Permission[] permissions)
+    {
+        return (await SendAsync(new CreateRoleCommand(ownerScopeId, new RoleName(name), inheritable, permissions))).Id;
+    }
 
     public async Task<Guid> CreateUserAsync(string name) =>
         (await SendAsync(new CreateUserCommand(new UserName($"{name}-{Guid.NewGuid():N}")))).Id;

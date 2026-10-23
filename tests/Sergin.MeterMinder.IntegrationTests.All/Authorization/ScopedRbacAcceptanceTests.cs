@@ -6,12 +6,14 @@ using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
-using Sergin.UserAccess.Application.Contracts;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.Create;
 using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Move;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
 using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Revoke;
 using Sergin.UserAccess.Domain.Roles;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
+using Sergin.UserAccess.Application.Configurations.Roles;
+using Sergin.UserAccess.Application.Configurations.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 
@@ -74,10 +76,10 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
         RbacScenario tree = await RbacScenario.BuildAsync(factory);
 
         // Holds role management over the company, but not the permission it tries to hand out.
-        TestCaller admin = await tree.CreateGrantedCallerAsync(tree.Company, UserAccessPermissions.RolesManage, RbacScenario.Read);
+        TestCaller admin = await tree.CreateGrantedCallerAsync(tree.Company, RolePermissions.Manage.Permission, RbacScenario.Read);
 
         ErrorOr<CreateRoleCommandResponse> result = await tree.TrySendAsync(
-            new CreateRoleCommand(tree.North, new RoleName("disconnector"), false, [RbacScenario.Update]), admin);
+            new CreateRoleCommand(tree.North, new RoleName("disconnector"), false, [UserPermissions.Manage.Permission]), admin);
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorType.Validation, result.FirstError.Type);
@@ -181,7 +183,7 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
 
         IScopeAuthorization authorization = scope.ServiceProvider.GetRequiredService<IScopeAuthorization>();
 
-        Assert.False(await authorization.CurrentUserHasAsync(RbacScenario.Update, Guid.NewGuid()));
+        Assert.False(await authorization.CurrentUserHasAsync(DevicePermissions.Update, Guid.NewGuid()));
     }
 
     [Fact]
@@ -202,7 +204,7 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
         scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = caller;
 
         return await scope.ServiceProvider.GetRequiredService<IScopeAuthorization>()
-            .CurrentUserHasAsync(RbacScenario.Update, scopeId);
+            .CurrentUserHasAsync(DevicePermissions.Update, scopeId);
     }
 
     private sealed class ThrowingChecker : IScopedPermissionChecker

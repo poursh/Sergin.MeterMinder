@@ -27,7 +27,7 @@ public sealed class CommandConfigurationHostTests(SerginWebApiFactory<Program> f
     public void BadDeclaration_StopsTheHost_NamingTheConfiguration()
     {
         using WebApplicationFactory<Program> broken = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
-            services.AddSingleton(CommandConfigurationSource.FromTypes(typeof(VersionedQueryConfiguration)))));
+            services.AddSingleton(ModuleConfigurationSource.FromTypes(typeof(VersionedQueryConfiguration)))));
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => broken.CreateClient());
 

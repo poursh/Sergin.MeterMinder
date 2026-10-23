@@ -24,6 +24,7 @@ using Grpc.Net.Client;
 using Grpc.Core.Interceptors;
 using Sergin.SharedKernel.Presentation.Grpc.Authorization;
 using Sergin.SharedKernel.Presentation.Grpc.Concurrency;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Devices;
 
@@ -41,7 +42,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Devices;
 /// </summary>
 public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 {
-    private static readonly Permission DevicesReadPermission = Permission.Create("permission.dm.devices.read");
+    private static readonly Permission DevicesReadPermission = DevicePermissions.Read.Permission;
 
     private WebApplication server = null!;
     private GrpcChannel channel = null!;
@@ -215,8 +216,11 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
 
         // What AddSerginCore registers for a remote module: its ConfigurationsAssembly's declarations, so the
         // gateway's permission check refuses before the gRPC hop.
-        services.AddSingleton(CommandConfigurationRegistry.FromSources(
-            [CommandConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly)]));
+        // Its permission catalogue too, from the same source: ScopeAuthorization denies a definition missing from it.
+        var configurations =
+            ModuleConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly, "dm");
+        services.AddSingleton(CommandConfigurationRegistry.FromSources([configurations]));
+        services.AddSingleton(PermissionCatalog.FromSources([configurations]));
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());
         services.AddScoped<ConcurrencyContext>();
 

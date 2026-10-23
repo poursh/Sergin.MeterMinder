@@ -1,8 +1,10 @@
 using ErrorOr;
 using MediatR;
+using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Events.Integration;
+using Sergin.SharedKernel.Domain.Securities;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Events;
 
@@ -107,10 +109,22 @@ internal sealed class ThrowingIntegrationHandler(FailureSwitch failure) : IInteg
 /// </summary>
 internal sealed record CreateChildAggregateCommand(string Name) : ICommand<Guid>;
 
+/// <summary>The permission <see cref="CreateChildAggregateCommand"/> requires, registered by <see cref="TestAggregate"/>.</summary>
+internal static class TestEventPermissions
+{
+    public static PermissionDefinition Write { get; } =
+        PermissionDefinition.Create("permission.test-events.aggregates.write", "Write test aggregates");
+}
+
+internal sealed class TestAggregatePermissionsConfiguration : IAggregateFeatureConfiguration<TestAggregate>
+{
+    public void Configure(AggregateFeatureBuilder<TestAggregate> builder) => builder.Permissions(TestEventPermissions.Write);
+}
+
 internal sealed class CreateChildAggregateCommandConfiguration : ICommandConfiguration<CreateChildAggregateCommand>
 {
     public void Configure(CommandConfigurationBuilder<CreateChildAggregateCommand> builder) =>
-        builder.RequirePermissions("permission.test-events.aggregates.write");
+        builder.RequirePermissions(TestEventPermissions.Write);
 }
 
 internal sealed class CreateChildAggregateCommandHandler(TestEventsDbContext context) : ICommandHandler<CreateChildAggregateCommand, Guid>

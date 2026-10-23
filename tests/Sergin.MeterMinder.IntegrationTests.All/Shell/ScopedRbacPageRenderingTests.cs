@@ -2,6 +2,8 @@ using System.Net;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.UserAccess.Domain.Scopes;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
+using Sergin.UserAccess.Application.Configurations.Scopes;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 
@@ -58,8 +60,43 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
     {
         string html = await GetAsync($"/ua/roles/{ViewerRoleId}");
 
-        Assert.Contains("permission.dm.devices.read", html, StringComparison.Ordinal);
+        Assert.Contains(DevicePermissions.Read.Label, html, StringComparison.Ordinal);
         Assert.Contains($"href=\"/ua/scopes/{Scope.RootId.Value}\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RoleDetailPage_ShowsAGrantedPermissionByItsLabel()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+        Guid role = await scenario.CreateRoleAsync(scenario.North, "scope-keeper", inheritable: false, ScopePermissions.Manage.Permission);
+
+        string html = await GetAsync($"/ua/roles/{role}");
+
+        Assert.Contains("Create, rename, move and delete scopes", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RoleDetailPage_ListsAGrantMissingFromTheCatalogue()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+        Guid role = await new Permissions.UserAccessPermissionCatalogTests(factory).SeedRoleWithUnknownPermissionAsync(scenario);
+
+        string html = await GetAsync($"/ua/roles/{role}");
+
+        Assert.Contains("Unknown", html, StringComparison.Ordinal);
+        Assert.Contains("permission.ua.nothing.here", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task RoleDetailPage_ListsAMalformedStoredGrantAsUnknown_InsteadOfFailingTheRender()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+        Guid role = await new Permissions.UserAccessPermissionCatalogTests(factory).SeedRoleWithMalformedPermissionAsync(scenario, "Not A Permission!");
+
+        string html = await GetAsync($"/ua/roles/{role}");
+
+        Assert.Contains("Unknown", html, StringComparison.Ordinal);
+        Assert.Contains("Not A Permission!", html, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -70,6 +107,20 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
         string html = await GetAsync(path);
 
         Assert.Contains("Create", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// The permission picker's popover is closed on first render, so any module or aggregate heading in the page is
+    /// the copy <c>MudSelect</c> renders to register its items, leaking under the field.
+    /// </summary>
+    [Theory]
+    [InlineData($"/ua/roles/{ViewerRoleId}")]
+    [InlineData("/ua/roles/new?scopeId=01920000-0000-7000-8000-0000000000b1")]
+    public async Task RolePages_DoNotLeakThePickerHeadingsOntoThePage(string path)
+    {
+        string html = await GetAsync(path);
+
+        Assert.DoesNotContain("mud-list-subheader", html, StringComparison.Ordinal);
     }
 
     private async Task<string> GetAsync(string path)

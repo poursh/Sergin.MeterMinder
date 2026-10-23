@@ -12,6 +12,7 @@ using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Domain.Users;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 
@@ -108,7 +109,7 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
     private WebApplicationFactory<Program> CreateHost(Action<IServiceCollection>? configure = null) =>
         factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
-            services.AddSingleton(CommandConfigurationSource.FromTypes(
+            services.AddSingleton(ModuleConfigurationSource.FromTypes(
                 typeof(ScopedCommandConfiguration), typeof(GlobalCommandConfiguration)));
             services.AddTransient<IRequestHandler<ScopedCommand, ErrorOr<Guid>>, EchoScopeHandler<ScopedCommand>>();
             services.AddTransient<IRequestHandler<GlobalCommand, ErrorOr<Guid>>, EchoScopeHandler<GlobalCommand>>();
@@ -140,13 +141,13 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
     internal sealed class ScopedCommandConfiguration : ICommandConfiguration<ScopedCommand>
     {
         public void Configure(CommandConfigurationBuilder<ScopedCommand> builder) =>
-            builder.RequirePermissions(RbacScenario.Update);
+            builder.RequirePermissions(DevicePermissions.Update);
     }
 
     internal sealed class GlobalCommandConfiguration : ICommandConfiguration<GlobalCommand, GlobalRoot>
     {
         public void Configure(CommandConfigurationBuilder<GlobalCommand> builder) =>
-            builder.RequirePermissions(RbacScenario.Update);
+            builder.RequirePermissions(DevicePermissions.Update);
     }
 
     internal sealed class EchoScopeHandler<TCommand>(IAuthorizationScopeContext context) : IRequestHandler<TCommand, ErrorOr<Guid>>
