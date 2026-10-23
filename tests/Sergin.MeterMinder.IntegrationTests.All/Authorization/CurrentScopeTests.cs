@@ -109,7 +109,7 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
     private WebApplicationFactory<Program> CreateHost(Action<IServiceCollection>? configure = null) =>
         factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
-            services.AddSingleton(CommandConfigurationSource.FromTypes(
+            services.AddSingleton(ModuleConfigurationSource.FromTypes(
                 typeof(ScopedCommandConfiguration), typeof(GlobalCommandConfiguration)));
             services.AddTransient<IRequestHandler<ScopedCommand, ErrorOr<Guid>>, EchoScopeHandler<ScopedCommand>>();
             services.AddTransient<IRequestHandler<GlobalCommand, ErrorOr<Guid>>, EchoScopeHandler<GlobalCommand>>();

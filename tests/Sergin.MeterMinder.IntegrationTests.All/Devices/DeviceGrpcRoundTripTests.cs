@@ -218,7 +218,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         // gateway's permission check refuses before the gRPC hop.
         // Its permission catalogue too, from the same source: ScopeAuthorization denies a definition missing from it.
         var configurations =
-            CommandConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly, "dm");
+            ModuleConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly, "dm");
         services.AddSingleton(CommandConfigurationRegistry.FromSources([configurations]));
         services.AddSingleton(PermissionCatalog.FromSources([configurations]));
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());

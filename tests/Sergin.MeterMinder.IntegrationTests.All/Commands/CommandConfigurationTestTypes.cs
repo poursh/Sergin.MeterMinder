@@ -10,7 +10,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Commands;
 
 /// <summary>
 /// Requests and configurations for the registry tests. Never scanned by a host: hosts read module
-/// ContractsAssemblies only, and a test host adds explicit types through CommandConfigurationSource.FromTypes,
+/// ContractsAssemblies only, and a test host adds explicit types through ModuleConfigurationSource.FromTypes,
 /// so the deliberately broken configurations below cannot reach the real host.
 /// </summary>
 internal sealed record ConfiguredTestCommand : ICommand<Success>;

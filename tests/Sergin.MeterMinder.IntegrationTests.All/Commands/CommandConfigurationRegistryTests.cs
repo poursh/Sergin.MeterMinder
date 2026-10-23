@@ -113,8 +113,8 @@ public sealed class CommandConfigurationRegistryTests
     {
         CommandSettings settings = CommandConfigurationRegistry.FromSources(
         [
-            CommandConfigurationSource.FromTypes(typeof(ScopedBoundCommandConfiguration)),
-            CommandConfigurationSource.FromTypes(typeof(ScopedTestRootFeatureConfiguration), typeof(TestThingRootConfiguration)),
+            ModuleConfigurationSource.FromTypes(typeof(ScopedBoundCommandConfiguration)),
+            ModuleConfigurationSource.FromTypes(typeof(ScopedTestRootFeatureConfiguration), typeof(TestThingRootConfiguration)),
         ]).For(typeof(ConfiguredTestCommand));
 
         Assert.Equal(PermissionScope.Current, settings.PermissionScope);
@@ -168,8 +168,8 @@ public sealed class CommandConfigurationRegistryTests
     {
         CommandSettings settings = CommandConfigurationRegistry.FromSources(
         [
-            CommandConfigurationSource.FromTypes(typeof(ConfiguredTestQueryConfiguration)),
-            CommandConfigurationSource.FromTypes(typeof(TestThingRootConfiguration)),
+            ModuleConfigurationSource.FromTypes(typeof(ConfiguredTestQueryConfiguration)),
+            ModuleConfigurationSource.FromTypes(typeof(TestThingRootConfiguration)),
         ]).For(typeof(ConfiguredTestQuery));
 
         Assert.Single(settings.RequiredPermissions);
@@ -189,8 +189,8 @@ public sealed class CommandConfigurationRegistryTests
     {
         var registry = CommandConfigurationRegistry.FromSources(
         [
-            CommandConfigurationSource.FromTypes(typeof(ConfiguredTestCommandConfiguration)),
-            CommandConfigurationSource.FromTypes(typeof(ConfiguredTestQueryConfiguration), typeof(TestThingRootConfiguration)),
+            ModuleConfigurationSource.FromTypes(typeof(ConfiguredTestCommandConfiguration)),
+            ModuleConfigurationSource.FromTypes(typeof(ConfiguredTestQueryConfiguration), typeof(TestThingRootConfiguration)),
         ]);
 
         Assert.Equal(2, registry.ConfiguredTypes.Count);
@@ -199,7 +199,7 @@ public sealed class CommandConfigurationRegistryTests
     [Fact]
     public void FromAssembly_FindsConfigurationsInTheAssembly()
     {
-        var source = CommandConfigurationSource.FromAssembly(typeof(CommandConfigurationRegistryTests).Assembly, "test");
+        var source = ModuleConfigurationSource.FromAssembly(typeof(CommandConfigurationRegistryTests).Assembly, "test");
 
         Assert.Contains(typeof(ConfiguredTestCommandConfiguration), source.ConfigurationTypes);
         Assert.Contains(typeof(TestThingRootConfiguration), source.AggregateConfigurationTypes);

@@ -10,7 +10,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Permissions;
 public sealed class PermissionCatalogTests
 {
     private static PermissionCatalog Build(params Type[] configurations) =>
-        PermissionCatalog.FromSources([CommandConfigurationSource.FromTypes(configurations)]);
+        PermissionCatalog.FromSources([ModuleConfigurationSource.FromTypes(configurations)]);
 
     [Fact]
     public void Catalog_ListsWhatEachAggregateRegistered()
@@ -54,8 +54,8 @@ public sealed class PermissionCatalogTests
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
             PermissionCatalog.FromSources(
             [
-                CommandConfigurationSource.FromTypes(typeof(CatalogTestRootConfiguration)),
-                CommandConfigurationSource.FromTypes(typeof(RelabelledCatalogTestRootConfiguration)),
+                ModuleConfigurationSource.FromTypes(typeof(CatalogTestRootConfiguration)),
+                ModuleConfigurationSource.FromTypes(typeof(RelabelledCatalogTestRootConfiguration)),
             ]));
 
         Assert.Contains("permission.test.things.read", exception.Message, StringComparison.Ordinal);
@@ -67,7 +67,7 @@ public sealed class PermissionCatalogTests
     [Fact]
     public void Catalog_PermissionOutsideTheModuleSchema_Fails()
     {
-        var source = CommandConfigurationSource.FromTypesInSchema("dm", typeof(CatalogTestRootConfiguration));
+        var source = ModuleConfigurationSource.FromTypesInSchema("dm", typeof(CatalogTestRootConfiguration));
 
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => PermissionCatalog.FromSources([source]));
 

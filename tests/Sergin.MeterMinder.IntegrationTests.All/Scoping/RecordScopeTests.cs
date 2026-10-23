@@ -83,7 +83,7 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
     private WebApplicationFactory<Program> CreateHost() =>
         factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
-            services.AddSingleton(CommandConfigurationSource.FromTypes(
+            services.AddSingleton(ModuleConfigurationSource.FromTypes(
                 typeof(RenameAnyManufacturerCommandConfiguration), typeof(CreateDeviceUnderManufacturerCommandConfiguration)));
             services.AddTransient<IRequestHandler<RenameAnyManufacturerCommand, ErrorOr<Success>>, RenameAnyManufacturerHandler>();
             services.AddTransient<IRequestHandler<CreateDeviceUnderManufacturerCommand, ErrorOr<Success>>, CreateDeviceUnderManufacturerHandler>();
