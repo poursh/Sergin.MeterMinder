@@ -6,11 +6,16 @@ using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacture
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor;
 
 /// <summary>
-/// The module's drawer entries. Each is also named individually so a page can build its breadcrumb section step
-/// with <c>SerginBreadcrumb.Of(...)</c> from the one place the drawer reads the label and href.
+/// The module's drawer group and entries. Each entry is also named individually so a page can build its breadcrumb
+/// section step with <c>SerginBreadcrumb.Of(...)</c> from the one place the drawer reads the label and href.
 /// </summary>
 public static class DeviceManagementNavigation
 {
+    public static SerginNavGroup Group { get; } = new(
+        "Device Management",
+        Icons.Material.Filled.ElectricMeter,
+        Order: 100);
+
     public static SerginNavItem Devices { get; } = new(
         "Devices",
         "/dm/devices",

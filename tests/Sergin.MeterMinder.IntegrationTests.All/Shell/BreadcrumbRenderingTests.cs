@@ -39,6 +39,29 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
         Assert.DoesNotContain($"href=\"{path}\"", strip, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// The shell names the module between home and the section, from the drawer group of the module whose entry
+    /// the page's first step links to. Not a link: a module has no page of its own.
+    /// </summary>
+    [Theory]
+    [InlineData("/dm/devices", "Device Management", "Devices")]
+    [InlineData("/dm/manufacturers/new", "Device Management", "Manufacturers")]
+    [InlineData("/dm/manufacturers/" + UnseededId + "/models/new", "Device Management", "Manufacturers")]
+    [InlineData("/ua/users", "User Access", "Users")]
+    [InlineData("/ua/users/" + UnseededId, "User Access", "Users")]
+    public async Task ModulePage_NamesItsModule_BetweenHomeAndSection(string path, string module, string section)
+    {
+        string strip = await GetBreadcrumbStripAsync(path);
+
+        string moduleStep = $"<li class=\"mud-breadcrumb-item mud-disabled\"><a href=\"#\">{module}</a></li>";
+
+        int home = strip.IndexOf(">Home</a>", StringComparison.Ordinal);
+        int moduleAt = strip.IndexOf(moduleStep, StringComparison.Ordinal);
+        int sectionAt = strip.IndexOf($">{section}</a>", StringComparison.Ordinal);
+
+        Assert.True(home >= 0 && moduleAt > home && sectionAt > moduleAt, $"{path}: expected Home > {module} > {section} in {strip}");
+    }
+
     [Theory]
     [InlineData("/dm/devices/new", "/dm/devices", "New device")]
     [InlineData("/dm/manufacturers/new", "/dm/manufacturers", "New manufacturer")]

@@ -91,6 +91,8 @@ public sealed class PermissionCatalogHostTests(SerginWebApiFactory<Program> fact
 
         public Assembly UiAssembly => NoComponents;
 
+        public SerginNavGroup NavGroup { get; } = new("Test", string.Empty);
+
         public IReadOnlyCollection<SerginNavItem> NavItems =>
             [new("Bad", "/testbad/things", string.Empty, RequiredPermission: MalformedNavPermissions.Bad)];
 
@@ -120,6 +122,8 @@ public sealed class PermissionCatalogHostTests(SerginWebApiFactory<Program> fact
         public Assembly ConfigurationsAssembly => NoComponents;
 
         public Assembly UiAssembly => NoComponents;
+
+        public SerginNavGroup NavGroup { get; } = new("Test", string.Empty);
 
         public IReadOnlyCollection<SerginNavItem> NavItems { get; } =
             [new(Label, "/testnav/things", string.Empty, RequiredPermission: Unregistered)];

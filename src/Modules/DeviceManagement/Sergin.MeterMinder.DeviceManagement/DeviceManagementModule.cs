@@ -26,6 +26,8 @@ public sealed class DeviceManagementModule : ISerginWebApiModule, ISerginWebUiMo
 
     public Assembly UiAssembly => DeviceManagementBlazorAssemblyReference.Assembly;
 
+    public SerginNavGroup NavGroup => DeviceManagementNavigation.Group;
+
     public IReadOnlyCollection<SerginNavItem> NavItems => DeviceManagementNavigation.Items;
 
     public void AddServices(IServiceCollection services, IConfigurationSection configuration)

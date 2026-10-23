@@ -17,6 +17,13 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
     [GeneratedRegex("<a[^>]*href=\"/\"[^>]*>")]
     private static partial Regex HomeNavAnchor();
 
+    /// <summary>
+    /// The toggle button of each drawer group: MudNavGroup renders one per group, labelled
+    /// <c>Toggle {title}</c>, whose <c>aria-expanded</c> says whether the group is open.
+    /// </summary>
+    [GeneratedRegex("<button[^>]*aria-expanded=\"(?<expanded>true|false)\"[^>]*aria-label=\"Toggle (?<title>[^\"]+)\"")]
+    private static partial Regex NavGroupToggle();
+
     [Theory]
     [InlineData("/")]
     [InlineData("/dm/devices")]
@@ -44,6 +51,46 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
         Assert.Contains("/dm/devices", html, StringComparison.Ordinal);
         Assert.Contains("/dm/manufacturers", html, StringComparison.Ordinal);
         Assert.Contains("/ua/users", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// Each module's entries sit in a drawer group named after the module, and only the group of the page shown
+    /// is open — on a detail page too, under the same prefix rule that lights its section's entry.
+    /// </summary>
+    [Theory]
+    [InlineData("/dm/devices", "Device Management")]
+    [InlineData("/dm/manufacturers/01920000-0000-7000-8000-000000000001/edit", "Device Management")]
+    [InlineData("/ua/users", "User Access")]
+    [InlineData("/ua/users/new", "User Access")]
+    public async Task Drawer_GroupsEntriesByModule_AndOpensTheCurrentPagesGroup(string path, string openGroup)
+    {
+        HttpClient client = factory.CreateClient();
+
+        string html = await client.GetStringAsync(path);
+
+        IReadOnlyDictionary<string, bool> groups = NavGroupToggle().Matches(html).ToDictionary(
+            match => match.Groups["title"].Value,
+            match => match.Groups["expanded"].Value == "true",
+            StringComparer.Ordinal);
+
+        Assert.Equal(["Device Management", "User Access"], groups.Keys.Order(StringComparer.Ordinal));
+        Assert.All(groups, group => Assert.Equal(group.Key == openGroup, group.Value));
+    }
+
+    /// <summary>
+    /// Home belongs to no module: it stays a top-level entry and every group starts closed.
+    /// </summary>
+    [Fact]
+    public async Task Drawer_OnTheHomePage_OpensNoGroup()
+    {
+        HttpClient client = factory.CreateClient();
+
+        string html = await client.GetStringAsync("/");
+
+        MatchCollection groups = NavGroupToggle().Matches(html);
+
+        Assert.Equal(2, groups.Count);
+        Assert.All(groups, group => Assert.Equal("false", group.Groups["expanded"].Value));
     }
 
     [Theory]
