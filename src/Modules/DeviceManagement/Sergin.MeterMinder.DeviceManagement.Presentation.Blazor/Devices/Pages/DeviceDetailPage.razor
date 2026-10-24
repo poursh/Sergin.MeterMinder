@@ -2,24 +2,24 @@
 
 <PageTitle>Device</PageTitle>
 
-<SerginBreadcrumbs Trail="Trail" />
+<SerginPageHeader Trail="Trail">
+    <SerginReloadButton OnReload="LoadAsync" />
+    <SerginCopyLinkButton />
+    @if (device is not null)
+    {
+        <SerginAuditButton Load="LoadAuditAsync" Version="version" />
+    }
+</SerginPageHeader>
 
 <SerginProblemPanel Problem="problem" />
 
 @if (device is not null)
 {
-    <MudCard>
-        <MudCardContent>
-            <MudText Typo="Typo.h5">@device.DeviceId</MudText>
-            <MudText Typo="Typo.body2">
-                Model:
-                <MudLink Href="@($"/dm/manufacturers/{device.ManufacturerId}/models/{device.DeviceModelId}")">@device.DeviceModelName</MudLink>
-            </MudText>
-            <MudText Typo="Typo.body2">@device.Id</MudText>
-        </MudCardContent>
-        <MudCardActions>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="@($"/dm/devices/{Id}/edit")">Edit</MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="deleting" OnClick="DeleteAsync">Delete</MudButton>
-        </MudCardActions>
-    </MudCard>
+    <SerginAggregatePage Actions="Actions">
+        <SerginDetailFields Title="@device.DeviceId">
+            <SerginDetailField Label="Device ID" Value="@device.DeviceId" />
+            <SerginDetailField Label="Model"><MudLink Href="@($"/dm/manufacturers/{device.ManufacturerId}/models/{device.DeviceModelId}")">@device.DeviceModelName</MudLink></SerginDetailField>
+            <SerginDetailField Label="Manufacturer"><MudLink Href="@($"/dm/manufacturers/{device.ManufacturerId}")">@device.ManufacturerName</MudLink></SerginDetailField>
+        </SerginDetailFields>
+    </SerginAggregatePage>
 }

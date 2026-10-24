@@ -2,27 +2,27 @@
 
 <PageTitle>Manufacturers</PageTitle>
 
-<SerginBreadcrumbs Trail="Trail" />
+<SerginPageHeader Trail="Trail">
+    <SerginReloadButton OnReload="ReloadAsync" />
+</SerginPageHeader>
 
-<MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-4">
-    <MudText Typo="Typo.h4">Manufacturers</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-               StartIcon="@Icons.Material.Filled.Add" Href="/dm/manufacturers/new">New manufacturer</MudButton>
-</MudStack>
-
-<MudTable T="GetManufacturerListItem" ServerData="LoadAsync" Hover="true" Striped="true"
-          OnRowClick="@(args => OpenManufacturer(args.Item))" RowsPerPage="10">
-    <HeaderContent>
-        <MudTh>Name</MudTh>
-        <MudTh>Address</MudTh>
-    </HeaderContent>
-    <RowTemplate>
-        <MudTd DataLabel="Name">@context.Name</MudTd>
-        <MudTd DataLabel="Address">@context.Address</MudTd>
-    </RowTemplate>
-    <PagerContent>
-        <MudTablePager />
-    </PagerContent>
-</MudTable>
-
-<MudText Typo="Typo.caption">Server-side sorting and filtering are not implemented yet.</MudText>
+<SerginAggregatePage Actions="Actions">
+    <SerginAggregateList @ref="list" TItem="GetManufacturerListItem" Load="LoadAsync" SearchPlaceholder="Search name or address…">
+        <HeaderContent>
+            <MudTh><MudTableSortLabel T="GetManufacturerListItem" SortLabel="@ManufacturerListFields.Name">Name</MudTableSortLabel></MudTh>
+            <MudTh>Address</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name"><MudLink Href="@($"/dm/manufacturers/{context.Id}")">@context.Name</MudLink></MudTd>
+            <MudTd DataLabel="Address">@context.Address</MudTd>
+        </RowTemplate>
+        <RowCommands>
+            <MudTooltip Text="Edit">
+                <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Href="@($"/dm/manufacturers/{context.Id}/edit")" aria-label="Edit" />
+            </MudTooltip>
+            <MudTooltip Text="Delete">
+                <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" OnClick="@(() => DeleteAsync(context))" aria-label="Delete" />
+            </MudTooltip>
+        </RowCommands>
+    </SerginAggregateList>
+</SerginAggregatePage>

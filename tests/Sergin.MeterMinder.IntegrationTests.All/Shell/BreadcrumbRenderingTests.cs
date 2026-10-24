@@ -23,6 +23,9 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
     /// The strip alone. The drawer also links <c>/</c> and every section, so an assertion over the whole
     /// page would pass with no breadcrumbs at all.
     /// </summary>
+    // The home step is an icon; its label survives as the link's accessible name.
+    private const string HomeLink = "<a href=\"/\" aria-label=\"Home\" title=\"Home\"";
+
     [GeneratedRegex("<nav aria-label=\"Breadcrumb\">.*?</nav>", RegexOptions.Singleline)]
     private static partial Regex BreadcrumbNav();
 
@@ -34,7 +37,7 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
     {
         string strip = await GetBreadcrumbStripAsync(path);
 
-        Assert.Contains("<a href=\"/\">Home</a>", strip, StringComparison.Ordinal);
+        Assert.Contains(HomeLink, strip, StringComparison.Ordinal);
         Assert.Contains(Current(section), strip, StringComparison.Ordinal);
         Assert.DoesNotContain($"href=\"{path}\"", strip, StringComparison.Ordinal);
     }
@@ -55,7 +58,7 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
 
         string moduleStep = $"<li class=\"mud-breadcrumb-item mud-disabled\"><a href=\"#\">{module}</a></li>";
 
-        int home = strip.IndexOf(">Home</a>", StringComparison.Ordinal);
+        int home = strip.IndexOf(HomeLink, StringComparison.Ordinal);
         int moduleAt = strip.IndexOf(moduleStep, StringComparison.Ordinal);
         int sectionAt = strip.IndexOf($">{section}</a>", StringComparison.Ordinal);
 

@@ -1,0 +1,23 @@
+<SerginEntityListSection Title="Device models" Count="total" Actions="Actions">
+    <SerginEntityList @ref="list" TItem="GetDeviceModelListItem" Load="LoadModelsAsync" TotalChanged="OnTotalChanged"
+                      EmptyText="No models yet." SearchPlaceholder="Search model name…">
+        <HeaderContent>
+            <MudTh><MudTableSortLabel T="GetDeviceModelListItem" SortLabel="@DeviceModelListFields.Name">Name</MudTableSortLabel></MudTh>
+            <MudTh>Devices</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="Name"><MudLink Href="@($"/dm/manufacturers/{ManufacturerId}/models/{context.Id}")">@context.Name</MudLink></MudTd>
+            <MudTd DataLabel="Devices">@context.DeviceCount devices</MudTd>
+        </RowTemplate>
+        <RowCommands>
+            <MudTooltip Text="Rename">
+                <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="Rename"
+                               Href="@($"/dm/manufacturers/{ManufacturerId}/models/{context.Id}/edit")" />
+            </MudTooltip>
+            <MudTooltip Text="@(context.DeviceCount > 0 ? "In use by devices — cannot be removed" : "Remove")">
+                <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="Remove"
+                               Disabled="@(context.DeviceCount > 0 || Version is null)" OnClick="@(() => RemoveAsync(context))" />
+            </MudTooltip>
+        </RowCommands>
+    </SerginEntityList>
+</SerginEntityListSection>

@@ -1,10 +1,14 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using MudBlazor;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetAudit;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
+using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
+using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Errors;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Pages;
@@ -39,7 +43,17 @@ public sealed partial class DeviceDetailPage
         new(device?.DeviceId ?? "Device"),
     ];
 
+    // Edit, then Delete at the far end; each hidden from a user who lacks its permission on the current scope.
+    private IReadOnlyList<SerginPageAction> Actions =>
+    [
+        new("Edit", Icons.Material.Outlined.Edit, SerginActionKind.Secondary, Href: $"/dm/devices/{Id}/edit", Permission: DevicePermissions.Update),
+        new("Delete", Icons.Material.Outlined.Delete, SerginActionKind.Danger, OnClick: EventCallback.Factory.Create(this, DeleteAsync),
+            Permission: DevicePermissions.Delete, Disabled: deleting),
+    ];
+
     protected override Task OnParametersSetAsync() => LoadAsync();
+
+    private Task<ErrorOr<AuditInfo>> LoadAuditAsync() => Dispatcher.SendAsync(new GetDeviceAuditQueryCommand(Id));
 
     // Keeps the version the device was read at, so the delete can say which device it means.
     private async Task LoadAsync()
@@ -62,13 +76,7 @@ public sealed partial class DeviceDetailPage
 
     private async Task DeleteAsync()
     {
-        bool? confirmed = await DialogService.ShowMessageBoxAsync(
-            "Delete device",
-            $"Delete {device?.DeviceId}? It disappears from every list and page.",
-            yesText: "Delete",
-            cancelText: "Cancel");
-
-        if (confirmed != true)
+        if (!await DialogService.ConfirmDeleteAsync("Delete device", $"Delete {device?.DeviceId}? It disappears from every list and page."))
         {
             return;
         }
