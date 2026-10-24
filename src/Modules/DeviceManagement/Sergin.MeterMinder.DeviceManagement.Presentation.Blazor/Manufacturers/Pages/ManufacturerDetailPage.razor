@@ -2,26 +2,37 @@
 
 <PageTitle>Manufacturer</PageTitle>
 
-<SerginBreadcrumbs Trail="Trail" />
+<SerginPageHeader Trail="Trail">
+    <SerginReloadButton OnReload="ReloadAsync" />
+    <SerginCopyLinkButton />
+    @if (manufacturer is not null)
+    {
+        <SerginAuditButton Load="LoadAuditAsync" Version="version" />
+    }
+</SerginPageHeader>
 
 <SerginProblemPanel Problem="problem" />
 
 @if (manufacturer is not null)
 {
-    <MudCard>
-        <MudCardContent>
-            <MudText Typo="Typo.h5">@manufacturer.Name</MudText>
-            @if (manufacturer.Address is not null)
-            {
-                <MudText Typo="Typo.body2">Address: @manufacturer.Address</MudText>
-            }
-            <MudText Typo="Typo.body2">@manufacturer.Id</MudText>
-        </MudCardContent>
-        <MudCardActions>
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="@($"/dm/manufacturers/{Id}/edit")">Edit</MudButton>
-            <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="deleting" OnClick="DeleteAsync">Delete</MudButton>
-        </MudCardActions>
-    </MudCard>
+    <SerginAggregatePage Actions="Actions" OverviewCollapsed="true">
+        <Overview>
+            <SerginOverviewCards>
+                <SerginOverviewCard Label="Models" Value="@overview?.Models.ToString(Culture)" Caption="of this manufacturer" />
+                <SerginOverviewCard Label="Devices" Value="@overview?.Devices.ToString(Culture)" Caption="in every scope" />
+            </SerginOverviewCards>
+        </Overview>
+        <OverviewSummary>
+            <MudText Typo="Typo.body2"><b>@(overview?.Models.ToString(Culture) ?? "–")</b> models</MudText>
+            <MudText Typo="Typo.body2"><b>@(overview?.Devices.ToString(Culture) ?? "–")</b> devices</MudText>
+        </OverviewSummary>
+        <ChildContent>
+            <SerginDetailFields Title="@manufacturer.Name">
+                <SerginDetailField Label="Name" Value="@manufacturer.Name" />
+                <SerginDetailField Label="Address" Value="@manufacturer.Address" />
+            </SerginDetailFields>
 
-    <DeviceModelTable ManufacturerId="Id" />
+            <DeviceModelSection @ref="modelSection" ManufacturerId="Id" Version="version" OnChanged="OnModelsChangedAsync" />
+        </ChildContent>
+    </SerginAggregatePage>
 }

@@ -3,11 +3,15 @@ using Sergin.MeterMinder.DeviceManagement.Application;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetAudit;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOverview;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetAudit;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOverview;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Add;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetOne;
@@ -185,9 +189,25 @@ public sealed class ModuleCommandConfigurationTests
         Assert.Equal(PermissionScope.Any, settings.PermissionScope);
     }
 
-    [Fact]
-    public void ModulesDeclareTwentySevenRequests()
+    // The overview and audit reads take their aggregate's Read permission and its scope rule: a device's on the
+    // current scope, a manufacturer's on any.
+    [Theory]
+    [InlineData(typeof(GetDeviceOverviewQueryCommand), typeof(Device), PermissionScope.Current)]
+    [InlineData(typeof(GetDeviceAuditQueryCommand), typeof(Device), PermissionScope.Current)]
+    [InlineData(typeof(GetManufacturerOverviewQueryCommand), typeof(Manufacturer), PermissionScope.Any)]
+    [InlineData(typeof(GetManufacturerAuditQueryCommand), typeof(Manufacturer), PermissionScope.Any)]
+    public void OverviewAndAuditReads_FollowTheirAggregate(Type request, Type aggregate, PermissionScope scope)
     {
-        Assert.Equal(27, Registry.ConfiguredTypes.Count);
+        CommandSettings settings = Registry.For(request);
+
+        Assert.Equal(aggregate, settings.AggregateRoot);
+        Assert.Equal(scope, settings.PermissionScope);
+        Assert.Single(settings.RequiredPermissions);
+    }
+
+    [Fact]
+    public void ModulesDeclareThirtyOneRequests()
+    {
+        Assert.Equal(31, Registry.ConfiguredTypes.Count);
     }
 }
