@@ -4,14 +4,14 @@
 
 <SerginBreadcrumbs Trail="Trail" />
 
-<MudText Typo="Typo.h4" Class="mb-4">New manufacturer</MudText>
+<MudText Typo="Typo.h5" Class="mb-4">New manufacturer</MudText>
 
 <MudForm @ref="form" Model="model" Validation="@validation" @bind-IsValid="isValid"
          SuppressImplicitSubmission="false" onsubmit="@OnSubmit">
     <MudCard>
         <MudCardContent>
-            <MudTextField @bind-Value="model.Name" Label="Name" For="@(() => model.Name)" Immediate="true" />
-            <MudTextField @bind-Value="model.Address" Label="Address" For="@(() => model.Address)" Immediate="true" />
+            <MudTextField Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="model.Name" Label="Name" For="@(() => model.Name)" Immediate="true" />
+            <MudTextField Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="model.Address" Label="Address" For="@(() => model.Address)" Immediate="true" />
         </MudCardContent>
         <MudCardActions>
             <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
