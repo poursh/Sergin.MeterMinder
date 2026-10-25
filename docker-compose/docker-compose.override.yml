@@ -1,5 +1,3 @@
-version: '3.9'
-
 services:
   sergin.meter-minder.hosts-all:
     environment:

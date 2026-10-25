@@ -56,7 +56,8 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
     {
         string strip = await GetBreadcrumbStripAsync(path);
 
-        string moduleStep = $"<li class=\"mud-breadcrumb-item mud-disabled\"><a href=\"#\">{module}</a></li>";
+        // Icon alone, like home; the module name survives as the anchor's accessible name and tooltip.
+        string moduleStep = $"<li class=\"mud-breadcrumb-item mud-disabled\"><a href=\"#\" aria-label=\"{module}\" title=\"{module}\"";
 
         int home = strip.IndexOf(HomeLink, StringComparison.Ordinal);
         int moduleAt = strip.IndexOf(moduleStep, StringComparison.Ordinal);
