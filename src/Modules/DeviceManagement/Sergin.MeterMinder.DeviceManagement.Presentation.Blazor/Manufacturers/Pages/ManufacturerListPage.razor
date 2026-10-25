@@ -7,7 +7,8 @@
 </SerginPageHeader>
 
 <SerginAggregatePage Actions="Actions">
-    <SerginAggregateList @ref="list" TItem="GetManufacturerListItem" Load="LoadAsync" SearchPlaceholder="Search name or address…">
+    <SerginAggregateList @ref="list" TItem="GetManufacturerListItem" Load="LoadAsync" SearchPlaceholder="Search name or address…"
+                         BulkActions="BulkActions">
         <HeaderContent>
             <MudTh><MudTableSortLabel T="GetManufacturerListItem" SortLabel="@ManufacturerListFields.Name">Name</MudTableSortLabel></MudTh>
             <MudTh>Address</MudTh>

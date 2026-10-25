@@ -47,12 +47,22 @@ public sealed partial class DeviceModelSection
     [Inject]
     private IDialogService DialogService { get; set; } = default!;
 
+    [Inject]
+    private ISnackbar Snackbar { get; set; } = default!;
+
     // Adding a model changes the manufacturer, so it needs the same permission as editing it, on any scope:
     // the catalog belongs to no scope.
     private IReadOnlyList<SerginPageAction> Actions =>
     [
         new("Add model", Icons.Material.Filled.Add, SerginActionKind.Primary,
             Href: $"/dm/manufacturers/{ManufacturerId}/models/new",
+            Permission: ManufacturerPermissions.Update, AnyScope: true),
+    ];
+
+    // Removing models changes the manufacturer, like adding one.
+    private IReadOnlyList<SerginBulkAction<GetDeviceModelListItem>> BulkActions =>
+    [
+        new("Remove", Icons.Material.Outlined.Delete, SerginActionKind.Danger, RemoveSelectedAsync,
             Permission: ManufacturerPermissions.Update, AnyScope: true),
     ];
 
@@ -89,6 +99,46 @@ public sealed partial class DeviceModelSection
         }
 
         await OnChanged.InvokeAsync();
+        await list.ReloadAsync();
+    }
+
+    // Every remove moves the manufacturer's version, so each send carries the version the one before it returned. A
+    // stale answer ends the run: every later send would carry the same stale version. A model in use is refused alone.
+    private async Task RemoveSelectedAsync(IReadOnlyList<GetDeviceModelListItem> models)
+    {
+        if (!await DialogService.ConfirmDeleteAsync(
+                "Remove device models", $"Remove {models.Count} models? They disappear from their manufacturer and every list.", "Remove"))
+        {
+            return;
+        }
+
+        RowVersion? version = Version;
+
+        SerginBulkOutcome outcome = await SerginBulk.RunAsync(
+            models,
+            async model =>
+            {
+                ErrorOr<Versioned<RemoveDeviceModelCommandResponse>> result = await Dispatcher.SendVersionedAsync(
+                    new RemoveDeviceModelCommand(new ManufacturerId(ManufacturerId), model.Id), version);
+
+                if (result.IsError)
+                {
+                    return result.Errors;
+                }
+
+                version = result.Value.Version;
+                return Result.Success;
+            },
+            VersionErrors.IsStale);
+
+        outcome.Report(ErrorPresenter, Snackbar, "removed");
+
+        // As for one remove: a success moved the version the page holds, and a stale answer found it out of date.
+        if (outcome.Succeeded > 0 || outcome.Errors.Any(VersionErrors.IsStale))
+        {
+            await OnChanged.InvokeAsync();
+        }
+
         await list.ReloadAsync();
     }
 }

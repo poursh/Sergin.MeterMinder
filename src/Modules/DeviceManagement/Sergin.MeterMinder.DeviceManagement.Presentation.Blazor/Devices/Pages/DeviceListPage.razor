@@ -23,7 +23,7 @@
         <SerginAggregateList @ref="list" TItem="GetDeviceListItem" Load="LoadAsync"
                              SearchPlaceholder="Search device ID or model…"
                              BuildFilters="BuildFilters" OnFilterRemoved="OnFilterRemoved" OnFiltersReset="ResetFilterFields"
-                             OnFilterPanelOpened="LoadFilterOptionsAsync">
+                             OnFilterPanelOpened="LoadFilterOptionsAsync" BulkActions="BulkActions">
             <HeaderContent>
                 <MudTh><MudTableSortLabel T="GetDeviceListItem" SortLabel="@DeviceListFields.DeviceId">Device ID</MudTableSortLabel></MudTh>
                 <MudTh><MudTableSortLabel T="GetDeviceListItem" SortLabel="@DeviceListFields.DeviceModelName">Model</MudTableSortLabel></MudTh>

@@ -31,6 +31,16 @@ public sealed class PageTypeRenderingTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public async Task DeviceListPage_RendersTheSelectionColumn_ButNoSelectionBar()
+    {
+        string html = await GetAsync("/dm/devices");
+
+        // The bulk Delete gives the table its header checkbox; with nothing selected there is no bar.
+        Assert.Contains("mud-checkbox", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-label=\"Selection\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task DeviceDetailPage_RendersAuditIcon_Actions_AndFields()
     {
         using IServiceScope scope = factory.Services.CreateScope();
