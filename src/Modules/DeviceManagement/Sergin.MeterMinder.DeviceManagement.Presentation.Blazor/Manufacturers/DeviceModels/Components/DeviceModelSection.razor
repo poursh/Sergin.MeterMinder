@@ -1,6 +1,6 @@
 <SerginEntityListSection Title="Device models" Count="total" Actions="Actions">
     <SerginEntityList @ref="list" TItem="GetDeviceModelListItem" Load="LoadModelsAsync" TotalChanged="OnTotalChanged"
-                      EmptyText="No models yet." SearchPlaceholder="Search model name…">
+                      EmptyText="No models yet." SearchPlaceholder="Search model name…" BulkActions="BulkActions">
         <HeaderContent>
             <MudTh><MudTableSortLabel T="GetDeviceModelListItem" SortLabel="@DeviceModelListFields.Name">Name</MudTableSortLabel></MudTh>
             <MudTh>Devices</MudTh>

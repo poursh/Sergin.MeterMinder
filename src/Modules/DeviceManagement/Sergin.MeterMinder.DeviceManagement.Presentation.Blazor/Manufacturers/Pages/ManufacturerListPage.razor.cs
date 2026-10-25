@@ -23,6 +23,12 @@ public sealed partial class ManufacturerListPage
             Permission: ManufacturerPermissions.Update, AnyScope: true),
     ];
 
+    private IReadOnlyList<SerginBulkAction<GetManufacturerListItem>> BulkActions =>
+    [
+        new("Delete", Icons.Material.Outlined.Delete, SerginActionKind.Danger, DeleteSelectedAsync,
+            Permission: ManufacturerPermissions.Delete, AnyScope: true),
+    ];
+
     [Inject]
     private ISerginDispatcher Dispatcher { get; set; } = default!;
 
@@ -31,6 +37,9 @@ public sealed partial class ManufacturerListPage
 
     [Inject]
     private IDialogService DialogService { get; set; } = default!;
+
+    [Inject]
+    private ISnackbar Snackbar { get; set; } = default!;
 
     private Task<ErrorOr<ListQueryResponse<GetManufacturerListItem>>> LoadAsync(SerginListRequest request, CancellationToken cancellationToken) =>
         Dispatcher.SendAsync(
@@ -47,18 +56,7 @@ public sealed partial class ManufacturerListPage
             return;
         }
 
-        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
-            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(item.Id));
-
-        if (loaded.IsError)
-        {
-            ErrorPresenter.Notify(loaded.FirstError);
-            await list.ReloadAsync();
-            return;
-        }
-
-        ErrorOr<Versioned<DeleteManufacturerCommandResponse>> result =
-            await Dispatcher.SendVersionedAsync(new DeleteManufacturerCommand(item.Id), loaded.Value.Version);
+        ErrorOr<Success> result = await SendDeleteAsync(item);
 
         if (result.IsError)
         {
@@ -66,5 +64,36 @@ public sealed partial class ManufacturerListPage
         }
 
         await list.ReloadAsync();
+    }
+
+    // One confirm, then each manufacturer as the row command sends it; one still in use is refused alone.
+    private async Task DeleteSelectedAsync(IReadOnlyList<GetManufacturerListItem> items)
+    {
+        if (!await DialogService.ConfirmDeleteAsync(
+                "Delete manufacturers", $"Delete {items.Count} manufacturers and their models? They disappear from every list and page."))
+        {
+            return;
+        }
+
+        SerginBulkOutcome outcome = await SerginBulk.RunAsync(items, SendDeleteAsync);
+
+        outcome.Report(ErrorPresenter, Snackbar, "deleted");
+        await list.ReloadAsync();
+    }
+
+    private async Task<ErrorOr<Success>> SendDeleteAsync(GetManufacturerListItem item)
+    {
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
+            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(item.Id));
+
+        if (loaded.IsError)
+        {
+            return loaded.Errors;
+        }
+
+        ErrorOr<Versioned<DeleteManufacturerCommandResponse>> result =
+            await Dispatcher.SendVersionedAsync(new DeleteManufacturerCommand(item.Id), loaded.Value.Version);
+
+        return result.IsError ? result.Errors : Result.Success;
     }
 }

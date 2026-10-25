@@ -38,6 +38,12 @@ public sealed partial class DeviceListPage
         new("New device", Icons.Material.Filled.Add, SerginActionKind.Primary, Href: "/dm/devices/new", Permission: DevicePermissions.Update),
     ];
 
+    // The selection bar's Delete: one confirm for every selected device, each then sent as the row command sends it.
+    private IReadOnlyList<SerginBulkAction<GetDeviceListItem>> BulkActions =>
+    [
+        new("Delete", Icons.Material.Outlined.Delete, SerginActionKind.Danger, DeleteSelectedAsync, Permission: DevicePermissions.Delete),
+    ];
+
     private IEnumerable<(string Label, string Value, string Sub)> OverviewCards =>
     [
         ("Devices", Count(overview?.Devices), "in this scope"),
@@ -54,6 +60,9 @@ public sealed partial class DeviceListPage
 
     [Inject]
     private IDialogService DialogService { get; set; } = default!;
+
+    [Inject]
+    private ISnackbar Snackbar { get; set; } = default!;
 
     [Inject]
     private IScopeDirectory ScopeDirectory { get; set; } = default!;
@@ -203,7 +212,7 @@ public sealed partial class DeviceListPage
     }
 
     // The row command shares the detail page's confirm and its version rule: the delete is checked against the
-    // version read just before it, and a stale answer reloads the list.
+    // version read just before it, and a stale answer reloads the list. The bulk delete sends each device the same way.
     private async Task DeleteAsync(GetDeviceListItem item)
     {
         if (!await DialogService.ConfirmDeleteAsync("Delete device", $"Delete {item.DeviceId}? It disappears from every list and page."))
@@ -211,17 +220,7 @@ public sealed partial class DeviceListPage
             return;
         }
 
-        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(item.Id));
-
-        if (loaded.IsError)
-        {
-            ErrorPresenter.Notify(loaded.FirstError);
-            await ReloadAsync();
-            return;
-        }
-
-        ErrorOr<Versioned<DeleteDeviceCommandResponse>> result =
-            await Dispatcher.SendVersionedAsync(new DeleteDeviceCommand(item.Id), loaded.Value.Version);
+        ErrorOr<Success> result = await SendDeleteAsync(item);
 
         if (result.IsError)
         {
@@ -229,5 +228,33 @@ public sealed partial class DeviceListPage
         }
 
         await ReloadAsync();
+    }
+
+    private async Task DeleteSelectedAsync(IReadOnlyList<GetDeviceListItem> items)
+    {
+        if (!await DialogService.ConfirmDeleteAsync("Delete devices", $"Delete {items.Count} devices? They disappear from every list and page."))
+        {
+            return;
+        }
+
+        SerginBulkOutcome outcome = await SerginBulk.RunAsync(items, SendDeleteAsync);
+
+        outcome.Report(ErrorPresenter, Snackbar, "deleted");
+        await ReloadAsync();
+    }
+
+    private async Task<ErrorOr<Success>> SendDeleteAsync(GetDeviceListItem item)
+    {
+        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(item.Id));
+
+        if (loaded.IsError)
+        {
+            return loaded.Errors;
+        }
+
+        ErrorOr<Versioned<DeleteDeviceCommandResponse>> result =
+            await Dispatcher.SendVersionedAsync(new DeleteDeviceCommand(item.Id), loaded.Value.Version);
+
+        return result.IsError ? result.Errors : Result.Success;
     }
 }

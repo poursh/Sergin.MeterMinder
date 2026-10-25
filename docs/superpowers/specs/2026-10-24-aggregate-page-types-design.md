@@ -58,7 +58,7 @@ so that every aggregate gets the same frame.
 
 ## Out of scope / follow-ups
 
-- Multiselect, bulk delete and Export (4b).
+- Multiselect and bulk delete (4b): built in `2026-10-25-list-multiselect-design.md`. Export is still open.
 - The "Created by" filter. It needs a user picker that crosses modules.
 - Moving UserAccess pages to the page types. `UserQueryRepository` and `DeviceModelQueryRepository` still read
   paging only.
