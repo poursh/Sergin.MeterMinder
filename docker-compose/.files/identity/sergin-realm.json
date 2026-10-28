@@ -55,6 +55,111 @@
           "temporary": false
         }
       ]
+    },
+    {
+      "username": "admin.root",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "admin.root@sergin.local",
+      "firstName": "Admin",
+      "lastName": "Root",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin.root",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "north.manager",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "north.manager@sergin.local",
+      "firstName": "North",
+      "lastName": "Manager",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "north.manager",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "tabriz.operator",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "tabriz.operator@sergin.local",
+      "firstName": "Tabriz",
+      "lastName": "Operator",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "tabriz.operator",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "south.viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "south.viewer@sergin.local",
+      "firstName": "South",
+      "lastName": "Viewer",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "south.viewer",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "multi.auditor",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "multi.auditor@sergin.local",
+      "firstName": "Multi",
+      "lastName": "Auditor",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "multi.auditor",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "expired.user",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "expired.user@sergin.local",
+      "firstName": "Expired",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "expired.user",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "inactive.user",
+      "enabled": true,
+      "emailVerified": true,
+      "email": "inactive.user@sergin.local",
+      "firstName": "Inactive",
+      "lastName": "User",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "inactive.user",
+          "temporary": false
+        }
+      ]
     }
   ]
 }
