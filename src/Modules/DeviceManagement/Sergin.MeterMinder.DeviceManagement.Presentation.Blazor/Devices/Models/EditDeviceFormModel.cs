@@ -8,6 +8,6 @@ public sealed class EditDeviceFormModel
 {
     public string DeviceId { get; set; } = string.Empty;
 
-    // The manufacturer is page state on EditDevicePage, not part of what is submitted.
+    // The manufacturer is page state on DeviceEditPage, not part of what is submitted.
     public Guid DeviceModelId { get; set; }
 }

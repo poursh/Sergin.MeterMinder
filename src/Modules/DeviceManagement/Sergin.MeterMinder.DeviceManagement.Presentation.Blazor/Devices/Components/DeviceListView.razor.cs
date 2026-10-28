@@ -9,9 +9,9 @@ using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
 
-namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Pages;
+namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Components;
 
-public sealed partial class DeviceListPage
+public sealed partial class DeviceListView
 {
     private SerginAggregateList<GetDeviceListItem> list = default!;
     private DeviceOverview? overview;
@@ -99,7 +99,7 @@ public sealed partial class DeviceListPage
             return;
         }
 
-        // The same 200-row ceiling as CreateDevicePage's pickers; the catalog is tens of rows today.
+        // The same 200-row ceiling as DeviceCreatePage's pickers; the catalog is tens of rows today.
         ErrorOr<ListQueryResponse<GetManufacturerListItem>> loaded =
             await Dispatcher.SendAsync(new GetManufacturerListQueryCommand(Paggination.Create(200, 1)));
 

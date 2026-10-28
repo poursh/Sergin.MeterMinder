@@ -1,0 +1,26 @@
+<SerginAggregateListView Title="Manufacturers" Trail="Trail" Actions="Actions">
+    <HeaderActions>
+        <SerginReloadButton OnReload="ReloadAsync" />
+    </HeaderActions>
+    <ChildContent>
+        <SerginAggregateList @ref="list" TItem="GetManufacturerListItem" Load="LoadAsync" SearchPlaceholder="Search name or address…"
+                             BulkActions="BulkActions">
+            <HeaderContent>
+                <MudTh><MudTableSortLabel T="GetManufacturerListItem" SortLabel="@ManufacturerListFields.Name">Name</MudTableSortLabel></MudTh>
+                <MudTh>Address</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name"><MudLink Href="@($"/dm/manufacturers/{context.Id}")">@context.Name</MudLink></MudTd>
+                <MudTd DataLabel="Address">@context.Address</MudTd>
+            </RowTemplate>
+            <RowCommands>
+                <MudTooltip Text="Edit">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Href="@($"/dm/manufacturers/{context.Id}/edit")" aria-label="Edit" />
+                </MudTooltip>
+                <MudTooltip Text="Delete">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" OnClick="@(() => DeleteAsync(context))" aria-label="Delete" />
+                </MudTooltip>
+            </RowCommands>
+        </SerginAggregateList>
+    </ChildContent>
+</SerginAggregateListView>

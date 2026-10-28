@@ -1,4 +1,4 @@
-<SerginEntityListSection Title="Device models" Count="total" Actions="Actions">
+<SerginEntityListView Title="Device models" Count="total" Actions="Actions">
     <SerginEntityList @ref="list" TItem="GetDeviceModelListItem" Load="LoadModelsAsync" TotalChanged="OnTotalChanged"
                       EmptyText="No models yet." SearchPlaceholder="Search model name…" BulkActions="BulkActions">
         <HeaderContent>
@@ -6,7 +6,7 @@
             <MudTh>Devices</MudTh>
         </HeaderContent>
         <RowTemplate>
-            <MudTd DataLabel="Name"><MudLink Href="@($"/dm/manufacturers/{ManufacturerId}/models/{context.Id}")">@context.Name</MudLink></MudTd>
+            <MudTd DataLabel="Name"><SerginEntityLink Href="@($"/dm/manufacturers/{ManufacturerId}/models/{context.Id}")">@context.Name</SerginEntityLink></MudTd>
             <MudTd DataLabel="Devices">@context.DeviceCount devices</MudTd>
         </RowTemplate>
         <RowCommands>
@@ -20,4 +20,4 @@
             </MudTooltip>
         </RowCommands>
     </SerginEntityList>
-</SerginEntityListSection>
+</SerginEntityListView>

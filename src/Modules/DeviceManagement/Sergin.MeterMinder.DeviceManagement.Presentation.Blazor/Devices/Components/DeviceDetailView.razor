@@ -1,0 +1,19 @@
+<SerginAggregateDetailView Title="Device" Trail="Trail" Problem="problem" Ready="@(device is not null)" Actions="Actions"
+                           FieldsTitle="@device?.DeviceId">
+    <HeaderActions>
+        <SerginReloadButton OnReload="LoadAsync" />
+        <SerginCopyLinkButton />
+        @if (device is not null)
+        {
+            <SerginAuditButton Load="LoadAuditAsync" Version="version" />
+        }
+    </HeaderActions>
+    <Fields>
+        @if (device is not null)
+        {
+            <SerginDetailField Label="Device ID" Value="@device.DeviceId" />
+            <SerginDetailField Label="Model"><MudLink Href="@($"/dm/manufacturers/{device.ManufacturerId}/models/{device.DeviceModelId}")">@device.DeviceModelName</MudLink></SerginDetailField>
+            <SerginDetailField Label="Manufacturer"><MudLink Href="@($"/dm/manufacturers/{device.ManufacturerId}")">@device.ManufacturerName</MudLink></SerginDetailField>
+        }
+    </Fields>
+</SerginAggregateDetailView>

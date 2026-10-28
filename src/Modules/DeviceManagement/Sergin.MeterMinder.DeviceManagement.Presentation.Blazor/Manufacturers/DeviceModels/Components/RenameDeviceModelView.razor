@@ -1,0 +1,4 @@
+<SerginFormView Title="Rename device model" Trail="Trail" Problem="problem" Ready="@(manufacturerVersion is not null)"
+                Model="model" Validation="validation" OnSubmit="OnSubmit" Submitting="submitting" SubmitLabel="Save" CancelHref="@ModelHref">
+    <MudTextField Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="model.Name" Label="Name" For="@(() => model.Name)" Immediate="true" />
+</SerginFormView>

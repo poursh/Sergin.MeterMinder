@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Components;
-using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Models;
 using Sergin.SharedKernel.Application.Concurrency;
@@ -7,9 +6,9 @@ using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Errors;
 
-namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Pages;
+namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Components;
 
-public sealed partial class EditManufacturerPage
+public sealed partial class ManufacturerEditView
 {
     private readonly EditManufacturerFormModel model = new();
 
@@ -18,8 +17,6 @@ public sealed partial class EditManufacturerPage
     private RowVersion? version;
     private SerginProblem? problem;
 
-    private MudForm form = default!;
-    private bool isValid;
     private bool submitting;
     private Func<object, string, Task<IEnumerable<string>>> validation = default!;
 
@@ -35,11 +32,10 @@ public sealed partial class EditManufacturerPage
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
-    [Inject]
-    private NavigationManager Navigation { get; set; } = default!;
+    [CascadingParameter]
+    private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;
 
-    // An EventCallback, not a bare delegate: splatted onto MudForm's <form> it gets a receiver, so the
-    // page re-renders after SubmitAsync.
+    // Created on this view, so it re-renders after SubmitAsync; SerginFormView invokes it once every field is valid.
     private EventCallback OnSubmit => EventCallback.Factory.Create(this, SubmitAsync);
 
     private IReadOnlyList<SerginBreadcrumb> Trail =>
@@ -83,9 +79,7 @@ public sealed partial class EditManufacturerPage
 
     private async Task SubmitAsync()
     {
-        await form.ValidateAsync();
-
-        if (!form.IsValid || version is not { } expectedVersion)
+        if (version is not { } expectedVersion)
         {
             return;
         }
@@ -101,7 +95,7 @@ public sealed partial class EditManufacturerPage
         {
             ErrorPresenter.Notify(result.Errors);
 
-            // Someone changed the manufacturer (added a model, say) after this page loaded it.
+            // Someone changed the manufacturer (added a model, say) after this view loaded it.
             if (result.Errors.Exists(VersionErrors.IsStale))
             {
                 await LoadAsync();
@@ -110,6 +104,6 @@ public sealed partial class EditManufacturerPage
             return;
         }
 
-        Navigation.NavigateTo($"/dm/manufacturers/{Id}");
+        await Host.LeaveAsync($"/dm/manufacturers/{Id}");
     }
 }

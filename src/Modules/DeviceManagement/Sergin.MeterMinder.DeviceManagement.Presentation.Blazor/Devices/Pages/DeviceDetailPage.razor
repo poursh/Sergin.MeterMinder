@@ -1,25 +1,3 @@
 @page "/dm/devices/{Id:guid}"
 
-<PageTitle>Device</PageTitle>
-
-<SerginPageHeader Trail="Trail">
-    <SerginReloadButton OnReload="LoadAsync" />
-    <SerginCopyLinkButton />
-    @if (device is not null)
-    {
-        <SerginAuditButton Load="LoadAuditAsync" Version="version" />
-    }
-</SerginPageHeader>
-
-<SerginProblemPanel Problem="problem" />
-
-@if (device is not null)
-{
-    <SerginAggregatePage Actions="Actions">
-        <SerginDetailFields Title="@device.DeviceId">
-            <SerginDetailField Label="Device ID" Value="@device.DeviceId" />
-            <SerginDetailField Label="Model"><MudLink Href="@($"/dm/manufacturers/{device.ManufacturerId}/models/{device.DeviceModelId}")">@device.DeviceModelName</MudLink></SerginDetailField>
-            <SerginDetailField Label="Manufacturer"><MudLink Href="@($"/dm/manufacturers/{device.ManufacturerId}")">@device.ManufacturerName</MudLink></SerginDetailField>
-        </SerginDetailFields>
-    </SerginAggregatePage>
-}
+<SerginPage><DeviceDetailView Id="Id" /></SerginPage>

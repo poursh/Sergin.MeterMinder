@@ -12,17 +12,17 @@ using Sergin.SharedKernel.Presentation.Blazor.Pages;
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.DeviceModels.Components;
 
 /// <summary>
-/// The models of one manufacturer, as the entity list section of <c>ManufacturerDetailPage</c>: a paged list with
-/// each model's device count, an Add model action, and per-row Rename and Remove. Not a page — it has no route, only the
+/// The models of one manufacturer, as an entity list view embedded in <c>ManufacturerDetailView</c>: a paged list
+/// with each model's device count, an Add model action, and per-row Rename and Remove. It has no route, only the
 /// owning manufacturer's id.
 /// </summary>
 /// <remarks>
 /// Removing a model changes the <c>Manufacturer</c> aggregate, so it is sent at the manufacturer's version, which
-/// the page holds and passes in as <see cref="Version"/>. Any answer but a refusal changes that version, so the
-/// component tells the page through <see cref="OnChanged"/> to reload it. Remove is disabled for a model in use —
+/// the manufacturer view holds and passes in as <see cref="Version"/>. Any answer but a refusal changes that version, so the
+/// list tells that view through <see cref="OnChanged"/> to reload it. Remove is disabled for a model in use —
 /// the validator refuses it anyway, in every scope, which is why the count is too.
 /// </remarks>
-public sealed partial class DeviceModelSection
+public sealed partial class DeviceModelListView
 {
     private SerginEntityList<GetDeviceModelListItem> list = default!;
     private int? total;
@@ -31,7 +31,7 @@ public sealed partial class DeviceModelSection
     [EditorRequired]
     public Guid ManufacturerId { get; set; }
 
-    /// <summary>The manufacturer's version, as the page last read it; null until it has one.</summary>
+    /// <summary>The manufacturer's version, as the manufacturer view last read it; null until it has one.</summary>
     [Parameter]
     public RowVersion? Version { get; set; }
 
@@ -133,7 +133,7 @@ public sealed partial class DeviceModelSection
 
         outcome.Report(ErrorPresenter, Snackbar, "removed");
 
-        // As for one remove: a success moved the version the page holds, and a stale answer found it out of date.
+        // As for one remove: a success moved the version the manufacturer view holds, and a stale answer found it out of date.
         if (outcome.Succeeded > 0 || outcome.Errors.Any(VersionErrors.IsStale))
         {
             await OnChanged.InvokeAsync();

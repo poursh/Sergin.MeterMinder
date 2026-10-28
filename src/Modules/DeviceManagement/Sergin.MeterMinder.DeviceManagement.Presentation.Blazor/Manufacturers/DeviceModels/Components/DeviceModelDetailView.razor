@@ -1,0 +1,14 @@
+<SerginEntityDetailView Title="Device model" Trail="Trail" Problem="problem" Ready="@(deviceModel is not null)" Actions="Actions"
+                        FieldsTitle="@deviceModel?.Name">
+    <HeaderActions>
+        <SerginCopyLinkButton />
+    </HeaderActions>
+    <Fields>
+        @if (deviceModel is not null)
+        {
+            <SerginDetailField Label="Name" Value="@deviceModel.Name" />
+            <SerginDetailField Label="Manufacturer"><MudLink Href="@($"/dm/manufacturers/{deviceModel.ManufacturerId}")">@deviceModel.ManufacturerName</MudLink></SerginDetailField>
+            <SerginDetailField Label="ID" Value="@deviceModel.Id.ToString()" />
+        }
+    </Fields>
+</SerginEntityDetailView>

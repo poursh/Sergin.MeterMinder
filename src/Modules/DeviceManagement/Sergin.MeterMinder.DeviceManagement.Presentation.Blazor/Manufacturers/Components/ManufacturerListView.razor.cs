@@ -8,9 +8,9 @@ using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
-namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Pages;
+namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Components;
 
-public sealed partial class ManufacturerListPage
+public sealed partial class ManufacturerListView
 {
     private SerginAggregateList<GetManufacturerListItem> list = default!;
 

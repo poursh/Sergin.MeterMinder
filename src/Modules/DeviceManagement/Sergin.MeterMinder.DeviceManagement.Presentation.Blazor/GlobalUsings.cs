@@ -5,6 +5,7 @@ global using Sergin.SharedKernel.Application.Commands.Queries;
 global using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 global using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 global using Sergin.SharedKernel.Presentation.Blazor.Validation;
+global using Sergin.SharedKernel.Presentation.Blazor.Views;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Create;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;

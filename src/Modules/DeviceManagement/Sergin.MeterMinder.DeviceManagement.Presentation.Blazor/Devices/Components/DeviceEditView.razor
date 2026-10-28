@@ -1,0 +1,22 @@
+<SerginFormView Title="Edit device" Trail="Trail" Problem="problem" Ready="@(version is not null)"
+                Model="model" Validation="validation" OnSubmit="OnSubmit" Submitting="submitting" SubmitLabel="Save" CancelHref="@($"/dm/devices/{Id}")">
+    <MudTextField Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="model.DeviceId" Label="Device ID" For="@(() => model.DeviceId)" Immediate="true" />
+
+    @* View state, not on the command: For= only gives the form-level validation a member path, which finds no rule. *@
+    <MudSelect Variant="Variant.Outlined" Margin="Margin.Dense" T="Guid" Value="selectedManufacturerId" ValueChanged="OnManufacturerChangedAsync" Label="Manufacturer" Placeholder="Select a manufacturer"
+               For="@(() => selectedManufacturerId)">
+        @foreach (GetManufacturerListItem manufacturer in manufacturers)
+        {
+            <MudSelectItem T="Guid" Value="@manufacturer.Id">@manufacturer.Name</MudSelectItem>
+        }
+    </MudSelect>
+
+    <MudSelect Variant="Variant.Outlined" Margin="Margin.Dense" T="Guid" @bind-Value="model.DeviceModelId" Label="Model"
+               Placeholder="@(selectedManufacturerId == Guid.Empty ? "Select a manufacturer first" : "Select a model")"
+               For="@(() => model.DeviceModelId)" Disabled="@(selectedManufacturerId == Guid.Empty)">
+        @foreach (GetDeviceModelListItem deviceModel in deviceModels)
+        {
+            <MudSelectItem T="Guid" Value="@deviceModel.Id">@deviceModel.Name</MudSelectItem>
+        }
+    </MudSelect>
+</SerginFormView>
