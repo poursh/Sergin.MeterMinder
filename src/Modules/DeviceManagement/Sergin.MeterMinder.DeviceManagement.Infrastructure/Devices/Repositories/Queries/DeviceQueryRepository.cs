@@ -1,4 +1,4 @@
-﻿using System.Data.Common;
+using System.Data.Common;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOverview;
@@ -140,7 +140,7 @@ internal sealed class DeviceQueryRepository(
 
         const string query =
             $$"""
-            SELECT {{AuditColumns.SelectSql}}
+            SELECT {{AuditColumns.SelectSql}}, {{ScopeColumns.SelectSql}}
             FROM dm.device
             WHERE id = @Id AND deleted_at_utc IS NULL AND {{ScopeColumns.ReachSql}};
             """;

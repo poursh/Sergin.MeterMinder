@@ -41,7 +41,7 @@ public sealed class PageTypeRenderingTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
-    public async Task DeviceDetailPage_RendersAuditIcon_Actions_AndFields()
+    public async Task DeviceDetailPage_RendersInfoIcon_Actions_AndFields()
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
@@ -53,7 +53,7 @@ public sealed class PageTypeRenderingTests(SerginWebApiFactory<Program> factory)
         string html = await GetAsync($"/dm/devices/{device}");
 
         Assert.Contains("aria-label=\"Copy link\"", html, StringComparison.Ordinal);
-        Assert.Contains("aria-label=\"Audit &amp; version\"", html, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Information\"", html, StringComparison.Ordinal);
         Assert.Contains($"href=\"/dm/devices/{device}/edit\"", html, StringComparison.Ordinal);
         Assert.Contains(">Delete", html, StringComparison.Ordinal);
         Assert.Contains($"href=\"/dm/manufacturers/{manufacturer.Value}\"", html, StringComparison.Ordinal);

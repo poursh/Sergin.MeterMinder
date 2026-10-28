@@ -107,7 +107,7 @@ internal sealed class ManufacturerQueryRepository(
 
         const string query =
             $$"""
-            SELECT {{AuditColumns.SelectSql}}
+            SELECT {{AuditColumns.SelectSql}}, {{ScopeColumns.UnscopedSelectSql}}
             FROM dm.manufacturer
             WHERE id = @Id AND deleted_at_utc IS NULL;
             """;
