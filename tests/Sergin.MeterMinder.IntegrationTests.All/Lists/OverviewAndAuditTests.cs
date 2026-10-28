@@ -11,6 +11,7 @@ using Sergin.MeterMinder.IntegrationTests.All.Concurrency;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Queries;
+using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
@@ -20,7 +21,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Lists;
 
 /// <summary>
 /// The figures and stamps the aggregate pages show beside their body: the device overview, a manufacturer's
-/// overview and its models' device counts, the audit popover's stamps, and the user names those stamps resolve to.
+/// overview and its models' device counts, the information dialog's audit stamps, and the user names those stamps resolve to.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class OverviewAndAuditTests(SerginWebApiFactory<Program> factory)
@@ -140,6 +141,25 @@ public sealed class OverviewAndAuditTests(SerginWebApiFactory<Program> factory)
         Assert.Equal(created.CreatedAtUtc, modified.CreatedAtUtc);
         Assert.Equal(devUser, modified.ModifiedBy);
         Assert.NotNull(modified.ModifiedAtUtc);
+    }
+
+    [Fact]
+    public async Task Audit_NamesTheDeviceScope_AndNoScopeForAManufacturer()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        string marker = CatalogSeed.Marker();
+
+        ManufacturerId manufacturer = await CatalogSeed.ManufacturerAsync(dispatcher, $"maker-{marker}");
+        DeviceModelInternalId model = await CatalogSeed.ModelAsync(dispatcher, manufacturer, $"model-{marker}");
+        Guid device = await CatalogSeed.DeviceAsync(dispatcher, $"dev-{marker}", model);
+
+        AuditInfo deviceAudit = await SendAsync(dispatcher, new GetDeviceAuditQueryCommand(device));
+        AuditInfo manufacturerAudit = await SendAsync(dispatcher, new GetManufacturerAuditQueryCommand(manufacturer.Value));
+
+        // The dispatcher works in the root scope unless told otherwise, so that is where the device landed.
+        Assert.Equal(AuthorizationScope.RootId, deviceAudit.ScopeId);
+        Assert.Null(manufacturerAudit.ScopeId);
     }
 
     [Fact]
