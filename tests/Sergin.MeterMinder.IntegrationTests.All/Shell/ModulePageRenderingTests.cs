@@ -205,7 +205,7 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
     }
 
     [Fact]
-    public async Task ManufacturerListPage_AndCreateManufacturerPage_BothRender()
+    public async Task ManufacturerListPage_AndManufacturerCreatePage_BothRender()
     {
         HttpClient client = factory.CreateClient();
 

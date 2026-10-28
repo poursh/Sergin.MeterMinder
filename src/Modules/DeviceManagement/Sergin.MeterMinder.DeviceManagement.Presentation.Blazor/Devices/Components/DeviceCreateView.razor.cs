@@ -10,7 +10,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Errors;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Components;
 
-public sealed partial class CreateDeviceView
+public sealed partial class DeviceCreateView
 {
     private readonly NewDeviceFormModel model = new();
 

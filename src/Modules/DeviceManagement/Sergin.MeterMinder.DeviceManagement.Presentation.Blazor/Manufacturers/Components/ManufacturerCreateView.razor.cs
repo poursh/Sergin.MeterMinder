@@ -6,7 +6,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Errors;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Components;
 
-public sealed partial class CreateManufacturerView
+public sealed partial class ManufacturerCreateView
 {
     private readonly NewManufacturerFormModel model = new();
 

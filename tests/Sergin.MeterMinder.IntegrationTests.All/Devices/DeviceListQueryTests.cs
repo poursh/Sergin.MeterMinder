@@ -35,7 +35,7 @@ public sealed class DeviceListQueryTests(SerginWebApiFactory<Program> factory)
     }
 
     /// <summary>
-    /// CreateDevicePage fills its manufacturer picker through this query, so the grant it needs
+    /// DeviceCreatePage fills its manufacturer picker through this query, so the grant it needs
     /// (permission.dm.manufacturers.read) has to be present in the host's Sergin:DevUser:Permissions —
     /// this is the test that fails first if it is dropped.
     /// </summary>

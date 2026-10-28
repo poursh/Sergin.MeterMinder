@@ -99,7 +99,7 @@ public sealed partial class DeviceListView
             return;
         }
 
-        // The same 200-row ceiling as CreateDevicePage's pickers; the catalog is tens of rows today.
+        // The same 200-row ceiling as DeviceCreatePage's pickers; the catalog is tens of rows today.
         ErrorOr<ListQueryResponse<GetManufacturerListItem>> loaded =
             await Dispatcher.SendAsync(new GetManufacturerListQueryCommand(Paggination.Create(200, 1)));
 

@@ -10,7 +10,7 @@ using Sergin.SharedKernel.Presentation.Errors;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Components;
 
-public sealed partial class EditDeviceView
+public sealed partial class DeviceEditView
 {
     private readonly EditDeviceFormModel model = new();
 
@@ -87,7 +87,7 @@ public sealed partial class EditDeviceView
 
     private async Task LoadManufacturersAsync()
     {
-        // One page of 200, as on CreateDevicePage: there is no server-side search to fall back on.
+        // One page of 200, as on DeviceCreatePage: there is no server-side search to fall back on.
         ErrorOr<ListQueryResponse<GetManufacturerListItem>> result =
             await Dispatcher.SendAsync(new GetManufacturerListQueryCommand(Paggination.Create(200, 1)));
 
