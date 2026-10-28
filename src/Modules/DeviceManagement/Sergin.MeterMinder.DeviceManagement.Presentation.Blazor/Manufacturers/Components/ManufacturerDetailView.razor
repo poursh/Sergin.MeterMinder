@@ -1,0 +1,31 @@
+<SerginAggregateDetailView Title="Manufacturer" Trail="Trail" Problem="problem" Ready="@(manufacturer is not null)" Actions="Actions"
+                           OverviewCollapsed="true" FieldsTitle="@manufacturer?.Name">
+    <HeaderActions>
+        <SerginReloadButton OnReload="ReloadAsync" />
+        <SerginCopyLinkButton />
+        @if (manufacturer is not null)
+        {
+            <SerginAuditButton Load="LoadAuditAsync" Version="version" />
+        }
+    </HeaderActions>
+    <Overview>
+        <SerginOverviewCards>
+            <SerginOverviewCard Label="Models" Value="@overview?.Models.ToString(Culture)" Caption="of this manufacturer" />
+            <SerginOverviewCard Label="Devices" Value="@overview?.Devices.ToString(Culture)" Caption="in every scope" />
+        </SerginOverviewCards>
+    </Overview>
+    <OverviewSummary>
+        <MudText Typo="Typo.body2"><b>@(overview?.Models.ToString(Culture) ?? "–")</b> models</MudText>
+        <MudText Typo="Typo.body2"><b>@(overview?.Devices.ToString(Culture) ?? "–")</b> devices</MudText>
+    </OverviewSummary>
+    <Fields>
+        @if (manufacturer is not null)
+        {
+            <SerginDetailField Label="Name" Value="@manufacturer.Name" />
+            <SerginDetailField Label="Address" Value="@manufacturer.Address" />
+        }
+    </Fields>
+    <Entities>
+        <DeviceModelListView @ref="modelList" ManufacturerId="Id" Version="version" OnChanged="OnModelsChangedAsync" />
+    </Entities>
+</SerginAggregateDetailView>

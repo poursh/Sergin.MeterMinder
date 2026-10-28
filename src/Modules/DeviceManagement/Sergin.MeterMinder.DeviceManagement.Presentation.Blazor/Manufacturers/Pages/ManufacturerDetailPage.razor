@@ -1,38 +1,3 @@
 @page "/dm/manufacturers/{Id:guid}"
 
-<PageTitle>Manufacturer</PageTitle>
-
-<SerginPageHeader Trail="Trail">
-    <SerginReloadButton OnReload="ReloadAsync" />
-    <SerginCopyLinkButton />
-    @if (manufacturer is not null)
-    {
-        <SerginAuditButton Load="LoadAuditAsync" Version="version" />
-    }
-</SerginPageHeader>
-
-<SerginProblemPanel Problem="problem" />
-
-@if (manufacturer is not null)
-{
-    <SerginAggregatePage Actions="Actions" OverviewCollapsed="true">
-        <Overview>
-            <SerginOverviewCards>
-                <SerginOverviewCard Label="Models" Value="@overview?.Models.ToString(Culture)" Caption="of this manufacturer" />
-                <SerginOverviewCard Label="Devices" Value="@overview?.Devices.ToString(Culture)" Caption="in every scope" />
-            </SerginOverviewCards>
-        </Overview>
-        <OverviewSummary>
-            <MudText Typo="Typo.body2"><b>@(overview?.Models.ToString(Culture) ?? "–")</b> models</MudText>
-            <MudText Typo="Typo.body2"><b>@(overview?.Devices.ToString(Culture) ?? "–")</b> devices</MudText>
-        </OverviewSummary>
-        <ChildContent>
-            <SerginDetailFields Title="@manufacturer.Name">
-                <SerginDetailField Label="Name" Value="@manufacturer.Name" />
-                <SerginDetailField Label="Address" Value="@manufacturer.Address" />
-            </SerginDetailFields>
-
-            <DeviceModelSection @ref="modelSection" ManufacturerId="Id" Version="version" OnChanged="OnModelsChangedAsync" />
-        </ChildContent>
-    </SerginAggregatePage>
-}
+<SerginPage><ManufacturerDetailView Id="Id" /></SerginPage>

@@ -1,0 +1,5 @@
+<SerginFormView Title="Edit manufacturer" Trail="Trail" Problem="problem" Ready="@(version is not null)"
+                Model="model" Validation="validation" OnSubmit="OnSubmit" Submitting="submitting" SubmitLabel="Save" CancelHref="@($"/dm/manufacturers/{Id}")">
+    <MudTextField Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="model.Name" Label="Name" For="@(() => model.Name)" Immediate="true" />
+    <MudTextField Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="model.Address" Label="Address" For="@(() => model.Address)" Immediate="true" />
+</SerginFormView>

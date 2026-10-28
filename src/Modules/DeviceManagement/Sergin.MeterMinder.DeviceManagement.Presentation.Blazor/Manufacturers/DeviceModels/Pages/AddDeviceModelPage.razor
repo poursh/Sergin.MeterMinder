@@ -1,21 +1,3 @@
 @page "/dm/manufacturers/{ManufacturerId:guid}/models/new"
 
-<PageTitle>New device model</PageTitle>
-
-<SerginBreadcrumbs Trail="Trail" />
-
-<MudText Typo="Typo.h4" Class="mb-4">New device model</MudText>
-
-<MudForm @ref="form" Model="model" Validation="@validation" @bind-IsValid="isValid"
-         SuppressImplicitSubmission="false" onsubmit="@OnSubmit">
-    <MudCard>
-        <MudCardContent>
-            <MudTextField Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="model.Name" Label="Name" For="@(() => model.Name)" Immediate="true" />
-        </MudCardContent>
-        <MudCardActions>
-            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
-                       Color="Color.Primary" Disabled="@(submitting || !isValid)">Create</MudButton>
-            <MudButton Href="@($"/dm/manufacturers/{ManufacturerId}")">Cancel</MudButton>
-        </MudCardActions>
-    </MudCard>
-</MudForm>
+<SerginPage><AddDeviceModelView ManufacturerId="ManufacturerId" /></SerginPage>

@@ -9,9 +9,9 @@ using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
 
-namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Pages;
+namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Components;
 
-public sealed partial class DeviceListPage
+public sealed partial class DeviceListView
 {
     private SerginAggregateList<GetDeviceListItem> list = default!;
     private DeviceOverview? overview;
