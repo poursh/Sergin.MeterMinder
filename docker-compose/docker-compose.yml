@@ -49,8 +49,8 @@ services:
       timeout: 5s
       retries: 10
 
-  # Development only: start-dev keeps everything in an in-memory H2 database, so the realm is rebuilt
-  # from the committed export on every start and nothing here is a production deployment.
+  # Development only: start-dev uses an embedded H2 database, persisted by the data volume below, and
+  # nothing here is a production deployment.
   sergin.identity:
     image: quay.io/keycloak/keycloak:26.7.4
     container_name: Sergin.Identity
@@ -73,6 +73,10 @@ services:
       - 8080:8080
     volumes:
       - ./.files/identity:/opt/keycloak/data/import:ro
+      # start-dev keeps its embedded H2 database under data/h2; persisting it keeps users and realm
+      # changes across restarts. --import-realm skips a realm that already exists, so delete
+      # ./.containers/identity to rebuild the realm from the committed export.
+      - ./.containers/identity/data:/opt/keycloak/data/h2
     healthcheck:
       # No curl/wget in the Keycloak image (security-stripped), so probe the management
       # health port (9000) with bash's /dev/tcp instead.
