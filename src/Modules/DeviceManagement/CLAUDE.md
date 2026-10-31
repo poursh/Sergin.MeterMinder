@@ -6,7 +6,7 @@ See the root `.claude/CLAUDE.md` for cross-module conventions (layering, CQRS sp
 
 ## Outbox opt-in
 
-`DeviceManagementDbContext` implements `IOutboxDbContext` (`Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox`) and calls `modelBuilder.ApplyOutbox()` after `ApplyConfigurationsFromAssembly`, so `dm.outbox_messages` and `dm.inbox_messages` exist — added by the `AddOutbox` migration. That opt-in is what makes `AddModuleDbContext` register this module's `IInbox<IDeviceManagementUnitOfWork>` and its `IOutboxRelaySource`, which the host's `OutboxRelayService` drains. **No translator, integration event, or handler is declared here yet** — the tables are ready for the first one; see the root `CLAUDE.md`'s Outbox bullet for the producer/consumer shapes and `docs/superpowers/specs/2026-09-13-outbox-design.md` for the design.
+`DeviceManagementDbContext` implements `IOutboxDbContext` (`Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox`) and calls `modelBuilder.ApplyOutbox()` after `ApplyConfigurationsFromAssembly`, so `dm.outbox_messages` and `dm.inbox_messages` exist — added by the `AddOutbox` migration. That opt-in is what makes `AddModuleDbContext` register this module's `IInbox<IDeviceManagementUnitOfWork>` and its `IOutboxRelaySource`, which the host's `OutboxRelayService` drains. **This module declares no translator, integration event, or handler of its own yet.** It does consume one event: SharedKernel's `ScopePathRewriteHandler<DeviceManagementDbContext>` (registered by `AddModuleDbContext`) handles `ScopesMovedIntegrationEvent`, which UserAccess publishes when a scope moves, and rewrites `dm.device.scope_path` (see "Scope" below). See the root `CLAUDE.md`'s Outbox bullet for the producer/consumer shapes and `docs/superpowers/specs/2026-09-13-outbox-design.md` for the design.
 
 ## Audit stamps
 
@@ -27,6 +27,14 @@ The `AddAuditColumns` migration adds `created_at_utc`/`created_by`/`modified_at_
 
 `Device` and `Manufacturer` are also **versioned** — both configurations call `builder.Audited().SoftDeletable().Versioned()` — with `DeviceModel` taking the root's `row_version` since it carries no column of its own. `DeleteDeviceCommand`, `DeleteManufacturerCommand`, `AddDeviceModelCommand`, `UpdateDeviceCommand`, `UpdateManufacturerCommand`, `RenameDeviceModelCommand` and `RemoveDeviceModelCommand` call `RequireExpectedVersion()` in their configurations (`<RecordName>Configuration.cs` in `.Application.Configurations`, in the folder mirroring each record's), so each is refused with 428 when sent with no version and with 412 when sent with a stale one. `GetDeviceById` and `GetManufacturerById` read `row_version` alongside their other columns, split into a `Versioned<T>` by `DeviceQueryRepository`/`ManufacturerQueryRepository` on `splitOn: "rowVersion"` rather than landing on the response record itself — `DeviceQueryResponse`/`ManufacturerQueryResponse` stay version-free; `DeviceQueryResponse` also carries `ManufacturerId`/`ManufacturerName` (joined through the model) so `DeviceEditPage` can preselect its manufacturer and the detail page can link the model, same as every command. See the root `CLAUDE.md`'s "Optimistic concurrency" bullet for the mechanism and `docs/superpowers/specs/2026-09-29-optimistic-concurrency-design.md` for the design.
 
+## Scope
+
+`Device` is the platform's one **scoped** aggregate: `DeviceAggregateFeatureConfiguration` calls `builder.Audited().SoftDeletable().Versioned().Scoped()`. `Manufacturer` (with `DeviceModel`) is not — the catalog is global and belongs to no scope. A new device is stamped with the caller's current scope (`scope_id` + `scope_path ltree`) and keeps it on every update; the `Sergin:Scope` query filter shows only devices inside the current subtree that the caller's grants reach, and an unreachable device is `Error.NotFound()`. `DeviceQueryRepository` adds `ScopeColumns.ReachSql` to every raw-SQL device read. Uniqueness and in-use checks (`IsTakenAsync`, `IsTakenByOtherAsync`, `AnyUsingModelAsync`, `AnyUsingManufacturerAsync`) look in every scope through `DeviceRepository.InEveryScope`, since a device id taken in another scope is still taken. The `AddDeviceScope` migration added the columns nullable, backfilled the root, then made them `NOT NULL`. Device permissions are checked on the current scope; manufacturer and model permissions on any scope the caller holds them (both through the commands' `ICommandConfiguration<TRecord, TAggregateRoot>` binding). Tests: `tests/.../Scoping/`. Design: `docs/superpowers/specs/2026-10-17-scoped-aggregates-design.md`.
+
+## Dev mock data
+
+`docker-compose/.files/seed/dev-seed.sql` (4 regions, 12 areas, 5 manufacturers, 11 models, `device_count` devices `MTR-<n>`, default 1000) and `dev-seed-users.sql` (users, roles and scoped grants matching the Keycloak realm's mock users, password = username) are **Development-only** psql scripts, run by hand against the Compose database after the app has migrated it. Both are idempotent. The usage line is at the top of each file. Never run them against a real environment.
+
 ## `Devices` aggregate
 
 `Sergin.MeterMinder.DeviceManagement.Domain/Devices/Device.cs` — `AggregateRoot<DeviceIntenralId>` (note the misspelling — it's the real type name, match it). `DeviceId` is the business-facing string key; `DeviceIntenralId` is the internal `Guid` PK. `Device` carries a mandatory `DeviceModelId` — a `DeviceModelInternalId`, a reference across the aggregate boundary to a `DeviceModel` entity inside the `Manufacturers` aggregate (below) — set via `Device.Create(DeviceId, DeviceModelInternalId)`. **A device does not store its manufacturer**; it is reachable only through the model (`dm.device.device_model_id → dm.device_model.id → dm.device_model.manufacturer_id`). The FK is `ON DELETE RESTRICT` — a reference across an aggregate boundary must never cascade.
@@ -35,9 +43,13 @@ Implemented feature slices (`Devices/Commands/<Feature>/` in Application, mirror
 
 | Feature | Kind | Route | Permission |
 |---|---|---|---|
-| `Create` | command | `POST /dm/devices` | none |
+| `Create` | command | `POST /dm/devices` | `DevicePermissions.Update` (current scope — the device lands there) |
+| `Update` | command | `PUT /dm/devices/{deviceId:guid}` | `DevicePermissions.Update`, expected version |
+| `Delete` | command | `DELETE /dm/devices/{deviceId:guid}` | `DevicePermissions.Delete`, expected version |
 | `GetOne` | query | `GET /dm/devices/{deviceId:guid}` | `DevicePermissions.Read` |
 | `GetList` | query | `GET /dm/devices` (`[AsParameters] ListQueryRequestModel`) | `DevicePermissions.Read` |
+
+Every device permission is checked on the caller's current scope.
 
 **Both device read models carry the model's name next to its id; only the detail one carries the manufacturer.** `GetDeviceListItem` is `(Id, DeviceId, DeviceModelId, DeviceModelName)` and `DeviceQueryResponse` adds `(ManufacturerId, ManufacturerName)`; `DeviceQueryRepository` fills the name with an inner `JOIN dm.device_model dm_ ON dm_.id = d.device_model_id` in both raw-SQL reads, and `GetDeviceById` also joins `dm.manufacturer m_` (the alias is `dm_` because `dm` is the schema; safe because `device_model_id` is a required FK — the count statement stays on `dm.device` alone). `DeviceListPage` shows the name in its Model column and `DeviceDetailPage` renders `Model: <name>` as a link to the model's page under its manufacturer (the 2026-09-16 device-models spec's Decision 4 kept the manufacturer out; the dm-full-crud spec, Decision 7, brought it back for the edit page). The gRPC wire shape follows the record: `DeviceData.device_model_id = 3`, `device_model_name = 4`, `manufacturer_id = 5`, `manufacturer_name = 6` in `devices.proto`, mapped by `DeviceGrpcService` and read back by `GetDeviceByIdGrpcInvoker`. Adding a field to `DeviceQueryResponse` therefore means touching those three plus `DeviceGrpcRoundTripTests`, whose record-equality assertion is what proves the field survives the round trip. `tests/.../Devices/DeviceReadModelTests.cs` covers the two reads and the detail page's prerendered HTML; the list page is deliberately not asserted through HTML, because `MudTable`'s `ServerData` loads after first render, which prerendering never reaches.
 
@@ -45,7 +57,7 @@ Implemented feature slices (`Devices/Commands/<Feature>/` in Application, mirror
 
 ## Validators
 
-All three write commands carry a FluentValidation validator in `.Application` next to the handler, discovered by `AddSerginCore`'s `ApplicationAssembly` scan (see the root CLAUDE.md, "Validation"):
+Every write command carries a FluentValidation validator in `.Application` next to the handler, discovered by `AddSerginCore`'s `ApplicationAssembly` scan (see the root CLAUDE.md, "Validation") — nine today: `CreateDevice`, `UpdateDevice`, `DeleteDevice`, `CreateManufacturer`, `UpdateManufacturer`, `DeleteManufacturer`, `AddDeviceModel`, `RenameDeviceModel`, `RemoveDeviceModel` — plus the three list-query validators (`GetDeviceList`, `GetManufacturerList`, `GetDeviceModelList`; see "Aggregate pages" below). The delete and update ones are described in the soft-delete and **Updates** paragraphs under "Audit stamps" above; the three create-side ones:
 
 - `Devices/Commands/Create/CreateDeviceCommandValidator.cs` — this module's one validator with **constructor dependencies** (UserAccess's `CreateUserCommandValidator` is the other): `CreateDeviceCommandValidator(IDeviceRepository devices, IManufacturerRepository manufacturers)`. Four rules, in two pairs. The shape rules target `.Value` with `OverridePropertyName`: `DeviceId.Value` not empty and at most `DeviceId.MaxLength` = 100; `DeviceModelId.Value` not `Guid.Empty`. The database rules target the wrapper, so their `Error.Code` is already the property name: `RuleFor(x => x.DeviceId).MustBeUniqueIn(devices).When(x => !string.IsNullOrWhiteSpace(x.DeviceId.Value))` — message `'Device Id' is already in use.` — and `RuleFor(x => x.DeviceModelId).MustAsync(manufacturers.ModelExistsAsync).WithMessage("'{PropertyName}' must refer to an existing DeviceModel.").When(x => x.DeviceModelId.Value != Guid.Empty)` — message `'Device Model Id' must refer to an existing DeviceModel.`. **The model rule is a local `MustAsync`, not `MustExistIn`**: that extension is generic over `IRepository<TAggregateRoot, TId>`, and a model is an entity inside the `Manufacturer` aggregate with no repository of its own, so the yes/no comes from `IManufacturerRepository.ModelExistsAsync` instead. The `When` guards keep the queries off for a value the shape rule already refused. Both are advisory — the FK and `ix_device_device_id` (below) are the guarantee under a race, which still surfaces as `DbUpdateException` (root CLAUDE.md, "CQRS structural gotchas").
 - `Manufacturers/Commands/Create/CreateManufacturerCommandValidator.cs` — shape only, no dependencies: `Name.Value` not empty, at most `ManufacturerName.MaxLength` = 200; `Address`, when supplied, not empty and at most `ManufacturerAddress.MaxLength` = 500 — the columns themselves are unbounded text, so these constants are the only limits. `ManufacturerName` is not an alternate key: two manufacturers may share a name today, so there is no `IUniqueKeyRepository<ManufacturerName>` and no index.
@@ -69,7 +81,9 @@ Slices on this aggregate for models live in a **nested `Manufacturers/DeviceMode
 
 | Feature | Kind | Route | Permission |
 |---|---|---|---|
-| `Add` (`AddDeviceModelCommand`) | command | `POST /dm/manufacturers/{manufacturerId:guid}/models` | none |
+| `Add` (`AddDeviceModelCommand`) | command | `POST /dm/manufacturers/{manufacturerId:guid}/models` | `ManufacturerPermissions.Update`, expected version (the manufacturer's) |
+| `Rename` (`RenameDeviceModelCommand`) | command | `PUT /dm/manufacturers/{manufacturerId:guid}/models/{modelId:guid}` | `ManufacturerPermissions.Update`, expected version |
+| `Remove` (`RemoveDeviceModelCommand`) | command | `DELETE /dm/manufacturers/{manufacturerId:guid}/models/{modelId:guid}` | `ManufacturerPermissions.Update`, expected version |
 | `GetOne` (`GetDeviceModelByIdQueryCommand`) | query | `GET /dm/manufacturers/{manufacturerId:guid}/models/{modelId:guid}` | `ManufacturerPermissions.Read` |
 | `GetList` (`GetDeviceModelListQueryCommand`) | query | `GET /dm/manufacturers/{manufacturerId:guid}/models` (`[AsParameters] ListQueryRequestModel`) | `ManufacturerPermissions.Read` |
 
@@ -81,9 +95,13 @@ Implemented feature slices (`Manufacturers/Commands/<Feature>/` in Application, 
 
 | Feature | Kind | Route | Permission |
 |---|---|---|---|
-| `Create` | command | `POST /dm/manufacturers` | none |
+| `Create` | command | `POST /dm/manufacturers` | `ManufacturerPermissions.Update` |
+| `Update` | command | `PUT /dm/manufacturers/{manufacturerId:guid}` | `ManufacturerPermissions.Update`, expected version |
+| `Delete` | command | `DELETE /dm/manufacturers/{manufacturerId:guid}` | `ManufacturerPermissions.Delete`, expected version |
 | `GetOne` | query | `GET /dm/manufacturers/{manufacturerId:guid}` | `ManufacturerPermissions.Read` |
 | `GetList` | query | `GET /dm/manufacturers` (`[AsParameters] ListQueryRequestModel`) | `ManufacturerPermissions.Read` |
+
+Every manufacturer and model permission is checked on **any** scope: `Manufacturer` is not `Scoped()`, so a regional holder passes.
 
 Blazor pages (`Sergin.MeterMinder.DeviceManagement.Presentation.Blazor/Manufacturers/`) mirror the `Devices/` trio one to one: `ManufacturerListPage` (`/dm/manufacturers`, Name/Address columns), `ManufacturerDetailPage` (`/dm/manufacturers/{Id:guid}`, renders the address line only when there is one), and `ManufacturerCreatePage` (`/dm/manufacturers/new`) over `Models/NewManufacturerFormModel` (`Name`, `Address?` — plain properties, no DataAnnotations; the pipeline's `CreateManufacturerCommandValidator` validates them live through `ISerginFormValidator`). **The create page maps a blank `Address` to `null` before dispatching** — `CreateManufacturerCommandValidator` refuses an empty non-null address, so an untouched field must become "no address", not `new ManufacturerAddress("")`. The nav entry (`DeviceManagementNavigation`, Order 110, `Icons.Material.Filled.Factory`) carries `RequiredPermission: ManufacturerPermissions.Read`, the same permission the two queries require, so the menu hides it from a user who could only 403 on it. `Shell/ModulePageRenderingTests` covers all three routes.
 
