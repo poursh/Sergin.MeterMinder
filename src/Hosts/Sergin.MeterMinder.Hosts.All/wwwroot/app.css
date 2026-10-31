@@ -1,1 +1,8 @@
 /* Host-level style overrides. Loaded after MudBlazor.min.css so app rules win. */
+
+/* The shell's compact rule `:is(.mud-main-content, .mud-dialog) .mud-icon-button` also matches the switch thumb
+   (MudSwitch renders it as an icon button) and shrinks its 9px padding to 3px, pushing the thumb off the track.
+   Restore MudBlazor's own switch padding; the extra .mud-switch outranks the shell rule's specificity. */
+.mud-switch .mud-switch-base.mud-icon-button.mud-switch-base-small { padding: 5px; }
+.mud-switch .mud-switch-base.mud-icon-button.mud-switch-base-medium { padding: 9px; }
+.mud-switch .mud-switch-base.mud-icon-button.mud-switch-base-large { padding: 13px; }
