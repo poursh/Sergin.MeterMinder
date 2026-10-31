@@ -5,10 +5,10 @@
 [![.NET 10](https://img.shields.io/badge/.NET-10-512BD4)](https://dotnet.microsoft.com/)
 [![Blazor Server](https://img.shields.io/badge/UI-Blazor%20Server%20%2B%20MudBlazor-5C2D91)](src/Hosts/Sergin.MeterMinder.Hosts.All)
 [![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-336791)](docker-compose/docker-compose.yml)
-[![Keycloak 26](https://img.shields.io/badge/Keycloak-26.5-4D4D4D)](docker-compose/.files/identity/sergin-realm.json)
+[![Keycloak 26](https://img.shields.io/badge/Keycloak-26.7-4D4D4D)](docker-compose/.files/identity/sergin-realm.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-2E7D32)](LICENSE)
 
-Meter Minder is the hostable root of the **Sergin** platform. One process composes two modules: **DeviceManagement** (`dm`), the head-end system that owns devices and manufacturers, and **UserAccess** (`ua`), which owns users, roles and the permission set everything else authorizes against. Each module is a Clean Architecture stack with its own PostgreSQL schema, its own migrations and its own Razor pages. The host is a twenty-line `Program.cs` that hands both to a shared bootstrap.
+Meter Minder is the hostable root of the **Sergin** platform. One process composes two modules: **DeviceManagement** (`dm`), the head-end system that owns devices, manufacturers and their device models, and **UserAccess** (`ua`), which owns users, the scope tree, roles and role assignments — the scoped RBAC every permission check is answered from. Each module is a Clean Architecture stack with its own PostgreSQL schema, its own migrations and its own Razor pages. The host is a twenty-line `Program.cs` that hands both to a shared bootstrap.
 
 ## At a glance
 
@@ -18,9 +18,11 @@ Meter Minder is the hostable root of the **Sergin** platform. One process compos
 | **Front end** | Blazor Server + MudBlazor. One Razor Class Library per module; pages dispatch to handlers in-process through MediatR. |
 | **Storage** | PostgreSQL 17, one schema per module. EF Core on the write side, Dapper and raw SQL on the read side. |
 | **Sign-in** | Keycloak over OpenID Connect. Keycloak authenticates; Sergin authorizes. A configuration-only `DevUser` mode for day-to-day local work. |
+| **Authorization** | Scoped RBAC: roles belong to a node of a scope tree and are assigned per scope; every check reads stored grants, so a change applies on the next request. The app bar's scope picker sets the working scope. |
+| **Platform features** | Declared per aggregate: audit stamps, soft delete, optimistic concurrency (`row_version`, 428/412), and scope stamping with a row filter. Every write command has a FluentValidation validator, run by the pipeline and live in the forms. |
 | **Messaging** | Domain events dispatched inside the saving transaction; a transactional outbox with inbox dedup, a background relay and a pluggable transport seam. |
 | **Observability** | .NET Aspire service defaults (OpenTelemetry, health checks, resilience) and the Aspire dashboard container. |
-| **Tests** | One xUnit integration project driving the real host against a disposable `postgres:17` from Testcontainers. |
+| **Tests** | An xUnit integration project driving the real host against a disposable `postgres:17` from Testcontainers, plus a small UserAccess domain unit-test project. |
 
 ## Three repositories, one working tree
 
@@ -29,7 +31,7 @@ This is the root of a three-repo split. Two directories are git submodules that 
 | Path | Repository | What it holds |
 |---|---|---|
 | `.` | [Sergin.MeterMinder](https://github.com/poursh/Sergin.MeterMinder) | The host, the DeviceManagement module, the integration tests, Docker Compose |
-| `src/SharedKernel/` | [Sergin.SharedKernel](https://github.com/poursh/Sergin.SharedKernel) | Framework building blocks and host bootstraps. Builds standalone; depends on nothing else. |
+| `src/SharedKernel/` | [Sergin.SharedKernel](https://github.com/poursh/Sergin.SharedKernel) | Framework building blocks and host bootstraps. Depends on no other Sergin repository, but builds only inside a host: its build rules and package versions come from this repo's `Directory.Build.props`/`Directory.Packages.props`. |
 | `src/Modules/UserAccess/` | [Sergin.UserAccess](https://github.com/poursh/Sergin.UserAccess) | The UserAccess module. Embed-only: it compiles only when mounted here. |
 
 > [!IMPORTANT]
@@ -40,11 +42,13 @@ This is the root of a three-repo split. Two directories are git submodules that 
 ├── src/
 │   ├── Hosts/Sergin.MeterMinder.Hosts.All/     Blazor Server host — the only runnable project
 │   ├── Modules/
-│   │   ├── DeviceManagement/                    schema dm — Devices, Manufacturers
-│   │   └── UserAccess/                          schema ua — Users, Roles          (submodule)
+│   │   ├── DeviceManagement/                    schema dm — Devices, Manufacturers (+ models)
+│   │   └── UserAccess/                          schema ua — Users, Roles, Scopes   (submodule)
 │   └── SharedKernel/                            building blocks, bootstraps        (submodule)
-├── tests/Sergin.MeterMinder.IntegrationTests.All/
-├── docker-compose/                              app + postgres:17 + Keycloak + Aspire dashboard
+├── tests/
+│   ├── Sergin.MeterMinder.IntegrationTests.All/ the real host against a Testcontainers postgres:17
+│   └── Sergin.UserAccess.UnitTests/             scoped-RBAC domain rules, no database
+├── docker-compose/                              app + postgres:17 + Keycloak + Aspire dashboard, dev seeds
 └── docs/superpowers/                            design specs and implementation plans
 ```
 
@@ -79,6 +83,13 @@ Compose builds the app image and starts PostgreSQL, Keycloak and the Aspire dash
 docker compose -f docker-compose/docker-compose.yml up --build
 ```
 
+To try the scoped RBAC with realistic data, two **development-only** psql scripts fill the Compose database once the app has migrated it. `dev-seed.sql` adds a scope tree (4 regions, 12 areas), 5 manufacturers, 11 models and `device_count` devices; `dev-seed-users.sql` adds users, roles and scoped grants for the realm's mock users — `admin.root`, `north.manager`, `tabriz.operator`, `south.viewer`, `multi.auditor`, `expired.user` and `inactive.user`, each with password = username — so each one sees a different part of the tree. Both are idempotent; never run them against a real environment.
+
+```bash
+docker exec -i -e PGPASSWORD=<pwd> Sergin.Database psql -U postgres -d Sergin_DB -v ON_ERROR_STOP=1 -v device_count=1000 < docker-compose/.files/seed/dev-seed.sql
+docker exec -i -e PGPASSWORD=<pwd> Sergin.Database psql -U postgres -d Sergin_DB -v ON_ERROR_STOP=1 < docker-compose/.files/seed/dev-seed-users.sql
+```
+
 | Port | Service |
 |---|---|
 | `5002` / `5003` | Blazor host, http / https |
@@ -97,10 +108,14 @@ In **Visual Studio**, open `Sergin.MeterMinder.slnx`, set `docker-compose` (`doc
 
 | Mode | What happens | Where it is used |
 |---|---|---|
-| `DevUser` (default) | No authentication. Every request runs as `Sergin:DevUser`, which ships with the three read permissions the UI exercises. **Development only** — the host refuses to start in any other environment rather than serve unauthenticated pages. | `dotnet run` |
-| `Keycloak` | OpenID Connect against the `sergin` realm. During the callback, UserAccess finds or creates the user by the provider's `sub`, gives a new user the seeded `viewer` role, and hands back that user's permissions, which are stamped into the auth cookie as claims. A permission check then reads claims only — no database work — at the price that a change to someone's rights takes effect at their next sign-in. | Docker Compose |
+| `DevUser` (default) | No authentication. Every request runs as `Sergin:DevUser`. At start the host gives that user a `ua.users` row and the `administrator` role at the root scope, so it passes every check. **Development only** — the host refuses to start in any other environment rather than serve unauthenticated pages. | `dotnet run` |
+| `Keycloak` | OpenID Connect against the `sergin` realm. During the callback, UserAccess finds or creates the user by the provider's `sub` (a new user gets the seeded `viewer` role at the root) and hands back its Sergin user id, which is the only thing stamped into the auth cookie. | Docker Compose |
 
-Keycloak authenticates; **Sergin authorizes**. The realm grants no permissions. Role administration has no UI yet — the migration seeds `administrator` and `viewer`, and changing who holds which role means editing `ua.user_roles` directly.
+Keycloak authenticates; **Sergin authorizes**. The realm grants no permissions, and the cookie carries none. Every check — in the pipeline, the nav menu or a handler — asks UserAccess's stored grants whether the user holds the permission **at a scope**, cached in process, so a change to someone's rights applies on their next request.
+
+### Scoped RBAC
+
+Scopes form one tree (*Company › North Region › Feeder 1*). A role belongs to a scope and may be inheritable below it; a user holds assignments — a role at a scope, for that scope or its whole subtree, optionally time-limited. The **scope picker** in the app bar sets the scope the user is working in: device lists and pages show only devices inside that scope's subtree that the user's grants reach, and a new device lands in it. The manufacturer catalog belongs to no scope. Scopes, roles and assignments are administered at `/ua/scopes` and on each user's page. The design is in [`docs/superpowers/specs/2026-10-09-scoped-rbac-design.md`](docs/superpowers/specs/2026-10-09-scoped-rbac-design.md).
 
 > [!NOTE]
 > **`Authority` and `MetadataAddress` differ in `docker-compose.yml` on purpose.** The browser reaches Keycloak on `http://localhost:8080` while the app container reaches it on `http://sergin.identity:8080`, and the issuer in the tokens must be the address the browser saw — so `Authority` is the public URL and `MetadataAddress` the internal one. `KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"` on the identity service is the third piece: without it the discovery document sends the app container to `localhost:8080` for signing keys, which inside that container is the app itself. Getting these the wrong way round is the single most common way this setup fails.
@@ -118,7 +133,8 @@ A module is a set of projects under `src/Modules/<Module>/` whose references enf
 |---|---|---|
 | `.Domain` | Aggregates built through `static Create(...)` factories, strongly-typed IDs (`Guid.CreateVersion7()`), repository interfaces | `SharedKernel.Domain` only |
 | `.Application.Contracts` | The MediatR request and response records — the shapes a presentation layer needs, and nothing else | `.Domain` |
-| `.Application` | Handlers, query-repository interfaces, the module's `IUnitOfWork`. Queries live under `Commands/` too. | `.Application.Contracts` |
+| `.Application.Configurations` | Request policy (`ICommandConfiguration`), aggregate features (`IAggregateFeatureConfiguration`) and the `<Aggregate>Permissions` definitions — the only assembly they are read from | `.Application.Contracts` |
+| `.Application` | Handlers, their FluentValidation validators, query-repository interfaces, the module's `IUnitOfWork`. Queries live under `Commands/` too. | `.Application.Contracts`, `.Application.Configurations` |
 | `.Infrastructure` | EF Core repositories for writes; Dapper query repositories for reads | `.Application` |
 | `.Infrastructure.Data` | The `DbContext`, entity configurations, value converters, migrations, and the outbox opt-in | `.Domain` |
 | `.Presentation.WebApi` | Minimal-API endpoints implementing `IEndpoint` — compiled, kept current, currently unhosted | `.Application.Contracts` |
@@ -132,7 +148,7 @@ DeviceManagement adds a gRPC trio — `.Presentation.Grpc.Contracts` compiles th
 ```mermaid
 flowchart LR
     Page["Blazor page"] -->|"SendAsync"| D["ISerginDispatcher<br/>fresh DI scope per send"]
-    D --> P1["PermissionCheck<br/>behavior"] --> P2["Validation<br/>behavior"]
+    D --> P1["PermissionCheck<br/>behavior"] --> PV["ExpectedVersion<br/>behavior"] --> P2["Validation<br/>behavior"]
     P2 --> H["Handler<br/>(Local module)"]
     P2 -.-> R["RemoteForwardingHandler"] -.->|"gRPC"| S["Module hosted elsewhere"]
     H --> DB[("PostgreSQL")]
@@ -146,7 +162,8 @@ Whether a module is **Local** or **Remote** is decided at composition time, not 
 
 - **Writes** go page → command → handler → aggregate method → EF repository → `IUnitOfWork.SaveChangesAsync`. Handlers return `ErrorOr<T>`; the UI renders an error through the same `SerginProblem` mapping an API endpoint would, so both surfaces say the same thing for the same error code.
 - **Reads** go through per-feature query repositories that run raw SQL over `IDbConnectionFactory`, bypassing EF. Every list feature declares its own request record deriving from the abstract `ListQuery<TItem>`, which is what lets a command configuration require a permission for it.
-- **Permissions** are opt-in per slice: a `<RecordName>Configuration : ICommandConfiguration<<RecordName>>` beside the request record calls `RequirePermissions(<Aggregate>Permissions.X)` (a `PermissionDefinition` registered by the aggregate's configuration), enforced by `PermissionCheckPipelineBehavior` against `IUserContext`.
+- **Permissions** are opt-in per slice: a `<RecordName>Configuration : ICommandConfiguration<<RecordName>, <Root>>` in the module's `.Application.Configurations` calls `RequirePermissions(<Aggregate>Permissions.X)` (a `PermissionDefinition` registered by the aggregate's configuration), enforced by `PermissionCheckPipelineBehavior` from stored grants — on the current scope for a scoped aggregate (`Device`), on any scope for an unscoped one. `RequireExpectedVersion()` makes the command carry the version the page loaded: none is a 428, a stale one a 412.
+- **Aggregate features** are declared once per aggregate root in a `<Root>AggregateFeatureConfiguration` — `Audited()`, `SoftDeletable()`, `Versioned()`, `Scoped()` — and SharedKernel turns them into columns, query filters and save interceptors. Each one turned on ships with its migration.
 
 ### Events and the outbox
 
@@ -172,7 +189,7 @@ sequenceDiagram
     R->>O: processed, or retry with backoff
 ```
 
-The default `IIntegrationEventDispatcher` delivers in-process; a multi-host deployment registers a broker-backed one in `Program.cs` before the bootstrap and it wins. That method is the only seam a transport ever plugs into. Both `dm` and `ua` have opted in (their `AddOutbox` migrations create the tables), but **no module declares a translator, event or handler yet** — the pipe is proven by the `Events/` tests with a test-only aggregate. The design is in [`docs/superpowers/specs/2026-09-13-outbox-design.md`](docs/superpowers/specs/2026-09-13-outbox-design.md).
+The default `IIntegrationEventDispatcher` delivers in-process; a multi-host deployment registers a broker-backed one in `Program.cs` before the bootstrap and it wins. That method is the only seam a transport ever plugs into. Both `dm` and `ua` have opted in (their `AddOutbox` migrations create the tables). **One event is live today**: when a scope moves, UserAccess publishes `ScopesMovedIntegrationEvent`, and a SharedKernel handler registered for every module rewrites the stored scope paths of that module's scoped records (in `dm`, devices). The rest of the pipe is proven by the `Events/` tests with a test-only aggregate. The design is in [`docs/superpowers/specs/2026-09-13-outbox-design.md`](docs/superpowers/specs/2026-09-13-outbox-design.md).
 
 > [!NOTE]
 > **There is no Web API host.** It was dropped because the Blazor UI dispatches to handlers in-process and the HTTP hop bought nothing. The capability is intact: both modules implement `ISerginWebApiModule`, ship their `.Presentation.WebApi` endpoints, and `Sergin.SharedKernel.Hosts.WebApi` still builds. Restoring an API is a new twenty-line `Program.cs` in a separate host project — not a rewrite, and not a second `Add…` call in this one.
@@ -204,14 +221,22 @@ Migrations apply automatically at startup in the Development environment only �
 dotnet test tests/Sergin.MeterMinder.IntegrationTests.All/Sergin.MeterMinder.IntegrationTests.All.csproj
 ```
 
-Needs Docker: the shared `SerginWebApiFactory<Program>` fixture starts a `postgres:17` container once per run and every test class joins it through `[Collection(nameof(IntegrationTestCollection))]`. There are no unit-test projects; the suite exercises the real host end to end.
+Needs Docker: the shared `SerginWebApiFactory<Program>` fixture starts a `postgres:17` container once per run and every test class joins it through `[Collection(nameof(IntegrationTestCollection))]`. The suite exercises the real host end to end. A second, small project holds the UserAccess domain rules with no database:
+
+```bash
+dotnet test tests/Sergin.UserAccess.UnitTests/Sergin.UserAccess.UnitTests.csproj
+```
 
 | Folder | Covers |
 |---|---|
-| `Shell/` | Module pages render interactively, nav entries from both modules, the app name, the home slot |
+| `Shell/` | Pages render interactively, nav groups and visibility, breadcrumbs, page types and views, the scope picker, the app name, the home slot |
 | `Authentication/` | Claims to `IUserContext`, the dispatcher-scope regression, first-sign-in provisioning, `Sergin:Auth` validation |
-| `Users/` | The one write path: command → aggregate → EF → `SaveChangesAsync` → raw-SQL read-back |
-| `Devices/` | The list query, and the gRPC round trip on a loopback Kestrel server |
+| `Authorization/` | Scoped RBAC acceptance criteria and rules, the current scope, the scope directory, the `X-Sergin-Scope` header |
+| `Permissions/` | Permission definitions, the catalogue per module, its host-start refusals |
+| `Commands/`, `Aggregates/` | Request policy and aggregate-feature registries, and the configuration placement guard |
+| `Validation/` | Validator discovery, rendering, repository rules, the form validator |
+| `Audit/`, `SoftDelete/`, `Concurrency/`, `Scoping/` | Each aggregate feature end to end |
+| `Users/`, `Devices/`, `Manufacturers/`, `Updates/`, `Lists/` | Feature slices, read models, list search/sort/filter SQL, the gRPC round trip |
 | `Events/` | Domain-event dispatch, the outbox relay and background service, the transport seam |
 
 ### Build rules
@@ -221,7 +246,7 @@ Needs Docker: the shared `SerginWebApiFactory<Program>` fixture starts a `postgr
 ### Where the reasoning lives
 
 - [`.claude/CLAUDE.md`](.claude/CLAUDE.md) — the full architecture and convention reference, written for Claude Code and equally useful to people. Each submodule and the DeviceManagement module carry their own.
-- [`docs/superpowers/specs/`](docs/superpowers/specs/) and [`docs/superpowers/plans/`](docs/superpowers/plans/) — the design decisions behind module registration, the Blazor shell, dual-mode dispatch, the contracts split, domain events and the outbox, in the order they were made.
+- [`docs/superpowers/specs/`](docs/superpowers/specs/) and [`docs/superpowers/plans/`](docs/superpowers/plans/) — the design decisions behind module registration, the Blazor shell, dual-mode dispatch, the contracts split, domain events and the outbox, validation, aggregate features, optimistic concurrency, command configuration, scoped RBAC and the page types, in the order they were made.
 - `/add-feature` and `/add-module` — Claude Code skills that scaffold a CQRS vertical slice or a whole module in the shape described above.
 
 ## License
