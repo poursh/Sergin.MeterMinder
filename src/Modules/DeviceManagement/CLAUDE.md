@@ -33,7 +33,7 @@ The `AddAuditColumns` migration adds `created_at_utc`/`created_by`/`modified_at_
 
 ## Dev mock data
 
-`docker-compose/.files/seed/dev-seed.sql` (4 regions, 12 areas, 5 manufacturers, 11 models, `device_count` devices `MTR-<n>`, default 1000) and `dev-seed-users.sql` (users, roles and scoped grants matching the Keycloak realm's mock users, password = username) are **Development-only** psql scripts, run by hand against the Compose database after the app has migrated it. Both are idempotent. The usage line is at the top of each file. Never run them against a real environment.
+`docker-compose/.files/seed/dev-seed.sql` (4 regions, 12 areas, 5 manufacturers, 11 models, `device_count` devices `MTR-<n>`, default 1000) and `dev-seed-users.sql` (users, roles and scoped grants matching the Keycloak realm's mock users, password = username, plus 40 local demo users, demo roles and assignments) are **Development-only** psql scripts, run by hand against the Compose database after the app has migrated it. Both are idempotent. The usage line is at the top of each file. Never run them against a real environment.
 
 ## `Devices` aggregate
 
