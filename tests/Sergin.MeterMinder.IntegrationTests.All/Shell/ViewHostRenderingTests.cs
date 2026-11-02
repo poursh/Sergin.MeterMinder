@@ -1,11 +1,13 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.IntegrationTests.All.Lists;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.UserAccess.Domain.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 
@@ -59,9 +61,31 @@ public sealed partial class ViewHostRenderingTests(SerginWebApiFactory<Program> 
         Assert.Contains("sergin-detail", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task UserDetailView_EmbedsAssignmentsAndEffectivePermissions()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        string userName = $"view-host-{Guid.CreateVersion7()}";
+
+        ErrorOr<CreateUserCommandResponse> created = await dispatcher.SendAsync(new CreateUserCommand(new UserName(userName)));
+
+        Assert.False(created.IsError, created.IsError ? created.FirstError.Description : string.Empty);
+
+        string html = await GetAsync($"/ua/users/{created.Value.Id}");
+
+        Assert.Single(BreadcrumbNav().Matches(html));
+        Assert.Equal("User", PageTitle().Match(html).Groups[1].Value.Trim());
+        Assert.Contains(">Deactivate", html, StringComparison.Ordinal);
+        Assert.Matches("<section class=\"sergin-view sergin-entity-list-section[^\"]*\" aria-label=\"Assignments\"", html);
+        Assert.Matches("<section class=\"sergin-view sergin-entity-list-section[^\"]*\" aria-label=\"Effective permissions\"", html);
+    }
+
     [Theory]
     [InlineData("/dm/devices/new", "New device", "Create", "/dm/devices")]
     [InlineData("/dm/manufacturers/new", "New manufacturer", "Create", "/dm/manufacturers")]
+    [InlineData("/ua/users/new", "New user", "Create", "/ua/users")]
+    [InlineData("/ua/roles/new?scopeId=01920000-0000-7000-8000-0000000000b1", "New role", "Create", "/ua/scopes/01920000-0000-7000-8000-0000000000b1")]
     public async Task FormView_OnAPage_RendersTitleTrailAndForm(string path, string title, string submit, string cancelHref)
     {
         string html = await GetAsync(path);

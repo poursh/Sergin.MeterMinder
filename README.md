@@ -83,7 +83,7 @@ Compose builds the app image and starts PostgreSQL, Keycloak and the Aspire dash
 docker compose -f docker-compose/docker-compose.yml up --build
 ```
 
-To try the scoped RBAC with realistic data, two **development-only** psql scripts fill the Compose database once the app has migrated it. `dev-seed.sql` adds a scope tree (4 regions, 12 areas), 5 manufacturers, 11 models and `device_count` devices; `dev-seed-users.sql` adds users, roles and scoped grants for the realm's mock users — `admin.root`, `north.manager`, `tabriz.operator`, `south.viewer`, `multi.auditor`, `expired.user` and `inactive.user`, each with password = username — so each one sees a different part of the tree. Both are idempotent; never run them against a real environment.
+To try the scoped RBAC with realistic data, two **development-only** psql scripts fill the Compose database once the app has migrated it. `dev-seed.sql` adds a scope tree (4 regions, 12 areas), 5 manufacturers, 11 models and `device_count` devices; `dev-seed-users.sql` adds users, roles and scoped grants for the realm's mock users — `admin.root`, `north.manager`, `tabriz.operator`, `south.viewer`, `multi.auditor`, `expired.user` and `inactive.user`, each with password = username — so each one sees a different part of the tree — plus 40 local `demo.user.<n>` rows, more roles and a mix of assignments for the user and role pages. Both are idempotent; never run them against a real environment.
 
 ```bash
 docker exec -i -e PGPASSWORD=<pwd> Sergin.Database psql -U postgres -d Sergin_DB -v ON_ERROR_STOP=1 -v device_count=1000 < docker-compose/.files/seed/dev-seed.sql
