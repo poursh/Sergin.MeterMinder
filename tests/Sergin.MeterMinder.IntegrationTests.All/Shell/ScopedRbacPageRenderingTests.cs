@@ -21,7 +21,8 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
     {
         string html = await GetAsync("/ua/scopes");
 
-        Assert.Contains($"href=\"/ua/scopes/{Scope.RootId.Value}\"", html, StringComparison.Ordinal);
+        // A tree page now: the root is a tree row, whose page renders inside the tree layout.
+        Assert.Contains($"data-node=\"{Scope.RootId.Value}\"", html, StringComparison.Ordinal);
     }
 
     [Fact]

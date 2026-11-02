@@ -10,7 +10,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 
 /// <summary>
-/// The page/view split as the prerender draws it: a route page hosts one view in <c>SerginPage</c>, which gives
+/// The page/view split as the prerender draws it: a route page hosts one view through <c>SerginPageLayout</c>, which gives
 /// that view the page title and the header row; a view nested inside it is embedded — a titled section that claims
 /// neither. Form views keep the MudForm shape the create and edit pages had.
 /// </summary>
