@@ -7,9 +7,10 @@ using Sergin.UserAccess.Domain.Scopes;
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 
 /// <summary>
-/// The scope tree layout as the prerender draws it: the page header keeps the tree's own trail, the panel holds the
-/// tree, and the page at the route — <c>/ua/scopes</c>, a scope, a new scope — sits in the pane and names its node,
-/// which shows selected with its ancestors expanded, without a second page title or header strip.
+/// The scope tree layout as the prerender draws it: the page header carries the tree's own trail and the selected
+/// node's path, the panel holds the tree, and the page at the route — <c>/ua/scopes</c>, a scope, a new scope — sits
+/// in the pane and names its node, which shows selected with its ancestors expanded, without a second page title or
+/// header strip.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed partial class TreePageRenderingTests(SerginWebApiFactory<Program> factory)
@@ -28,7 +29,7 @@ public sealed partial class TreePageRenderingTests(SerginWebApiFactory<Program> 
         Assert.Contains("role=\"tree\"", html, StringComparison.Ordinal);
         Assert.Contains($"data-node=\"{Scope.RootId.Value}\"", html, StringComparison.Ordinal);
         Assert.Contains("Select a scope", html, StringComparison.Ordinal);
-        Assert.Contains("No node selected", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("sergin-tree-page-header", html, StringComparison.Ordinal);
 
         // Unselected: the page's own step is the current page, not a link.
         Assert.DoesNotContain("href=\"/ua/scopes\"", BreadcrumbNav().Match(html).Value, StringComparison.Ordinal);
@@ -45,13 +46,17 @@ public sealed partial class TreePageRenderingTests(SerginWebApiFactory<Program> 
         Assert.Contains($"data-node=\"{scenario.North}\"", html, StringComparison.Ordinal);
         Assert.Matches($"aria-selected=\"true\"[^>]*data-node=\"{scenario.Feeder1}\"", html);
 
-        // The view sits in the pane: one header strip (the tree's, its own step now a link back), one title.
+        // The view sits in the pane: one header strip, one title. The strip goes on from the tree's step, now a link
+        // back, through the ancestors, each a link, to the node; the view's header buttons sit in it.
         Assert.Single(BreadcrumbNav().Matches(html));
-        Assert.Contains("href=\"/ua/scopes\"", BreadcrumbNav().Match(html).Value, StringComparison.Ordinal);
+        string trail = BreadcrumbNav().Match(html).Value;
+        Assert.Contains("href=\"/ua/scopes\"", trail, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/ua/scopes/{scenario.North}\"", trail, StringComparison.Ordinal);
+        Assert.Matches("aria-current=\"page\"[^>]*>Feeder 1<", trail);
+        Assert.Contains("aria-label=\"Copy link\"", PageHeader(html), StringComparison.Ordinal);
         Assert.Equal("Scopes", PageTitle().Match(html).Groups[1].Value.Trim());
         Assert.Contains("No child scopes.", html, StringComparison.Ordinal);
-        Assert.Contains("North Region", html, StringComparison.Ordinal);
-        Assert.DoesNotContain("No node selected", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("sergin-tree-page-header", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -63,7 +68,8 @@ public sealed partial class TreePageRenderingTests(SerginWebApiFactory<Program> 
 
         Assert.Contains("role=\"tree\"", html, StringComparison.Ordinal);
         Assert.Matches($"aria-selected=\"true\"[^>]*data-node=\"{scenario.North}\"", html);
-        Assert.Contains("New scope", TreeHeader(html), StringComparison.Ordinal);
+        Assert.Contains($"href=\"/ua/scopes/{scenario.North}\"", BreadcrumbNav().Match(html).Value, StringComparison.Ordinal);
+        Assert.Matches("aria-current=\"page\"[^>]*>New scope<", BreadcrumbNav().Match(html).Value);
         Assert.Matches("<button[^>]*type=\"submit\"[^>]*>(?:(?!</button>).)*Create", html);
         Assert.Single(BreadcrumbNav().Matches(html));
         Assert.Equal("Scopes", PageTitle().Match(html).Groups[1].Value.Trim());
@@ -88,11 +94,11 @@ public sealed partial class TreePageRenderingTests(SerginWebApiFactory<Program> 
         Assert.Contains("mud-alert", html, StringComparison.Ordinal);
     }
 
-    // From the tree header to the content body below it.
-    private static string TreeHeader(string html)
+    // From the page header to the tree below it.
+    private static string PageHeader(string html)
     {
-        int start = html.IndexOf("sergin-tree-page-header d-flex", StringComparison.Ordinal);
-        int end = html.IndexOf("sergin-tree-body", start, StringComparison.Ordinal);
+        int start = html.IndexOf("sergin-page-header mb-4", StringComparison.Ordinal);
+        int end = html.IndexOf("sergin-tree-page", start, StringComparison.Ordinal);
 
         return html[start..end];
     }
