@@ -99,6 +99,39 @@ public sealed class LookupTests(SerginWebApiFactory<Program> factory) : IAsyncLi
         Assert.Equal("Neu", Localizer.Text(CommonTexts.Save));
     }
 
+    // A language write refreshes the list after its save; a slower read started earlier must not land after it.
+    [Fact]
+    public async Task SlowEarlierLanguagesRead_DoesNotOverwriteALaterRefresh()
+    {
+        store.Set("de", CommonTexts.Save.Key.Value, "Speichern", CommonTexts.Save.Default);
+        TaskCompletionSource release = store.HoldNextLanguagesRead();
+
+        Task earlier = Cache.RefreshLanguagesAsync(CancellationToken.None);
+        await store.HeldLanguagesReadStarted;
+
+        store.Set("fr", CommonTexts.Save.Key.Value, "Enregistrer", CommonTexts.Save.Default);
+        Task later = Cache.RefreshLanguagesAsync(CancellationToken.None);
+
+        release.SetResult();
+        await Task.WhenAll(earlier, later);
+
+        Assert.Contains(Cache.Languages, language => language.Culture == "fr");
+    }
+
+    [Fact]
+    public async Task InvalidateLanguages_ReloadsOnTheNextLoad()
+    {
+        store.Set("de", CommonTexts.Save.Key.Value, "Speichern", CommonTexts.Save.Default);
+        await Cache.EnsureLoadedAsync("de", CancellationToken.None);
+        store.Set("fr", CommonTexts.Save.Key.Value, "Enregistrer", CommonTexts.Save.Default);
+
+        Cache.InvalidateLanguages();
+        Assert.Empty(Cache.Languages);
+
+        await Cache.EnsureLoadedAsync("de", CancellationToken.None);
+        Assert.Contains(Cache.Languages, language => language.Culture == "fr");
+    }
+
     [Fact]
     public async Task NeedsReview_StillShown()
     {
@@ -182,7 +215,19 @@ public sealed class LookupTests(SerginWebApiFactory<Program> factory) : IAsyncLi
     {
         private readonly Dictionary<string, Dictionary<string, StoredTranslation>> translations = new(StringComparer.Ordinal);
         private readonly TaskCompletionSource heldReadStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource heldLanguagesReadStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private TaskCompletionSource? hold;
+        private TaskCompletionSource? languagesHold;
+
+        /// <summary>Completes once the held language read has taken its snapshot of the data.</summary>
+        public Task HeldLanguagesReadStarted => heldLanguagesReadStarted.Task;
+
+        /// <summary>The next language read snapshots the data now and returns it only once the result is released.</summary>
+        public TaskCompletionSource HoldNextLanguagesRead()
+        {
+            languagesHold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            return languagesHold;
+        }
 
         /// <summary>Completes once the held read has taken its snapshot of the data.</summary>
         public Task HeldReadStarted => heldReadStarted.Task;
@@ -205,9 +250,20 @@ public sealed class LookupTests(SerginWebApiFactory<Program> factory) : IAsyncLi
             byKey[key] = new StoredTranslation(text, sourceText);
         }
 
-        public Task<IReadOnlyList<LanguageInfo>> GetLanguagesAsync(CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<LanguageInfo>>(
-                [.. translations.Keys.Select(culture => new LanguageInfo(culture, culture, IsRightToLeft: false, IsPublished: true))]);
+        public async Task<IReadOnlyList<LanguageInfo>> GetLanguagesAsync(CancellationToken cancellationToken)
+        {
+            IReadOnlyList<LanguageInfo> snapshot =
+                [.. translations.Keys.Select(culture => new LanguageInfo(culture, culture, IsRightToLeft: false, IsPublished: true))];
+
+            if (languagesHold is { } held)
+            {
+                languagesHold = null;
+                heldLanguagesReadStarted.SetResult();
+                await held.Task;
+            }
+
+            return snapshot;
+        }
 
         public async Task<IReadOnlyDictionary<string, StoredTranslation>> GetTranslationsAsync(string culture, CancellationToken cancellationToken)
         {

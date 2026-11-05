@@ -1,7 +1,10 @@
 using System.Security.Claims;
 using ErrorOr;
 using MediatR;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Sergin.Platform.Application.Contracts.Languages.Commands.Add;
 using Sergin.Platform.Application.Contracts.Languages.Commands.Delete;
 using Sergin.Platform.Application.Contracts.Languages.Commands.GetList;
@@ -227,20 +230,62 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
 
         try
         {
+            // Only this test's own cultures are asserted on: rows another test left behind must not decide the outcome.
+            string[] own = ["it-IT", "ja-JP"];
+
             ErrorOr<ListQueryResponse<GetLanguageListItem>> byName = await dispatcher.SendAsync(
-                new GetLanguageListQueryCommand(Paggination.Create(10, 1), new Term("italia")));
+                new GetLanguageListQueryCommand(Paggination.Create(100, 1), new Term("italia")));
             Assert.False(byName.IsError, byName.IsError ? byName.FirstError.Description : string.Empty);
-            Assert.Equal("it-IT", Assert.Single(byName.Value.Data).Culture);
+            Assert.Equal(["it-IT"], byName.Value.Data.Select(language => language.Culture).Where(own.Contains));
 
             ErrorOr<ListQueryResponse<GetLanguageListItem>> all = await dispatcher.SendAsync(new GetLanguageListQueryCommand(
-                Paggination.Create(10, 1), sorting: Sorting.Create($$"""[{"id":"{{LanguageListFields.Culture}}","desc":true}]""")));
+                Paggination.Create(100, 1), sorting: Sorting.Create($$"""[{"id":"{{LanguageListFields.Culture}}","desc":true}]""")));
             Assert.False(all.IsError, all.IsError ? all.FirstError.Description : string.Empty);
-            Assert.Equal(["ja-JP", "it-IT"], all.Value.Data.Select(language => language.Culture));
+            Assert.Equal(["ja-JP", "it-IT"], all.Value.Data.Select(language => language.Culture).Where(own.Contains));
         }
         finally
         {
             await DeleteAsync(dispatcher, italian);
             await DeleteAsync(dispatcher, japanese);
+        }
+    }
+
+    /// <summary>
+    /// The refresh after commit cannot turn a saved write into an error: the user would retry into "culture in use". A
+    /// failing refresh is logged, the list is forgotten so the next load reads it again, and the write still succeeds.
+    /// </summary>
+    [Fact]
+    public async Task AddLanguage_RefreshFailure_StillSucceeds_AndTheNextLoadRetries()
+    {
+        await using WebApplicationFactory<Program> host = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            ServiceDescriptor platform = services.Last(descriptor => descriptor.ServiceType == typeof(ITranslationStore));
+            services.Replace(ServiceDescriptor.Singleton<ITranslationStore>(provider =>
+                new FailingLanguagesStore((ITranslationStore)ActivatorUtilities.CreateInstance(provider, platform.ImplementationType!))));
+        }));
+        var store = (FailingLanguagesStore)host.Services.GetRequiredService<ITranslationStore>();
+        ITranslationCache cache = host.Services.GetRequiredService<ITranslationCache>();
+        await cache.EnsureLoadedAsync("en", CancellationToken.None);
+
+        using IServiceScope scope = host.Services.CreateScope();
+        ISerginDispatcher dispatcher = Dispatcher(scope);
+
+        store.Fail = true;
+        Guid id = await AddAsync(dispatcher, "sv-SE", "Svenska");
+        store.Fail = false;
+
+        try
+        {
+            Assert.Equal("sv-SE", (await GetAsync(dispatcher, id)).Culture);
+            Assert.Empty(cache.Languages);
+
+            await cache.EnsureLoadedAsync("en", CancellationToken.None);
+
+            Assert.Contains(cache.Languages, language => language.Culture == "sv-SE");
+        }
+        finally
+        {
+            await DeleteAsync(dispatcher, id);
         }
     }
 
@@ -363,6 +408,17 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
 
         return (await dispatcher.SendVersionedAsync(command, loaded.IsError ? RowVersion.Create() : loaded.Value.Version))
             .Then(sent => sent.Value);
+    }
+
+    private sealed class FailingLanguagesStore(ITranslationStore inner) : ITranslationStore
+    {
+        public bool Fail { get; set; }
+
+        public Task<IReadOnlyList<LanguageInfo>> GetLanguagesAsync(CancellationToken cancellationToken) =>
+            Fail ? throw new InvalidOperationException("The language list cannot be read.") : inner.GetLanguagesAsync(cancellationToken);
+
+        public Task<IReadOnlyDictionary<string, StoredTranslation>> GetTranslationsAsync(string culture, CancellationToken cancellationToken) =>
+            inner.GetTranslationsAsync(culture, cancellationToken);
     }
 
     // A user signed in through the identity provider for the first time: the seeded viewer role at the root, which

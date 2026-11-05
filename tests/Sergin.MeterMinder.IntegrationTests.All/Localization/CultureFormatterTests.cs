@@ -118,6 +118,10 @@ public sealed class CultureFormatterTests(SerginWebApiFactory<Program> factory)
 
         public Task RefreshLanguagesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
+        public void InvalidateLanguages()
+        {
+        }
+
         public bool TryGet(string culture, string key, [NotNullWhen(true)] out StoredTranslation? translation)
         {
             translation = null;

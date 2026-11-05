@@ -254,6 +254,10 @@ public sealed class CultureSelectionTests(SerginWebApiFactory<Program> factory) 
 
         public Task RefreshAsync(string culture, CancellationToken cancellationToken) => Task.CompletedTask;
 
+        public void InvalidateLanguages()
+        {
+        }
+
         public Task RefreshLanguagesAsync(CancellationToken cancellationToken)
         {
             Languages = languages;
