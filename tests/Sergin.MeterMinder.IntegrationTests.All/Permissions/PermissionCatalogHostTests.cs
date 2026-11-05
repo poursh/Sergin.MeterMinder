@@ -81,6 +81,8 @@ public sealed class PermissionCatalogHostTests(SerginWebApiFactory<Program> fact
     {
         private static Assembly NoComponents => typeof(PermissionDefinition).Assembly;
 
+        public string Name => "TestBad";
+
         public string Schema => "testbad";
 
         public Assembly ApplicationAssembly => NoComponents;
@@ -112,6 +114,8 @@ public sealed class PermissionCatalogHostTests(SerginWebApiFactory<Program> fact
         public const string Label = "Unregistered things";
 
         private static Assembly NoComponents => typeof(PermissionDefinition).Assembly;
+
+        public string Name => "TestNav";
 
         public string Schema => "testnav";
 

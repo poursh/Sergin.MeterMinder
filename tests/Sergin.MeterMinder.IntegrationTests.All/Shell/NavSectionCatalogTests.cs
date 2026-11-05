@@ -66,6 +66,8 @@ public sealed class NavSectionCatalogTests
     {
         private static Assembly NoComponents => typeof(SerginNavItem).Assembly;
 
+        public string Name => schema;
+
         public string Schema => schema;
 
         public Assembly ApplicationAssembly => NoComponents;

@@ -16,6 +16,8 @@ namespace Sergin.MeterMinder.DeviceManagement;
 
 public sealed class DeviceManagementModule : ISerginWebApiModule, ISerginWebUiModule
 {
+    public string Name => "DeviceManagement";
+
     public string Schema => DeviceManagementDbContext.Schema;
 
     public Assembly ApplicationAssembly => DeviceManagementApplicationAssemblyReference.Assembly;
