@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -39,6 +40,30 @@ public sealed class RightToLeftRenderingTests(SerginWebApiFactory<Program> facto
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal(current, response.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task SwitcherStyles_AreLinkedAndServed()
+    {
+        string html = await RenderAsync(null, [Language("de", "Deutsch", rtl: false, published: true)]);
+
+        Match link = Regex.Match(html, @"href=""(?<href>Sergin\.MeterMinder\.Hosts\.All\.[^""]*styles\.css)""");
+        Assert.True(link.Success, "The page links no scoped-CSS bundle.");
+
+        using HttpClient client = factory.CreateClient();
+        using HttpResponseMessage response = await client.GetAsync(new Uri("/" + link.Groups["href"].Value, UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        // The host's bundle imports each referenced RCL's own scoped bundle; the switcher's rule is in the RCL's.
+        string css = await response.Content.ReadAsStringAsync();
+
+        foreach (Match import in Regex.Matches(css, @"@import\s+'(?<path>[^']+)'"))
+        {
+            using HttpResponseMessage imported = await client.GetAsync(new Uri("/" + import.Groups["path"].Value, UriKind.Relative));
+            css += await imported.Content.ReadAsStringAsync();
+        }
+
+        Assert.Contains(".sergin-language-select", css, StringComparison.Ordinal);
     }
 
     [Fact]
