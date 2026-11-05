@@ -1,7 +1,8 @@
 @inject IHostEnvironment HostEnvironment
+@inject SerginDocumentCulture DocumentCulture
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="@SerginDocumentCulture.Lang" dir="@DocumentCulture.Dir">
 
 <head>
     <meta charset="utf-8" />
@@ -17,6 +18,11 @@
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@@300;400;500;700&display=swap" />
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@@400;500;600;700&display=swap" />
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@@300;400;500;700&display=swap" />
+    }
+    @if (DocumentCulture.Dir == "rtl")
+    {
+        @* The right-to-left face, applied by the [dir=rtl] rule in app.css. *@
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@@400;500;700&display=swap" />
     }
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <ImportMap />

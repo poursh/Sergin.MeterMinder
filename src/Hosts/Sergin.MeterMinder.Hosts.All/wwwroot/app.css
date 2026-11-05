@@ -6,3 +6,11 @@
 .mud-switch .mud-switch-base.mud-icon-button.mud-switch-base-small { padding: 5px; }
 .mud-switch .mud-switch-base.mud-icon-button.mud-switch-base-medium { padding: 9px; }
 .mud-switch .mud-switch-base.mud-icon-button.mud-switch-base-large { padding: 13px; }
+
+/* Right-to-left languages use Vazirmatn (App.razor loads it only for dir=rtl); MudBlazor sets its own font on its
+   typography classes, so they are named too. */
+[dir=rtl] body, [dir=rtl] .mud-typography, [dir=rtl] .mud-input, [dir=rtl] .mud-button-root { font-family: "Vazirmatn", "Roboto", "Helvetica", "Arial", sans-serif; }
+
+/* The app bar's language switcher: a native select that takes the bar's colours. */
+.sergin-language-select { background: transparent; color: inherit; border: 0; font: inherit; padding: 0 4px; cursor: pointer; }
+.sergin-language-select option { color: initial; }
