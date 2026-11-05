@@ -30,17 +30,17 @@ public sealed class NavSectionCatalogTests
 
     [Fact]
     public void Sections_AreOrderedByGroupOrder_ThenTitle()
-        => Assert.Equal(["Beta", "Alpha", "Zeta"], Catalog.NavSections.Select(section => section.Group.Title));
+        => Assert.Equal(["Beta", "Alpha", "Zeta"], Catalog.NavSections.Select(section => section.Group.Title.Default));
 
     [Fact]
     public void ItemsWithinASection_AreOrderedByOrder_ThenLabel()
     {
         Assert.Equal(
             ["Same order, earlier label", "Same order, later label"],
-            Catalog.NavSections.Single(section => section.Group.Title == "Beta").Items.Select(item => item.Label));
+            Catalog.NavSections.Single(section => section.Group.Title.Default == "Beta").Items.Select(item => item.Label.Default));
         Assert.Equal(
             ["First", "Second"],
-            Catalog.NavSections.Single(section => section.Group.Title == "Zeta").Items.Select(item => item.Label));
+            Catalog.NavSections.Single(section => section.Group.Title.Default == "Zeta").Items.Select(item => item.Label.Default));
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class NavSectionCatalogTests
     [InlineData("/zz/second", "Zeta")]
     [InlineData("/aa/only", "Alpha")]
     public void GroupOf_AnEntrysHref_IsItsModulesGroup(string href, string title)
-        => Assert.Equal(title, Catalog.GroupOf(href)?.Title);
+        => Assert.Equal(title, Catalog.GroupOf(href)?.Title.Default);
 
     [Theory]
     [InlineData("/zz/second/details")]

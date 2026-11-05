@@ -33,7 +33,7 @@ public sealed class PermissionCatalogHostTests(SerginWebApiFactory<Program> fact
 
         Assert.All(
             modules.NavItems.Where(item => item.RequiredPermission is not null),
-            item => Assert.True(catalog.Contains(item.RequiredPermission!), item.Label));
+            item => Assert.True(catalog.Contains(item.RequiredPermission!), item.Label.Default));
     }
 
     [Fact]

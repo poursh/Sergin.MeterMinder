@@ -58,7 +58,7 @@ public sealed class TextCatalogTests(SerginWebApiFactory<Program> factory)
     [Fact]
     public void Catalog_AcceptsCommonFromSharedKernelOnly()
     {
-        Assert.True(TextCatalog.FromSources([TextSource.Common]).TryGet("common.save", out _));
+        Assert.True(TextCatalog.FromSources([TextSource.Common]).TryGet("common.actions.save", out _));
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
             TextCatalog.FromSources([TextSource.FromTypes("DeviceManagement", typeof(CommonInAModule))]));
@@ -72,7 +72,7 @@ public sealed class TextCatalogTests(SerginWebApiFactory<Program> factory)
     {
         using IServiceScope scope = factory.Services.CreateScope();
 
-        Assert.True(scope.ServiceProvider.GetRequiredService<TextCatalog>().TryGet("common.save", out _));
+        Assert.True(scope.ServiceProvider.GetRequiredService<TextCatalog>().TryGet("common.actions.save", out _));
     }
 
     [Fact]
