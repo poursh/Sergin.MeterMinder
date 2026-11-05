@@ -5,6 +5,10 @@ using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Create;
+using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
@@ -15,6 +19,9 @@ using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Repositories;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.UserAccess.Application.Configurations.Scopes;
+using Sergin.UserAccess.Application.Contracts.Roles.Commands.Create;
+using Sergin.UserAccess.Domain.Roles;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 
@@ -44,6 +51,8 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
             services.AddScoped<IValidator<UniqueThingCommand>, UniqueThingCommandValidator>();
             services.AddSingleton<IUniqueKeyRepository<ThingName>, TakenThingNames>();
             services.AddScoped<IValidator<ReferenceThingCommand>, ReferenceThingCommandValidator>();
+            services.AddScoped<IValidator<NamedReferenceThingCommand>, NamedReferenceThingCommandValidator>();
+            services.AddTransient<IRequestHandler<NamedReferenceThingCommand, ErrorOr<Guid>>, EchoHandler<NamedReferenceThingCommand>>();
             services.AddSingleton<IRepository<ThingRoot, Guid>, NoThings>();
             services.AddTransient<IRequestHandler<ReferenceThingCommand, ErrorOr<Guid>>, EchoHandler<ReferenceThingCommand>>();
             services.AddTransient<IRequestHandler<NamedThingCommand, ErrorOr<Guid>>, EchoHandler<NamedThingCommand>>();
@@ -117,6 +126,58 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
     }
 
     [Fact]
+    public async Task MustExistIn_WithADeclaredName_NamesTheAggregateInTheCallersCulture()
+    {
+        using (new CultureScope("en"))
+        {
+            Error english = await SendAndFailAsync(new NamedReferenceThingCommand(Guid.CreateVersion7()));
+
+            Assert.Equal("'Thing Id' must refer to an existing thing.", english.Description);
+        }
+
+        store.Set("de", ValidationTestTexts.Thing.Key.Value, "Ding", ValidationTestTexts.Thing.Default);
+        store.Set("de", CommonValidationTexts.MustExistIn.Key.Value, "'{PropertyName}' muss auf ein vorhandenes {AggregateTypeName} verweisen.", CommonValidationTexts.MustExistIn.Default);
+        await Cache.EnsureLoadedAsync("de", CancellationToken.None);
+
+        using CultureScope culture = new("de");
+
+        Error error = await SendAndFailAsync(new NamedReferenceThingCommand(Guid.CreateVersion7()));
+
+        Assert.Equal("'Thing Id' muss auf ein vorhandenes Ding verweisen.", error.Description);
+    }
+
+    [Fact]
+    public async Task CreateDevice_UnknownModel_NamesTheModelWithItsDeclaredText()
+    {
+        store.Set("de", DeviceModelTexts.Singular.Key.Value, "Gerätemodell", DeviceModelTexts.Singular.Default);
+        await Cache.EnsureLoadedAsync("de", CancellationToken.None);
+
+        using CultureScope culture = new("de");
+
+        IReadOnlyList<Error> errors = await SendAndFailAllAsync(new CreateDeviceCommand(
+            new DeviceId($"MTR-{Guid.CreateVersion7():N}"[..20]), new DeviceModelInternalId(Guid.CreateVersion7())));
+
+        Error error = Assert.Single(errors, error => error.Code == nameof(CreateDeviceCommand.DeviceModelId));
+        Assert.EndsWith("Gerätemodell.", error.Description, StringComparison.Ordinal);
+        Assert.DoesNotContain(nameof(DeviceModel), error.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CreateRole_UnknownScope_NamesTheScopeWithItsDeclaredText()
+    {
+        store.Set("de", ScopeTexts.Singular.Key.Value, "Bereich", ScopeTexts.Singular.Default);
+        await Cache.EnsureLoadedAsync("de", CancellationToken.None);
+
+        using CultureScope culture = new("de");
+
+        IReadOnlyList<Error> errors = await SendAndFailAllAsync(new CreateRoleCommand(
+            Guid.CreateVersion7(), new RoleName($"role-{Guid.CreateVersion7():N}"), IsInheritable: true, []));
+
+        Error error = Assert.Single(errors, error => error.Code == nameof(CreateRoleCommand.OwnerScopeId));
+        Assert.EndsWith("Bereich.", error.Description, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ValidatorDefaults_AreFluentValidationsEnglish()
     {
         Assert.Equal("common.validation.not-empty-validator", CommonValidationTexts.NotEmptyValidator.Key.Value);
@@ -139,6 +200,16 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
 
     private ITranslationCache Cache => host.Services.GetRequiredService<ITranslationCache>();
 
+    private async Task<IReadOnlyList<Error>> SendAndFailAllAsync<TResponse>(ICommand<TResponse> command)
+    {
+        using IServiceScope circuit = host.Services.CreateScope();
+
+        ErrorOr<TResponse> result = await circuit.ServiceProvider.GetRequiredService<ISerginDispatcher>().SendAsync(command);
+
+        Assert.True(result.IsError, "The command must be refused by its validator.");
+        return result.Errors;
+    }
+
     private async Task<Error> SendAndFailAsync(ICommand<Guid> command)
     {
         using IServiceScope circuit = host.Services.CreateScope();
@@ -156,6 +227,8 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
         public static TextCategory Category { get; } = TextCategory.Create("DeviceManagement", "ValidationTextTests");
 
         public static FieldText Name { get; } = Category.Field(nameof(NamedThingCommand.Name), "Display name");
+
+        public static TextDefinition Thing { get; } = Category.Text("Thing", "thing");
     }
 
     internal sealed record NamedThingCommand(string Name, string? Note = null) : ICommand<Guid>;
@@ -165,6 +238,8 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
     internal sealed record UniqueThingCommand(ThingName Name) : ICommand<Guid>;
 
     internal sealed record ReferenceThingCommand(Guid ThingId) : ICommand<Guid>;
+
+    internal sealed record NamedReferenceThingCommand(Guid ThingId) : ICommand<Guid>;
 
     /// <summary>A root with no table; only its feature configuration, which names the category, is read.</summary>
     internal sealed class ThingRoot : AggregateRoot<Guid>;
@@ -201,6 +276,12 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
     internal sealed class ReferenceThingCommandValidator : AbstractValidator<ReferenceThingCommand>
     {
         public ReferenceThingCommandValidator(IRepository<ThingRoot, Guid> things) => RuleFor(x => x.ThingId).MustExistIn(things);
+    }
+
+    internal sealed class NamedReferenceThingCommandValidator : AbstractValidator<NamedReferenceThingCommand>
+    {
+        public NamedReferenceThingCommandValidator(IRepository<ThingRoot, Guid> things) =>
+            RuleFor(x => x.ThingId).MustExistIn(things, ValidationTestTexts.Thing);
     }
 
     internal sealed class NoThings : IRepository<ThingRoot, Guid>

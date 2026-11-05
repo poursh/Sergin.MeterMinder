@@ -255,7 +255,7 @@ public sealed partial class DeviceListView
 
         SerginBulkOutcome outcome = await SerginBulk.RunAsync(items, SendDeleteAsync);
 
-        outcome.Report(ErrorPresenter, Snackbar, Localizer.Text(CommonTexts.Deleted));
+        outcome.Report(ErrorPresenter, Snackbar, Localizer, Formatter, CommonTexts.BulkDeleted);
         await ReloadAsync();
     }
 

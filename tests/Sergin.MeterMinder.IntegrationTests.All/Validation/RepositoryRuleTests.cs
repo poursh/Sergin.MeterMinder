@@ -31,7 +31,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Validation;
 public sealed class RepositoryRuleTests(SerginWebApiFactory<Program> factory)
 {
     private const string DeviceIdTakenMessage = "'Device ID' is already in use.";
-    private const string DeviceModelMissingMessage = "'Model' must refer to an existing DeviceModel.";
+    private const string DeviceModelMissingMessage = "'Model' must refer to an existing Device model.";
 
     [Fact]
     public async Task CreateDevice_UnknownDeviceModel_IsRefusedNotThrown()

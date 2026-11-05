@@ -1,4 +1,5 @@
 using FluentValidation;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
@@ -34,13 +35,7 @@ internal sealed class UpdateDeviceCommandValidator : AbstractValidator<UpdateDev
             .When(x => !string.IsNullOrWhiteSpace(x.DeviceId.Value) && x.Id != Guid.Empty);
 
         RuleFor(x => x.DeviceModelId)
-            .MustAsync((_, id, context, cancellationToken) =>
-            {
-                context.MessageFormatter.AppendArgument(
-                    RepositoryRuleBuilderExtensions.AggregateTypeNamePlaceholder, nameof(DeviceModel));
-                return manufacturers.ModelExistsAsync(id, cancellationToken);
-            })
-            .WithMessage(_ => ValidationTexts.Template(CommonValidationTexts.MustExistIn))
+            .MustExistIn(manufacturers.ModelExistsAsync, DeviceModelTexts.Singular)
             .When(x => x.DeviceModelId.Value != Guid.Empty);
     }
 }

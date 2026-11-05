@@ -35,6 +35,10 @@ public sealed class ErrorTextTests(SerginWebApiFactory<Program> factory) : IAsyn
     public async Task DisposeAsync() => await host.DisposeAsync();
 
     [Fact]
+    public void ValidationTitleKey_IsTheDeclaredTextsKey() =>
+        Assert.Equal(ErrorTexts.ValidationTitle.Key.Value, SerginProblemFactory.ValidationTitleKey);
+
+    [Fact]
     public async Task MetadataKey_RendersDeclaredText()
     {
         var error = Error.Validation("Name", "fallback", ErrorText.Of(CommonTexts.Save.Key.Value));

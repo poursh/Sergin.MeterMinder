@@ -7,5 +7,6 @@ internal sealed class ManufacturerAggregateFeatureConfiguration : IAggregateFeat
 {
     public void Configure(AggregateFeatureBuilder<Manufacturer> builder) => builder.Audited().SoftDeletable().Versioned()
             .Permissions(ManufacturerPermissions.Read, ManufacturerPermissions.Update, ManufacturerPermissions.Delete)
-            .Texts(ManufacturerTexts.Category);
+            .Texts(ManufacturerTexts.Category)
+            .Named(ManufacturerTexts.Singular);
 }

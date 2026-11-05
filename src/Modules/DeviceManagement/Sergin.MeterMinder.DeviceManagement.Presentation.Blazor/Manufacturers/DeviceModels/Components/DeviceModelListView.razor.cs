@@ -143,7 +143,7 @@ public sealed partial class DeviceModelListView
             },
             VersionErrors.IsStale);
 
-        outcome.Report(ErrorPresenter, Snackbar, Localizer.Text(CommonTexts.Removed));
+        outcome.Report(ErrorPresenter, Snackbar, Localizer, Formatter, CommonTexts.BulkRemoved);
 
         // As for one remove: a success moved the version the manufacturer view holds, and a stale answer found it out of date.
         if (outcome.Succeeded > 0 || outcome.Errors.Any(VersionErrors.IsStale))

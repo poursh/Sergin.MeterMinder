@@ -7,5 +7,6 @@ internal sealed class DeviceAggregateFeatureConfiguration : IAggregateFeatureCon
 {
     public void Configure(AggregateFeatureBuilder<Device> builder) => builder.Audited().SoftDeletable().Versioned().Scoped()
             .Permissions(DevicePermissions.Read, DevicePermissions.Update, DevicePermissions.Delete)
-            .Texts(DeviceTexts.Category);
+            .Texts(DeviceTexts.Category)
+            .Named(DeviceTexts.Singular);
 }

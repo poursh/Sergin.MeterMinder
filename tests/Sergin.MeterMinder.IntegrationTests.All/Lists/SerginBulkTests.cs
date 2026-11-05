@@ -1,7 +1,11 @@
+using System.Globalization;
 using ErrorOr;
+using Microsoft.Extensions.Localization;
 using MudBlazor;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Errors;
+using Sergin.SharedKernel.Presentation.Localizations;
+using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Lists;
@@ -60,7 +64,7 @@ public sealed class SerginBulkTests
         RecordingPresenter presenter = new();
         using SnackbarService snackbar = new(new NavigationManagerStub(), TimeProvider.System);
 
-        new SerginBulkOutcome(3, [InUse, InUse, Stale], 2).Report(presenter, snackbar, "deleted");
+        new SerginBulkOutcome(3, [InUse, InUse, Stale], 2).Report(presenter, snackbar, new DefaultsLocalizer(), new InvariantFormatter(), CommonTexts.BulkDeleted);
 
         Assert.Equal([InUse, Stale], presenter.Notified);
         Assert.Equal(["3 deleted", "2 not sent"], snackbar.ShownSnackbars.Select(shown => shown.Message).ToList());
@@ -72,7 +76,7 @@ public sealed class SerginBulkTests
         RecordingPresenter presenter = new();
         using SnackbarService snackbar = new(new NavigationManagerStub(), TimeProvider.System);
 
-        new SerginBulkOutcome(0, [InUse], 0).Report(presenter, snackbar, "deleted");
+        new SerginBulkOutcome(0, [InUse], 0).Report(presenter, snackbar, new DefaultsLocalizer(), new InvariantFormatter(), CommonTexts.BulkDeleted);
 
         Assert.Equal([InUse], presenter.Notified);
         Assert.Empty(snackbar.ShownSnackbars);
@@ -87,6 +91,29 @@ public sealed class SerginBulkTests
         public void Notify(Error error) => Notified.Add(error);
 
         public void Notify(IReadOnlyList<Error> errors) => Notified.AddRange(errors);
+    }
+
+    /// <summary>Knows no key, so every text shows its declared English default.</summary>
+    private sealed class DefaultsLocalizer : IStringLocalizer
+    {
+        public LocalizedString this[string name] => new(name, name, resourceNotFound: true);
+
+        public LocalizedString this[string name, params object[] arguments] => this[name];
+
+        public IEnumerable<LocalizedString> GetAllStrings(bool includeParentCultures) => [];
+    }
+
+    private sealed class InvariantFormatter : ICultureFormatter
+    {
+        public CultureInfo Culture => CultureInfo.InvariantCulture;
+
+        public string Date(DateTimeOffset utc, TimeZoneInfo? zone = null) => throw new NotSupportedException();
+
+        public string DateTime(DateTimeOffset utc, TimeZoneInfo? zone = null) => throw new NotSupportedException();
+
+        public string Number(long value) => value.ToString(CultureInfo.InvariantCulture);
+
+        public string Number(decimal value, int decimals) => throw new NotSupportedException();
     }
 
     private sealed class NavigationManagerStub : Microsoft.AspNetCore.Components.NavigationManager
