@@ -258,6 +258,10 @@ public sealed class CultureSelectionTests(SerginWebApiFactory<Program> factory) 
         {
         }
 
+        public void Invalidate(string culture)
+        {
+        }
+
         public Task RefreshLanguagesAsync(CancellationToken cancellationToken)
         {
             Languages = languages;

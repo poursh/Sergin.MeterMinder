@@ -157,6 +157,10 @@ public sealed class RightToLeftRenderingTests(SerginWebApiFactory<Program> facto
         {
         }
 
+        public void Invalidate(string culture)
+        {
+        }
+
         public Task RefreshLanguagesAsync(CancellationToken cancellationToken)
         {
             Languages = languages;

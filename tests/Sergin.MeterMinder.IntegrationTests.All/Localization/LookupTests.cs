@@ -133,6 +133,21 @@ public sealed class LookupTests(SerginWebApiFactory<Program> factory) : IAsyncLi
     }
 
     [Fact]
+    public async Task Invalidate_ReloadsTheCultureOnTheNextLoad()
+    {
+        store.Set("de", CommonTexts.Save.Key.Value, "Speichern", CommonTexts.Save.Default);
+        await Cache.EnsureLoadedAsync("de", CancellationToken.None);
+        store.Set("de", CommonTexts.Save.Key.Value, "Sichern", CommonTexts.Save.Default);
+
+        Cache.Invalidate("de");
+        Assert.False(Cache.TryGet("de", CommonTexts.Save.Key.Value, out _));
+
+        await Cache.EnsureLoadedAsync("de", CancellationToken.None);
+        Assert.True(Cache.TryGet("de", CommonTexts.Save.Key.Value, out StoredTranslation? reloaded));
+        Assert.Equal("Sichern", reloaded.Text);
+    }
+
+    [Fact]
     public async Task NeedsReview_StillShown()
     {
         store.Set("de", LookupTexts.DeleteConfirm.Key.Value, "{DeviceId} löschen?", "Remove {DeviceId}?");

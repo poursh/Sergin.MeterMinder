@@ -122,6 +122,10 @@ public sealed class CultureFormatterTests(SerginWebApiFactory<Program> factory)
         {
         }
 
+        public void Invalidate(string culture)
+        {
+        }
+
         public bool TryGet(string culture, string key, [NotNullWhen(true)] out StoredTranslation? translation)
         {
             translation = null;
