@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetList;
@@ -71,7 +70,7 @@ public sealed partial class DeviceModelListView
     // Removing models changes the manufacturer, like adding one.
     private IReadOnlyList<SerginBulkAction<GetDeviceModelListItem>> BulkActions =>
     [
-        new(DeviceManagementTexts.Remove, Icons.Material.Outlined.Delete, SerginActionKind.Danger, RemoveSelectedAsync,
+        new(CommonTexts.Remove, Icons.Material.Outlined.Delete, SerginActionKind.Danger, RemoveSelectedAsync,
             Permission: ManufacturerPermissions.Update, AnyScope: true),
     ];
 
@@ -88,7 +87,7 @@ public sealed partial class DeviceModelListView
     private async Task RemoveAsync(GetDeviceModelListItem model)
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                Localizer, DeviceModelTexts.RemoveTitle, DeviceModelTexts.RemoveConfirm, new { model.Name }, DeviceManagementTexts.Remove))
+                Localizer, DeviceModelTexts.RemoveTitle, DeviceModelTexts.RemoveConfirm, new { model.Name }, CommonTexts.Remove))
         {
             return;
         }
@@ -120,7 +119,7 @@ public sealed partial class DeviceModelListView
                 DeviceModelTexts.RemoveManyTitle,
                 DeviceModelTexts.RemoveManyConfirm,
                 new { Count = Formatter.Number(models.Count) },
-                DeviceManagementTexts.Remove))
+                CommonTexts.Remove))
         {
             return;
         }
@@ -144,7 +143,7 @@ public sealed partial class DeviceModelListView
             },
             VersionErrors.IsStale);
 
-        outcome.Report(ErrorPresenter, Snackbar, Localizer.Text(DeviceManagementTexts.Removed));
+        outcome.Report(ErrorPresenter, Snackbar, Localizer.Text(CommonTexts.Removed));
 
         // As for one remove: a success moved the version the manufacturer view holds, and a stale answer found it out of date.
         if (outcome.Succeeded > 0 || outcome.Errors.Any(VersionErrors.IsStale))

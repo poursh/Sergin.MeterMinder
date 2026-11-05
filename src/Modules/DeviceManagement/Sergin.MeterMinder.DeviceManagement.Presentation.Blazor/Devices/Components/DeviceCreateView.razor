@@ -1,5 +1,5 @@
 <SerginFormView TitleText="DeviceTexts.New" Trail="Trail"
-                Model="model" Validation="validation" OnSubmit="OnSubmit" Submitting="submitting" SubmitLabelText="DeviceManagementTexts.Create" CancelHref="/dm/devices">
+                Model="model" Validation="validation" OnSubmit="OnSubmit" Submitting="submitting" SubmitLabelText="CommonTexts.Create" CancelHref="/dm/devices">
     <MudTextField Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="model.DeviceId" Label="@Localizer.Text(DeviceTexts.DeviceId.Label)" For="@(() => model.DeviceId)" Immediate="true" />
 
     @* View state, not on the command: For= only gives the form-level validation a member path, which finds no rule. *@

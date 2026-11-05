@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Components;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
@@ -63,7 +62,7 @@ public sealed partial class DeviceEditView
     [
         SerginBreadcrumb.Of(DeviceManagementNavigation.Devices),
         loadedDeviceId is null ? new(DeviceTexts.Singular, $"/dm/devices/{Id}") : SerginBreadcrumb.Data(loadedDeviceId, $"/dm/devices/{Id}"),
-        new(DeviceManagementTexts.Edit),
+        new(CommonTexts.Edit),
     ];
 
     protected override void OnInitialized() => validation = FormValidator.RulesFor(ToCommand);

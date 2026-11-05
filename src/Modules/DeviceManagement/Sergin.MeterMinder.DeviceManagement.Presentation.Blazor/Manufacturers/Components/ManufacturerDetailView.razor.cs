@@ -1,13 +1,11 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetAudit;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOne;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Concurrency;
-using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Domain;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.DeviceModels.Components;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
@@ -60,7 +58,7 @@ public sealed partial class ManufacturerDetailView
     // The manufacturer is not Scoped(), so its actions are checked on any scope, as the pipeline checks them.
     private IReadOnlyList<SerginPageAction> Actions =>
     [
-        new(DeviceManagementTexts.Edit, Icons.Material.Outlined.Edit, SerginActionKind.Secondary, Href: $"/dm/manufacturers/{Id}/edit",
+        new(CommonTexts.Edit, Icons.Material.Outlined.Edit, SerginActionKind.Secondary, Href: $"/dm/manufacturers/{Id}/edit",
             Permission: ManufacturerPermissions.Update, AnyScope: true),
         new(CommonTexts.Delete, Icons.Material.Outlined.Delete, SerginActionKind.Danger, OnClick: EventCallback.Factory.Create(this, DeleteAsync),
             Permission: ManufacturerPermissions.Delete, AnyScope: true, Disabled: deleting),

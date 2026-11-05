@@ -20,7 +20,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Validation;
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class FormValidatorTests(SerginWebApiFactory<Program> factory)
 {
-    private const string UserNameTakenMessage = "'User Name' is already in use.";
+    private const string UserNameTakenMessage = "'User name' is already in use.";
 
     [Fact]
     public async Task ValidateAsync_RunsOnlyTheNamedPropertysRules()
@@ -86,6 +86,6 @@ public sealed class FormValidatorTests(SerginWebApiFactory<Program> factory)
         IEnumerable<string> messages = await rules(new object(), nameof(CreateUserCommand.UserName));
 
         string message = Assert.Single(messages);
-        Assert.Contains("User Name", message, StringComparison.Ordinal);
+        Assert.Contains("'User name'", message, StringComparison.Ordinal);
     }
 }

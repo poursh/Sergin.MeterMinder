@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Components;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Models;
@@ -49,7 +48,7 @@ public sealed partial class ManufacturerEditView
         loadedName is null
             ? new(ManufacturerTexts.Singular, $"/dm/manufacturers/{Id}")
             : SerginBreadcrumb.Data(loadedName, $"/dm/manufacturers/{Id}"),
-        new(DeviceManagementTexts.Edit),
+        new(CommonTexts.Edit),
     ];
 
     protected override void OnInitialized() => validation = FormValidator.RulesFor(ToCommand);

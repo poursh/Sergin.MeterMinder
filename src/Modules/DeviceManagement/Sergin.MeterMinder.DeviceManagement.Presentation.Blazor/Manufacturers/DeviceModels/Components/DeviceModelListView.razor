@@ -10,12 +10,12 @@
             <MudTd DataLabel="@Localizer.Text(DeviceModelTexts.DevicesColumn)">@Localizer.Text(DeviceModelTexts.DeviceCount, new { Count = Formatter.Number(context.DeviceCount) })</MudTd>
         </RowTemplate>
         <RowCommands>
-            <MudTooltip Text="@Localizer.Text(DeviceManagementTexts.Rename)">
-                <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="@Localizer.Text(DeviceManagementTexts.Rename)"
+            <MudTooltip Text="@Localizer.Text(CommonTexts.Rename)">
+                <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="@Localizer.Text(CommonTexts.Rename)"
                                Href="@($"/dm/manufacturers/{ManufacturerId}/models/{context.Id}/edit")" />
             </MudTooltip>
-            <MudTooltip Text="@Localizer.Text(context.DeviceCount > 0 ? DeviceModelTexts.InUseTooltip : DeviceManagementTexts.Remove)">
-                <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="@Localizer.Text(DeviceManagementTexts.Remove)"
+            <MudTooltip Text="@Localizer.Text(context.DeviceCount > 0 ? DeviceModelTexts.InUseTooltip : CommonTexts.Remove)">
+                <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="@Localizer.Text(CommonTexts.Remove)"
                                Disabled="@(context.DeviceCount > 0 || Version is null)" OnClick="@(() => RemoveAsync(context))" />
             </MudTooltip>
         </RowCommands>

@@ -206,8 +206,8 @@ public sealed class ModuleCommandConfigurationTests
     }
 
     [Fact]
-    public void ModulesDeclareThirtyOneRequests()
+    public void ModulesDeclareThirtySevenRequests()
     {
-        Assert.Equal(31, Registry.ConfiguredTypes.Count);
+        Assert.Equal(37, Registry.ConfiguredTypes.Count);
     }
 }

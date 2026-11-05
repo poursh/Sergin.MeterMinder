@@ -30,8 +30,8 @@
                 <MudTd DataLabel="@Localizer.Text(DeviceTexts.ManufacturerName.Label)">@context.ManufacturerName</MudTd>
             </RowTemplate>
             <RowCommands>
-                <MudTooltip Text="@Localizer.Text(DeviceManagementTexts.Edit)">
-                    <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Href="@($"/dm/devices/{context.Id}/edit")" aria-label="@Localizer.Text(DeviceManagementTexts.Edit)" />
+                <MudTooltip Text="@Localizer.Text(CommonTexts.Edit)">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Href="@($"/dm/devices/{context.Id}/edit")" aria-label="@Localizer.Text(CommonTexts.Edit)" />
                 </MudTooltip>
                 <MudTooltip Text="@Localizer.Text(CommonTexts.Delete)">
                     <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" OnClick="@(() => DeleteAsync(context))" aria-label="@Localizer.Text(CommonTexts.Delete)" />

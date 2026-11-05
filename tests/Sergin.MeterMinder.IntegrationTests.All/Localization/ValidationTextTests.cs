@@ -132,7 +132,7 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
 
         Assert.Same(ValidationTestTexts.Category, registry.CategoryOf(typeof(NamedThingCommand)));
         Assert.Same(ValidationTestTexts.Category, registry.CategoryOf(typeof(UniqueThingCommand)));
-        Assert.Null(registry.CategoryOf(typeof(CreateUserCommand)));
+        Assert.Null(registry.CategoryOf(typeof(ProvisionExternalUserCommand)));
         Assert.Equal(["Note"], registry.HiddenProperties(typeof(NamedThingCommand)));
         Assert.Empty(registry.HiddenProperties(typeof(UniqueThingCommand)));
     }

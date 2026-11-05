@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Components;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
@@ -60,7 +59,7 @@ public sealed partial class RenameDeviceModelView
             ? new(ManufacturerTexts.Singular, $"/dm/manufacturers/{ManufacturerId}")
             : SerginBreadcrumb.Data(manufacturerName, $"/dm/manufacturers/{ManufacturerId}"),
         loadedModelName is null ? new(DeviceModelTexts.Singular, ModelHref) : SerginBreadcrumb.Data(loadedModelName, ModelHref),
-        new(DeviceManagementTexts.Rename),
+        new(CommonTexts.Rename),
     ];
 
     protected override void OnInitialized() => validation = FormValidator.RulesFor(ToCommand);

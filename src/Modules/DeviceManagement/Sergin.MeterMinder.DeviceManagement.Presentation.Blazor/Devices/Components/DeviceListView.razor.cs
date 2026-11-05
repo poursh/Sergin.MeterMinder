@@ -1,11 +1,9 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Concurrency;
-using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
@@ -257,7 +255,7 @@ public sealed partial class DeviceListView
 
         SerginBulkOutcome outcome = await SerginBulk.RunAsync(items, SendDeleteAsync);
 
-        outcome.Report(ErrorPresenter, Snackbar, Localizer.Text(DeviceManagementTexts.Deleted));
+        outcome.Report(ErrorPresenter, Snackbar, Localizer.Text(CommonTexts.Deleted));
         await ReloadAsync();
     }
 

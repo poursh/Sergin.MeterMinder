@@ -1,12 +1,10 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOne;
 using Sergin.SharedKernel.Application.Concurrency;
-using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Localizations;
@@ -86,7 +84,7 @@ public sealed partial class ManufacturerListView
 
         SerginBulkOutcome outcome = await SerginBulk.RunAsync(items, SendDeleteAsync);
 
-        outcome.Report(ErrorPresenter, Snackbar, Localizer.Text(DeviceManagementTexts.Deleted));
+        outcome.Report(ErrorPresenter, Snackbar, Localizer.Text(CommonTexts.Deleted));
         await list.ReloadAsync();
     }
 

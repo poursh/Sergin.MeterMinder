@@ -127,7 +127,7 @@ public sealed class RepositoryRuleTests(SerginWebApiFactory<Program> factory)
         Error error = Assert.Single(second.Errors);
         Assert.Equal(ErrorType.Validation, error.Type);
         Assert.Equal(nameof(CreateUserCommand.UserName), error.Code);
-        Assert.Equal("'User Name' is already in use.", error.Description);
+        Assert.Equal("'User name' is already in use.", error.Description);
     }
 
     /// <summary>
