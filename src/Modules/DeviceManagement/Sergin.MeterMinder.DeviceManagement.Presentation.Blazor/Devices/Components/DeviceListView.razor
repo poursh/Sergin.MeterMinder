@@ -11,8 +11,8 @@
         </SerginOverviewCards>
     </Overview>
     <OverviewSummary>
-        <MudText Typo="Typo.body2"><b>@(overview?.Devices.ToString(Culture) ?? "–")</b> devices</MudText>
-        <MudText Typo="Typo.body2"><b>@(overview?.ModelsInUse.ToString(Culture) ?? "–")</b> models in use</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.Devices))</b> devices</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.ModelsInUse))</b> models in use</MudText>
     </OverviewSummary>
     <ChildContent>
         <SerginAggregateList @ref="list" TItem="GetDeviceListItem" Load="LoadAsync"
@@ -67,7 +67,7 @@
                         </MudSelect>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
-                        <MudDateRangePicker Label="Created between" @bind-DateRange="filterCreated" Clearable="true"
+                        <MudDateRangePicker Label="Created between" Culture="@Formatter.Culture" @bind-DateRange="filterCreated" Clearable="true"
                                             Variant="Variant.Outlined" Margin="Margin.Dense" />
                     </MudItem>
                 </MudGrid>

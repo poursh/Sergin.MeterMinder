@@ -10,13 +10,13 @@
     </HeaderActions>
     <Overview>
         <SerginOverviewCards>
-            <SerginOverviewCard Label="Models" Value="@overview?.Models.ToString(Culture)" Caption="of this manufacturer" />
-            <SerginOverviewCard Label="Devices" Value="@overview?.Devices.ToString(Culture)" Caption="in every scope" />
+            <SerginOverviewCard Label="Models" Value="@Count(overview?.Models)" Caption="of this manufacturer" />
+            <SerginOverviewCard Label="Devices" Value="@Count(overview?.Devices)" Caption="in every scope" />
         </SerginOverviewCards>
     </Overview>
     <OverviewSummary>
-        <MudText Typo="Typo.body2"><b>@(overview?.Models.ToString(Culture) ?? "–")</b> models</MudText>
-        <MudText Typo="Typo.body2"><b>@(overview?.Devices.ToString(Culture) ?? "–")</b> devices</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.Models))</b> models</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.Devices))</b> devices</MudText>
     </OverviewSummary>
     <Fields>
         @if (manufacturer is not null)

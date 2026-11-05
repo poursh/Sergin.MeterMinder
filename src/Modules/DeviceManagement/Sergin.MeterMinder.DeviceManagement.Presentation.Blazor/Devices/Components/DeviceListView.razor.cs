@@ -8,6 +8,7 @@ using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Components;
 
@@ -28,8 +29,6 @@ public sealed partial class DeviceListView
     private Guid? filterScopeId;
     private DateRange? filterCreated;
 
-    private static CultureInfo Culture => CultureInfo.CurrentCulture;
-
     private IReadOnlyList<SerginBreadcrumb> Trail { get; } = [SerginBreadcrumb.Of(DeviceManagementNavigation.Devices)];
 
     // A new device lands on the current scope, which is where CreateDevice checks Update.
@@ -47,10 +46,13 @@ public sealed partial class DeviceListView
     private IEnumerable<(string Label, string Value, string Sub)> OverviewCards =>
     [
         ("Devices", Count(overview?.Devices), "in this scope"),
-        ("Models in use", Count(overview?.ModelsInUse), overview is null ? string.Empty : $"of {overview.ModelsTotal.ToString(Culture)}"),
+        ("Models in use", Count(overview?.ModelsInUse), overview is null ? string.Empty : $"of {Formatter.Number(overview.ModelsTotal)}"),
         ("Manufacturers", Count(overview?.Manufacturers), "in the catalog"),
-        ("Added · 30d", overview is null ? "–" : $"+{overview.AddedLast30Days.ToString(Culture)}", "last 30 days"),
+        ("Added · 30d", overview is null ? "–" : $"+{Formatter.Number(overview.AddedLast30Days)}", "last 30 days"),
     ];
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
 
     [Inject]
     private ISerginDispatcher Dispatcher { get; set; } = default!;
@@ -72,7 +74,7 @@ public sealed partial class DeviceListView
 
     protected override Task OnInitializedAsync() => LoadOverviewAsync();
 
-    private static string Count(int? value) => value?.ToString(Culture) ?? "–";
+    private string Count(int? value) => value is { } number ? Formatter.Number(number) : "–";
 
     private async Task LoadOverviewAsync()
     {
@@ -177,7 +179,8 @@ public sealed partial class DeviceListView
     private string ToUtcIso(DateTime localDay) =>
         TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(localDay, DateTimeKind.Unspecified), timeZone).ToString("O", CultureInfo.InvariantCulture);
 
-    private static string DayLabel(DateTime? day) => day?.ToString("dd MMM", Culture) ?? "…";
+    // The picked day is a local calendar day, so it is shown as it is, without a zone shift.
+    private string DayLabel(DateTime? day) => day is { } value ? Formatter.Date(new DateTimeOffset(value.Date, TimeSpan.Zero)) : "…";
 
     private void OnFilterRemoved(SerginAppliedFilter filter)
     {

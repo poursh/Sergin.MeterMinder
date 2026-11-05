@@ -1,4 +1,3 @@
-using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
@@ -12,6 +11,7 @@ using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Devi
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Errors;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Components;
 
@@ -26,6 +26,9 @@ public sealed partial class ManufacturerDetailView
 
     [Parameter]
     public Guid Id { get; set; }
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
 
     [Inject]
     private ISerginDispatcher Dispatcher { get; set; } = default!;
@@ -47,7 +50,7 @@ public sealed partial class ManufacturerDetailView
         new(manufacturer?.Name ?? "Manufacturer"),
     ];
 
-    private static CultureInfo Culture => CultureInfo.CurrentCulture;
+    private string Count(int? value) => value is { } number ? Formatter.Number(number) : "–";
 
     // The manufacturer is not Scoped(), so its actions are checked on any scope, as the pipeline checks them.
     private IReadOnlyList<SerginPageAction> Actions =>
