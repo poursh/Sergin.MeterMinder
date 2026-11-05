@@ -26,6 +26,21 @@ public sealed class RightToLeftRenderingTests(SerginWebApiFactory<Program> facto
         Assert.Contains("mud-application-layout-rtl", html, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("/dm/devices?page=2")]
+    [InlineData("/dm/devices?page=2&term=a%20b")]
+    public async Task SwitchTarget_WithQueryString_RedirectsBack(string current)
+    {
+        using WebApplicationFactory<Program> host = factory.WithWebHostBuilder(_ => { });
+        using HttpClient client = host.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = false });
+
+        using HttpResponseMessage response = await client.GetAsync(
+            new Uri($"/culture/set?culture=en&redirectUri={Uri.EscapeDataString(current)}", UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(current, response.Headers.Location?.OriginalString);
+    }
+
     [Fact]
     public async Task LtrCulture_Dir_Ltr()
     {
