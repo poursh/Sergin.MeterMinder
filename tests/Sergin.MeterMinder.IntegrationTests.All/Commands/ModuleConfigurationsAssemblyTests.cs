@@ -1,6 +1,8 @@
 using System.Reflection;
 using Sergin.MeterMinder.DeviceManagement;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
+using Sergin.Platform;
+using Sergin.Platform.Application.Configurations;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.UserAccess;
@@ -34,6 +36,16 @@ public sealed class ModuleConfigurationsAssemblyTests
         Assert.NotSame(module.ApplicationAssembly, module.ConfigurationsAssembly);
     }
 
+    [Fact]
+    public void Platform_NamesItsConfigurationsAssembly()
+    {
+        PlatformModule module = new();
+
+        Assert.Same(PlatformApplicationConfigurationsAssemblyReference.Assembly, module.ConfigurationsAssembly);
+        Assert.NotSame(module.ContractsAssembly, module.ConfigurationsAssembly);
+        Assert.NotSame(module.ApplicationAssembly, module.ConfigurationsAssembly);
+    }
+
     /// <summary>
     /// Application and Presentation reference .Application.Configurations for the permission definitions and the
     /// declared texts, so its public surface must stay the assembly marker plus static classes of
@@ -47,6 +59,7 @@ public sealed class ModuleConfigurationsAssemblyTests
         [
             typeof(DeviceManagementApplicationConfigurationsAssemblyReference),
             typeof(UserAccessApplicationConfigurationsAssemblyReference),
+            typeof(PlatformApplicationConfigurationsAssemblyReference),
         ];
 
         string[] offenders =
