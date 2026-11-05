@@ -7,5 +7,5 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices
 internal sealed class UpdateDeviceCommandConfiguration : ICommandConfiguration<UpdateDeviceCommand, Device>
 {
     public void Configure(CommandConfigurationBuilder<UpdateDeviceCommand> builder) =>
-        builder.RequirePermissions(DevicePermissions.Update).RequireExpectedVersion();
+        builder.RequirePermissions(DevicePermissions.Update).RequireExpectedVersion().NotShown(command => command.Id);
 }

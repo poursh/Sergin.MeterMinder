@@ -1,4 +1,4 @@
-<SerginAggregateDetailView Title="Manufacturer" Trail="Trail" Problem="problem" Ready="@(manufacturer is not null)" Actions="Actions"
+<SerginAggregateDetailView TitleText="ManufacturerTexts.Singular" Trail="Trail" Problem="problem" Ready="@(manufacturer is not null)" Actions="Actions"
                            OverviewCollapsed="true" FieldsTitle="@manufacturer?.Name">
     <HeaderActions>
         <SerginReloadButton OnReload="ReloadAsync" />
@@ -10,19 +10,19 @@
     </HeaderActions>
     <Overview>
         <SerginOverviewCards>
-            <SerginOverviewCard Label="Models" Value="@Count(overview?.Models)" Caption="of this manufacturer" />
-            <SerginOverviewCard Label="Devices" Value="@Count(overview?.Devices)" Caption="in every scope" />
+            <SerginOverviewCard LabelText="ManufacturerTexts.OverviewModels" Value="@Count(overview?.Models)" Caption="@Localizer.Text(ManufacturerTexts.OverviewOfManufacturer)" />
+            <SerginOverviewCard LabelText="ManufacturerTexts.OverviewDevices" Value="@Count(overview?.Devices)" Caption="@Localizer.Text(ManufacturerTexts.OverviewInEveryScope)" />
         </SerginOverviewCards>
     </Overview>
     <OverviewSummary>
-        <MudText Typo="Typo.body2"><b>@(Count(overview?.Models))</b> models</MudText>
-        <MudText Typo="Typo.body2"><b>@(Count(overview?.Devices))</b> devices</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.Models))</b> @Localizer.Text(ManufacturerTexts.SummaryModels)</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.Devices))</b> @Localizer.Text(ManufacturerTexts.SummaryDevices)</MudText>
     </OverviewSummary>
     <Fields>
         @if (manufacturer is not null)
         {
-            <SerginDetailField Label="Name" Value="@manufacturer.Name" />
-            <SerginDetailField Label="Address" Value="@manufacturer.Address" />
+            <SerginDetailField LabelText="ManufacturerTexts.Name.Label" Value="@manufacturer.Name" />
+            <SerginDetailField LabelText="ManufacturerTexts.Address.Label" Value="@manufacturer.Address" />
         }
     </Fields>
     <Entities>

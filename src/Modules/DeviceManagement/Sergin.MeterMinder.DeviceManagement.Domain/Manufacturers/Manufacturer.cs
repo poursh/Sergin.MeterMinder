@@ -1,5 +1,6 @@
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Domain;
+using Sergin.SharedKernel.Domain.Localizations;
 
 namespace Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 
@@ -95,10 +96,12 @@ public class Manufacturer : AggregateRoot<ManufacturerId>
         return Result.Deleted;
     }
 
-    // Error.Validation, so it renders through the path already built for validator errors: Description shown,
-    // one snackbar in Blazor, one ValidationProblem entry on the API. The code and text are what MustBeUniqueIn
-    // would have produced for a Name property.
-    private static Error NameInUse() => Error.Validation(nameof(DeviceModel.Name), "'Name' is already in use.");
+    // Error.Validation, so it renders through the path already built for validator errors: one snackbar in Blazor,
+    // one ValidationProblem entry on the API. The code is the property name, as MustBeUniqueIn's would be; the
+    // metadata names the declared text a presentation layer renders in the caller's culture, and the description
+    // is its English default for a caller that renders none.
+    private static Error NameInUse() => Error.Validation(
+        nameof(DeviceModel.Name), "'Name' is already in use.", ErrorText.Of(ManufacturerErrorKeys.ModelNameInUse));
 }
 
 public sealed record ManufacturerId(Guid Value);

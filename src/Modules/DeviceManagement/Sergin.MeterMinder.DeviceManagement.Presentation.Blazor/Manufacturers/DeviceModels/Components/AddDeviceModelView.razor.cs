@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Components;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Add;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
@@ -33,6 +35,9 @@ public sealed partial class AddDeviceModelView
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
     [CascadingParameter]
     private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;
 
@@ -43,8 +48,10 @@ public sealed partial class AddDeviceModelView
     private IReadOnlyList<SerginBreadcrumb> Trail =>
     [
         SerginBreadcrumb.Of(DeviceManagementNavigation.Manufacturers),
-        new(manufacturerName ?? "Manufacturer", $"/dm/manufacturers/{ManufacturerId}"),
-        new("New device model"),
+        manufacturerName is null
+            ? new(ManufacturerTexts.Singular, $"/dm/manufacturers/{ManufacturerId}")
+            : SerginBreadcrumb.Data(manufacturerName, $"/dm/manufacturers/{ManufacturerId}"),
+        new(DeviceModelTexts.New),
     ];
 
     protected override void OnInitialized() => validation = FormValidator.RulesFor(ToCommand);

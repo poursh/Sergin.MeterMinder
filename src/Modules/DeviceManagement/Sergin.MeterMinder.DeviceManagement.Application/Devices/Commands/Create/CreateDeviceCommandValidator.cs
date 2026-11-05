@@ -3,6 +3,8 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Application.Validations;
+using Sergin.SharedKernel.Application.Localizations.Common;
+using Sergin.SharedKernel.Application.Localizations.Validation;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.Create;
 
@@ -33,10 +35,15 @@ internal sealed class CreateDeviceCommandValidator : AbstractValidator<CreateDev
 
         // A local MustAsync, not MustExistIn: that extension is generic over IRepository<TAggregateRoot, TId>,
         // and a model is an entity inside the Manufacturer aggregate, not a root with a repository. The
-        // message mirrors MustExistIn's so the two read alike.
+        // message is MustExistIn's declared text, so the two read alike.
         RuleFor(x => x.DeviceModelId)
-            .MustAsync(manufacturers.ModelExistsAsync)
-            .WithMessage("'{PropertyName}' must refer to an existing DeviceModel.")
+            .MustAsync((_, id, context, cancellationToken) =>
+            {
+                context.MessageFormatter.AppendArgument(
+                    RepositoryRuleBuilderExtensions.AggregateTypeNamePlaceholder, nameof(DeviceModel));
+                return manufacturers.ModelExistsAsync(id, cancellationToken);
+            })
+            .WithMessage(_ => ValidationTexts.Template(CommonValidationTexts.MustExistIn))
             .When(x => x.DeviceModelId.Value != Guid.Empty);
     }
 }

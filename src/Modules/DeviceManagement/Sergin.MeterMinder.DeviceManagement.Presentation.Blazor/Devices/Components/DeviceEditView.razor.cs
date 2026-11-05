@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Components;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
@@ -40,8 +42,17 @@ public sealed partial class DeviceEditView
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
     [CascadingParameter]
     private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;
+
+    private string ManufacturerPlaceholder => Localizer.Text(DeviceTexts.ManufacturerId.Placeholder!);
+
+    // Until a manufacturer is picked the model picker is disabled and says why.
+    private string ModelPlaceholder => Localizer.Text(
+        selectedManufacturerId == Guid.Empty ? DeviceTexts.SelectManufacturerFirst : DeviceTexts.DeviceModelId.Placeholder!);
 
     // Created on this view, so it re-renders after SubmitAsync; SerginFormView invokes it once every field is valid.
     private EventCallback OnSubmit => EventCallback.Factory.Create(this, SubmitAsync);
@@ -51,8 +62,8 @@ public sealed partial class DeviceEditView
     private IReadOnlyList<SerginBreadcrumb> Trail =>
     [
         SerginBreadcrumb.Of(DeviceManagementNavigation.Devices),
-        new(loadedDeviceId ?? "Device", $"/dm/devices/{Id}"),
-        new("Edit"),
+        loadedDeviceId is null ? new(DeviceTexts.Singular, $"/dm/devices/{Id}") : SerginBreadcrumb.Data(loadedDeviceId, $"/dm/devices/{Id}"),
+        new(DeviceManagementTexts.Edit),
     ];
 
     protected override void OnInitialized() => validation = FormValidator.RulesFor(ToCommand);

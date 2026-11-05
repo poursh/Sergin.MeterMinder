@@ -6,5 +6,6 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufac
 internal sealed class ManufacturerAggregateFeatureConfiguration : IAggregateFeatureConfiguration<Manufacturer>
 {
     public void Configure(AggregateFeatureBuilder<Manufacturer> builder) => builder.Audited().SoftDeletable().Versioned()
-            .Permissions(ManufacturerPermissions.Read, ManufacturerPermissions.Update, ManufacturerPermissions.Delete);
+            .Permissions(ManufacturerPermissions.Read, ManufacturerPermissions.Update, ManufacturerPermissions.Delete)
+            .Texts(ManufacturerTexts.Category);
 }

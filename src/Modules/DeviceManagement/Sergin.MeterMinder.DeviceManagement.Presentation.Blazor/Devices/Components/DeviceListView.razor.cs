@@ -1,9 +1,11 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
@@ -34,22 +36,28 @@ public sealed partial class DeviceListView
     // A new device lands on the current scope, which is where CreateDevice checks Update.
     private IReadOnlyList<SerginPageAction> Actions { get; } =
     [
-        new("New device", Icons.Material.Filled.Add, SerginActionKind.Primary, Href: "/dm/devices/new", Permission: DevicePermissions.Update),
+        new(DeviceTexts.New, Icons.Material.Filled.Add, SerginActionKind.Primary, Href: "/dm/devices/new", Permission: DevicePermissions.Update),
     ];
 
     // The selection bar's Delete: one confirm for every selected device, each then sent as the row command sends it.
     private IReadOnlyList<SerginBulkAction<GetDeviceListItem>> BulkActions =>
     [
-        new("Delete", Icons.Material.Outlined.Delete, SerginActionKind.Danger, DeleteSelectedAsync, Permission: DevicePermissions.Delete),
+        new(CommonTexts.Delete, Icons.Material.Outlined.Delete, SerginActionKind.Danger, DeleteSelectedAsync, Permission: DevicePermissions.Delete),
     ];
 
-    private IEnumerable<(string Label, string Value, string Sub)> OverviewCards =>
+    private IEnumerable<(TextDefinition Label, string Value, string Sub)> OverviewCards =>
     [
-        ("Devices", Count(overview?.Devices), "in this scope"),
-        ("Models in use", Count(overview?.ModelsInUse), overview is null ? string.Empty : $"of {Formatter.Number(overview.ModelsTotal)}"),
-        ("Manufacturers", Count(overview?.Manufacturers), "in the catalog"),
-        ("Added · 30d", overview is null ? "–" : $"+{Formatter.Number(overview.AddedLast30Days)}", "last 30 days"),
+        (DeviceTexts.OverviewDevices, Count(overview?.Devices), Localizer.Text(DeviceTexts.OverviewInScope)),
+        (DeviceTexts.OverviewModelsInUse, Count(overview?.ModelsInUse),
+            overview is null ? string.Empty : Localizer.Text(DeviceTexts.OverviewOfTotal, new { Total = Formatter.Number(overview.ModelsTotal) })),
+        (DeviceTexts.OverviewManufacturers, Count(overview?.Manufacturers), Localizer.Text(DeviceTexts.OverviewInCatalog)),
+        (DeviceTexts.OverviewAdded,
+            overview is null ? "–" : Localizer.Text(DeviceTexts.OverviewAddedCount, new { Count = Formatter.Number(overview.AddedLast30Days) }),
+            Localizer.Text(DeviceTexts.OverviewLastMonth)),
     ];
+
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     [Inject]
     private ICultureFormatter Formatter { get; set; } = default!;
@@ -149,19 +157,19 @@ public sealed partial class DeviceListView
         if (filterManufacturerId is { } manufacturerId)
         {
             string name = manufacturers.FirstOrDefault(m => m.Id == manufacturerId)?.Name ?? "?";
-            filters.Add(new(DeviceListFields.ManufacturerId, FilteringType.equals, manufacturerId.ToString(), $"Manufacturer: {name}"));
+            filters.Add(new(DeviceListFields.ManufacturerId, FilteringType.equals, manufacturerId.ToString(), Chip(DeviceTexts.ManufacturerId, name)));
         }
 
         if (filterModelId is { } modelId)
         {
             string name = models.FirstOrDefault(m => m.Id == modelId)?.Name ?? "?";
-            filters.Add(new(DeviceListFields.DeviceModelId, FilteringType.equals, modelId.ToString(), $"Model: {name}"));
+            filters.Add(new(DeviceListFields.DeviceModelId, FilteringType.equals, modelId.ToString(), Chip(DeviceTexts.DeviceModelId, name)));
         }
 
         if (filterScopeId is { } scopeId)
         {
             string name = scopes.FirstOrDefault(s => s.Id == scopeId)?.Name ?? "?";
-            filters.Add(new(DeviceListFields.ScopeId, FilteringType.equals, scopeId.ToString(), $"Scope: {name}"));
+            filters.Add(new(DeviceListFields.ScopeId, FilteringType.equals, scopeId.ToString(), Chip(DeviceTexts.ScopeId, name)));
         }
 
         if (filterCreated is { } created && (created.Start is not null || created.End is not null))
@@ -170,11 +178,17 @@ public sealed partial class DeviceListView
             string? from = created.Start is { } start ? ToUtcIso(start.Date) : null;
             string? to = created.End is { } end ? ToUtcIso(end.Date.AddDays(1)) : null;
 
-            filters.Add(new(DeviceListFields.CreatedAtUtc, FilteringType.between, new[] { from, to }, $"Created: {DayLabel(created.Start)} – {DayLabel(created.End)}"));
+            string range = Localizer.Text(DeviceTexts.DateRange, new { From = DayLabel(created.Start), To = DayLabel(created.End) });
+
+            filters.Add(new(DeviceListFields.CreatedAtUtc, FilteringType.between, new[] { from, to }, Chip(DeviceTexts.CreatedAtUtc, range)));
         }
 
         return [.. filters];
     }
+
+    // A chip names its filter by the label of the list field's own field text (spec decision 7), then the value.
+    private string Chip(FieldText field, string value) =>
+        Localizer.Text(DeviceTexts.FilterChip, new { Field = Localizer.Text(field.Label), Value = value });
 
     private string ToUtcIso(DateTime localDay) =>
         TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(localDay, DateTimeKind.Unspecified), timeZone).ToString("O", CultureInfo.InvariantCulture);
@@ -218,7 +232,7 @@ public sealed partial class DeviceListView
     // version read just before it, and a stale answer reloads the list. The bulk delete sends each device the same way.
     private async Task DeleteAsync(GetDeviceListItem item)
     {
-        if (!await DialogService.ConfirmDeleteAsync("Delete device", $"Delete {item.DeviceId}? It disappears from every list and page."))
+        if (!await DialogService.ConfirmDeleteAsync(Localizer, DeviceTexts.DeleteTitle, DeviceTexts.DeleteConfirm, new { item.DeviceId }))
         {
             return;
         }
@@ -235,14 +249,15 @@ public sealed partial class DeviceListView
 
     private async Task DeleteSelectedAsync(IReadOnlyList<GetDeviceListItem> items)
     {
-        if (!await DialogService.ConfirmDeleteAsync("Delete devices", $"Delete {items.Count} devices? They disappear from every list and page."))
+        if (!await DialogService.ConfirmDeleteAsync(
+                Localizer, DeviceTexts.DeleteManyTitle, DeviceTexts.DeleteManyConfirm, new { Count = Formatter.Number(items.Count) }))
         {
             return;
         }
 
         SerginBulkOutcome outcome = await SerginBulk.RunAsync(items, SendDeleteAsync);
 
-        outcome.Report(ErrorPresenter, Snackbar, "deleted");
+        outcome.Report(ErrorPresenter, Snackbar, Localizer.Text(DeviceManagementTexts.Deleted));
         await ReloadAsync();
     }
 

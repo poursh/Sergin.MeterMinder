@@ -7,5 +7,5 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufac
 internal sealed class GetManufacturerOverviewQueryCommandConfiguration : ICommandConfiguration<GetManufacturerOverviewQueryCommand, Manufacturer>
 {
     public void Configure(CommandConfigurationBuilder<GetManufacturerOverviewQueryCommand> builder) =>
-        builder.RequirePermissions(ManufacturerPermissions.Read);
+        builder.RequirePermissions(ManufacturerPermissions.Read).NotShown(command => command.Id);
 }

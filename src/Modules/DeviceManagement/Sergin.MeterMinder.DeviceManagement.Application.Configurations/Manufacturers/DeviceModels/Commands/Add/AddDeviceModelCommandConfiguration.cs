@@ -9,5 +9,7 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufac
 internal sealed class AddDeviceModelCommandConfiguration : ICommandConfiguration<AddDeviceModelCommand, Manufacturer>
 {
     public void Configure(CommandConfigurationBuilder<AddDeviceModelCommand> builder) =>
-        builder.RequirePermissions(ManufacturerPermissions.Update).RequireExpectedVersion();
+        builder.RequirePermissions(ManufacturerPermissions.Update).RequireExpectedVersion()
+            .Texts(DeviceModelTexts.Category)
+            .NotShown(command => command.ManufacturerId);
 }

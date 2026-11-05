@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetList;
@@ -26,7 +27,7 @@ public sealed partial class DeviceCreateView
     private IReadOnlyList<SerginBreadcrumb> Trail { get; } =
     [
         SerginBreadcrumb.Of(DeviceManagementNavigation.Devices),
-        new("New device"),
+        new(DeviceTexts.New),
     ];
 
     [Inject]
@@ -38,8 +39,17 @@ public sealed partial class DeviceCreateView
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
     [CascadingParameter]
     private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;
+
+    private string ManufacturerPlaceholder => Localizer.Text(DeviceTexts.ManufacturerId.Placeholder!);
+
+    // Until a manufacturer is picked the model picker is disabled and says why.
+    private string ModelPlaceholder => Localizer.Text(
+        selectedManufacturerId == Guid.Empty ? DeviceTexts.SelectManufacturerFirst : DeviceTexts.DeviceModelId.Placeholder!);
 
     // Created on this view, so it re-renders after SubmitAsync; SerginFormView invokes it once every field is valid.
     private EventCallback OnSubmit => EventCallback.Factory.Create(this, SubmitAsync);

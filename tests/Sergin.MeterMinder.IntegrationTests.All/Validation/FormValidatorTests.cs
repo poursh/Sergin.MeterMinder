@@ -35,8 +35,8 @@ public sealed class FormValidatorTests(SerginWebApiFactory<Program> factory)
             nameof(CreateDeviceCommand.DeviceId));
 
         string message = Assert.Single(messages);
-        Assert.Contains("Device Id", message, StringComparison.Ordinal);
-        Assert.DoesNotContain("Device Model", message, StringComparison.Ordinal);
+        Assert.Contains("'Device ID'", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("'Model'", message, StringComparison.Ordinal);
     }
 
     [Fact]

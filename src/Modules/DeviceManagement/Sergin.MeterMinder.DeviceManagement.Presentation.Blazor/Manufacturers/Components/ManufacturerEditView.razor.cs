@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Components;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Models;
 using Sergin.SharedKernel.Application.Concurrency;
@@ -32,6 +34,9 @@ public sealed partial class ManufacturerEditView
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
     [CascadingParameter]
     private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;
 
@@ -41,8 +46,10 @@ public sealed partial class ManufacturerEditView
     private IReadOnlyList<SerginBreadcrumb> Trail =>
     [
         SerginBreadcrumb.Of(DeviceManagementNavigation.Manufacturers),
-        new(loadedName ?? "Manufacturer", $"/dm/manufacturers/{Id}"),
-        new("Edit"),
+        loadedName is null
+            ? new(ManufacturerTexts.Singular, $"/dm/manufacturers/{Id}")
+            : SerginBreadcrumb.Data(loadedName, $"/dm/manufacturers/{Id}"),
+        new(DeviceManagementTexts.Edit),
     ];
 
     protected override void OnInitialized() => validation = FormValidator.RulesFor(ToCommand);
