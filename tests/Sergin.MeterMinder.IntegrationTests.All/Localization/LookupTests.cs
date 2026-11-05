@@ -60,11 +60,43 @@ public sealed class LookupTests(SerginWebApiFactory<Program> factory) : IAsyncLi
     public async Task ParentCulture_Fallback()
     {
         store.Set("fa", CommonTexts.Save.Key.Value, "ذخیره", CommonTexts.Save.Default);
-        await Cache.EnsureLoadedAsync("fa", CancellationToken.None);
+        await Cache.EnsureLoadedAsync("fa-IR", CancellationToken.None);
 
         using CultureScope culture = new("fa-IR");
 
         Assert.Equal("ذخیره", Localizer.Text(CommonTexts.Save));
+    }
+
+    [Fact]
+    public async Task ParentCulture_UsedWhenTheCultureTranslationDrifted()
+    {
+        store.Set("fa-IR", LookupTexts.DeleteConfirm.Key.Value, "حذف {Device}؟", LookupTexts.DeleteConfirm.Default);
+        store.Set("fa", LookupTexts.DeleteConfirm.Key.Value, "حذف {DeviceId}؟", LookupTexts.DeleteConfirm.Default);
+        await Cache.EnsureLoadedAsync("fa-IR", CancellationToken.None);
+
+        using CultureScope culture = new("fa-IR");
+
+        Assert.Equal("حذف MTR-1؟", Localizer.Text(LookupTexts.DeleteConfirm, new { DeviceId = "MTR-1" }));
+    }
+
+    [Fact]
+    public async Task SlowEarlierLoad_DoesNotOverwriteALaterRefresh()
+    {
+        store.Set("de", CommonTexts.Save.Key.Value, "Alt", CommonTexts.Save.Default);
+        TaskCompletionSource release = store.HoldNextTranslationRead();
+
+        Task ensure = Cache.EnsureLoadedAsync("de", CancellationToken.None);
+        await store.HeldReadStarted;
+
+        store.Set("de", CommonTexts.Save.Key.Value, "Neu", CommonTexts.Save.Default);
+        Task refresh = Cache.RefreshAsync("de", CancellationToken.None);
+
+        release.SetResult();
+        await Task.WhenAll(ensure, refresh);
+
+        using CultureScope culture = new("de");
+
+        Assert.Equal("Neu", Localizer.Text(CommonTexts.Save));
     }
 
     [Fact]
@@ -149,6 +181,18 @@ public sealed class LookupTests(SerginWebApiFactory<Program> factory) : IAsyncLi
     private sealed class FakeTranslationStore : ITranslationStore
     {
         private readonly Dictionary<string, Dictionary<string, StoredTranslation>> translations = new(StringComparer.Ordinal);
+        private readonly TaskCompletionSource heldReadStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private TaskCompletionSource? hold;
+
+        /// <summary>Completes once the held read has taken its snapshot of the data.</summary>
+        public Task HeldReadStarted => heldReadStarted.Task;
+
+        /// <summary>The next translation read snapshots the data now and returns it only once the result is released.</summary>
+        public TaskCompletionSource HoldNextTranslationRead()
+        {
+            hold = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            return hold;
+        }
 
         public void Set(string culture, string key, string text, string sourceText)
         {
@@ -165,11 +209,22 @@ public sealed class LookupTests(SerginWebApiFactory<Program> factory) : IAsyncLi
             Task.FromResult<IReadOnlyList<LanguageInfo>>(
                 [.. translations.Keys.Select(culture => new LanguageInfo(culture, culture, IsRightToLeft: false, IsPublished: true))]);
 
-        public Task<IReadOnlyDictionary<string, StoredTranslation>> GetTranslationsAsync(string culture, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyDictionary<string, StoredTranslation>>(
+        public async Task<IReadOnlyDictionary<string, StoredTranslation>> GetTranslationsAsync(string culture, CancellationToken cancellationToken)
+        {
+            IReadOnlyDictionary<string, StoredTranslation> snapshot =
                 translations.TryGetValue(culture, out Dictionary<string, StoredTranslation>? byKey)
                     ? new Dictionary<string, StoredTranslation>(byKey, StringComparer.Ordinal)
-                    : new Dictionary<string, StoredTranslation>(StringComparer.Ordinal));
+                    : new Dictionary<string, StoredTranslation>(StringComparer.Ordinal);
+
+            if (hold is { } held)
+            {
+                hold = null;
+                heldReadStarted.SetResult();
+                await held.Task;
+            }
+
+            return snapshot;
+        }
     }
 
     private sealed class CultureScope : IDisposable
