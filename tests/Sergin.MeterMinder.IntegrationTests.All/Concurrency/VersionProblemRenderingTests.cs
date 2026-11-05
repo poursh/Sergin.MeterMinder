@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Concurrency;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Errors;
 
@@ -31,5 +30,5 @@ public sealed class VersionProblemRenderingTests(SerginWebApiFactory<Program> fa
         Assert.Equal(Localizer()["General.VersionStale"].Value, problem.Detail);
     }
 
-    private ILocalizer Localizer() => factory.Services.GetRequiredService<ILocalizer>();
+    private IStringLocalizer Localizer() => factory.Services.GetRequiredService<IStringLocalizer>();
 }

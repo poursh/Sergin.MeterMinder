@@ -27,3 +27,4 @@ global using Sergin.UserAccess.Application.Contracts.Users.Commands.ProvisionExt
 global using Sergin.UserAccess.Application.Users.Commands.GetList;
 global using Sergin.UserAccess.Application.Users.Commands.GetOne;
 global using Sergin.UserAccess.Application.Users.Commands.ProvisionExternalUser;
+global using Microsoft.Extensions.Localization;

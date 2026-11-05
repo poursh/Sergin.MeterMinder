@@ -1,30 +1,28 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.IntegrationTests;
-using System.Globalization;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Permissions;
 
 /// <summary>
 /// A module's subheader on the role pages is its localized name when a resource exists and its schema when not,
-/// never the raw resource key the default localizer echoes back.
+/// never the raw resource key the localizer echoes back.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class PermissionModuleLabelTests(SerginWebApiFactory<Program> factory)
 {
     [Fact]
-    public void DefaultLocalizer_WithNoResource_FallsBackToTheSchema()
+    public void Localizer_WithNoResource_FallsBackToTheSchema()
     {
-        ILocalizer localizer = factory.Services.GetRequiredService<ILocalizer>();
+        IStringLocalizer localizer = factory.Services.GetRequiredService<IStringLocalizer>();
 
-        Assert.Equal("dm", localizer.LocalizedOrDefault("Permissions.dm", "dm"));
+        Assert.Equal("dm", OrDefault(localizer, "Permissions.dm", "dm"));
     }
 
     [Fact]
     public void Localizer_WithAResource_ShowsTheLocalizedText()
     {
-        Assert.Equal("Devices", new FoundLocalizer().LocalizedOrDefault("Permissions.dm", "dm"));
+        Assert.Equal("Devices", OrDefault(new FoundLocalizer(), "Permissions.dm", "dm"));
     }
 
     [Theory]
@@ -39,12 +37,15 @@ public sealed class PermissionModuleLabelTests(SerginWebApiFactory<Program> fact
         Assert.DoesNotContain("Permissions.", html, StringComparison.Ordinal);
     }
 
-    private sealed class FoundLocalizer : ILocalizer
+    private static string OrDefault(IStringLocalizer localizer, string key, string fallback) =>
+        localizer[key] is { ResourceNotFound: false } text ? text.Value : fallback;
+
+    private sealed class FoundLocalizer : IStringLocalizer
     {
         public LocalizedString this[string name] => new(name, "Devices", resourceNotFound: false);
 
         public LocalizedString this[string name, params object[] arguments] => this[name];
 
-        public CultureInfo CurrentCulture => CultureInfo.InvariantCulture;
+        public IEnumerable<LocalizedString> GetAllStrings(bool includeParentCultures) => [];
     }
 }
