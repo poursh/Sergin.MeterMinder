@@ -12,8 +12,8 @@ using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
 namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(DeviceManagementDbContext))]
-    [Migration("20260927215101_AddSoftDeleteColumns")]
-    partial class AddSoftDeleteColumns
+    [Migration("20261106175221_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -21,9 +21,10 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasDefaultSchema("dm")
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.14")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
+            NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "ltree");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
             modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Devices.Device", b =>
@@ -65,6 +66,20 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("modified_by");
 
+                    b.Property<Guid>("RowVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("row_version");
+
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("scope_id");
+
+                    b.Property<string>("ScopePath")
+                        .IsRequired()
+                        .HasColumnType("ltree")
+                        .HasColumnName("scope_path");
+
                     b.HasKey("Id")
                         .HasName("pk_device");
 
@@ -76,6 +91,14 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                     b.HasIndex("DeviceModelId")
                         .HasDatabaseName("ix_device_device_model_id");
 
+                    b.HasIndex("ScopeId")
+                        .HasDatabaseName("ix_device_scope_id");
+
+                    b.HasIndex("ScopePath")
+                        .HasDatabaseName("ix_device_scope_path");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("ScopePath"), "gist");
+
                     b.ToTable("device", "dm", t =>
                         {
                             t.HasCheckConstraint("ck_device_soft_delete", "(deleted_at_utc IS NULL) = (deleted_by IS NULL)");
@@ -83,7 +106,9 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
 
                     b
                         .HasAnnotation("Sergin:Audited", true)
-                        .HasAnnotation("Sergin:SoftDeletable", true);
+                        .HasAnnotation("Sergin:Scoped", true)
+                        .HasAnnotation("Sergin:SoftDeletable", true)
+                        .HasAnnotation("Sergin:Versioned", true);
                 });
 
             modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels.DeviceModel", b =>
@@ -140,7 +165,8 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
 
                     b
                         .HasAnnotation("Sergin:Audited", true)
-                        .HasAnnotation("Sergin:SoftDeletable", true);
+                        .HasAnnotation("Sergin:SoftDeletable", true)
+                        .HasAnnotation("Sergin:VersionRoot", "Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.Manufacturer");
                 });
 
             modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.Manufacturer", b =>
@@ -182,6 +208,11 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<Guid>("RowVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid")
+                        .HasColumnName("row_version");
+
                     b.HasKey("Id")
                         .HasName("pk_manufacturer");
 
@@ -192,7 +223,8 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
 
                     b
                         .HasAnnotation("Sergin:Audited", true)
-                        .HasAnnotation("Sergin:SoftDeletable", true);
+                        .HasAnnotation("Sergin:SoftDeletable", true)
+                        .HasAnnotation("Sergin:Versioned", true);
                 });
 
             modelBuilder.Entity("Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox.InboxMessage", b =>
