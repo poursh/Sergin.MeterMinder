@@ -28,6 +28,32 @@ public sealed class NavSectionCatalogTests
             [new(TestText.Of("Only"), "/aa/only", string.Empty)]),
     ]);
 
+    private static readonly SerginNavGroup SharedGroup = new(TestText.Of("Shared"), string.Empty, Order: 20);
+
+    private static readonly SerginUiModuleCatalog SharedCatalog = new(
+    [
+        new NavModule("cc", SharedGroup, [new(TestText.Of("B"), "/cc/b", string.Empty, Order: 210)]),
+        new NavModule("dd", SharedGroup, [new(TestText.Of("A"), "/dd/a", string.Empty, Order: 200)]),
+        new NavModule(
+            "ee",
+            new SerginNavGroup(TestText.Of("Own"), string.Empty, Order: 30),
+            [new(TestText.Of("Only"), "/ee/only", string.Empty)]),
+    ]);
+
+    [Fact]
+    public void ModulesSharingAGroup_FormOneSection_WithEveryModulesItemsInOrder()
+    {
+        SerginNavSection shared = SharedCatalog.NavSections.Single(section => section.Group == SharedGroup);
+        Assert.Equal(["/dd/a", "/cc/b"], shared.Items.Select(item => item.Href));
+        Assert.Equal(2, SharedCatalog.NavSections.Count);
+    }
+
+    [Theory]
+    [InlineData("/cc/b")]
+    [InlineData("/dd/a")]
+    public void GroupOf_EitherModulesHref_IsTheSharedGroup(string href)
+        => Assert.Same(SharedGroup, SharedCatalog.GroupOf(href));
+
     [Fact]
     public void Sections_AreOrderedByGroupOrder_ThenTitle()
         => Assert.Equal(["Beta", "Alpha", "Zeta"], Catalog.NavSections.Select(section => section.Group.Title.Default));
