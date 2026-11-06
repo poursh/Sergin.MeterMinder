@@ -5,8 +5,8 @@ using Sergin.Administration.Settings;
 using Sergin.Administration.Settings.Application.Configurations;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Domain.Securities;
-using Sergin.UserAccess;
-using Sergin.UserAccess.Application.Configurations;
+using Sergin.Administration.UserAccess;
+using Sergin.Administration.UserAccess.Application.Configurations;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Commands;
 

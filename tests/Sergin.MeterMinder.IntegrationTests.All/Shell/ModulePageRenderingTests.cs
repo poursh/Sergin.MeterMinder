@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation;
+using Sergin.SharedKernel.Presentation.Blazor.Modules;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 
@@ -54,14 +55,15 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
     }
 
     /// <summary>
-    /// Each module's entries sit in a drawer group named after the module, and only the group of the page shown
-    /// is open — on a detail page too, under the same prefix rule that lights its section's entry.
+    /// Each module's entries sit in its drawer group (the Administration modules share one), and only the group of
+    /// the page shown is open — on a detail page too, under the same prefix rule that lights its section's entry.
     /// </summary>
     [Theory]
     [InlineData("/dm/devices", "Device Management")]
     [InlineData("/dm/manufacturers/01920000-0000-7000-8000-000000000001/edit", "Device Management")]
-    [InlineData("/ua/users", "User Access")]
-    [InlineData("/ua/users/new", "User Access")]
+    [InlineData("/ua/users", "Administration")]
+    [InlineData("/ua/users/new", "Administration")]
+    [InlineData("/ua/scopes", "Administration")]
     [InlineData("/st/languages", "Administration")]
     public async Task Drawer_GroupsEntriesByModule_AndOpensTheCurrentPagesGroup(string path, string openGroup)
     {
@@ -74,8 +76,21 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
             match => match.Groups["expanded"].Value == "true",
             StringComparer.Ordinal);
 
-        Assert.Equal(["Administration", "Device Management", "User Access"], groups.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(["Administration", "Device Management"], groups.Keys.Order(StringComparer.Ordinal));
         Assert.All(groups, group => Assert.Equal(group.Key == openGroup, group.Value));
+    }
+
+    /// <summary>
+    /// UserAccess and Settings both return the shared Administration group, so the drawer holds one section for
+    /// them, ordered by entry: Users (200), Scopes (210), Languages (300).
+    /// </summary>
+    [Fact]
+    public void Drawer_AdministrationGroup_HoldsUsersScopesAndLanguages()
+    {
+        SerginNavSection administration = factory.Services.GetRequiredService<SerginUiModuleCatalog>().NavSections
+            .Single(section => section.Group == SerginNavGroups.Administration);
+
+        Assert.Equal(["/ua/users", "/ua/scopes", "/st/languages"], administration.Items.Select(item => item.Href));
     }
 
     /// <summary>
@@ -90,7 +105,7 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
 
         MatchCollection groups = NavGroupToggle().Matches(html);
 
-        Assert.Equal(3, groups.Count);
+        Assert.Equal(2, groups.Count);
         Assert.All(groups, group => Assert.Equal("false", group.Groups["expanded"].Value));
     }
 

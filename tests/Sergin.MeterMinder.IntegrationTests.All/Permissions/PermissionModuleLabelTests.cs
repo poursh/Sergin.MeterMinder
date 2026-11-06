@@ -7,8 +7,8 @@ using Sergin.MeterMinder.IntegrationTests.All.Localization;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
-using Sergin.UserAccess.Application.Configurations.Roles;
-using Sergin.UserAccess.Presentation.Blazor.Roles;
+using Sergin.Administration.UserAccess.Application.Configurations.Roles;
+using Sergin.Administration.UserAccess.Presentation.Blazor.Roles;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Permissions;
 

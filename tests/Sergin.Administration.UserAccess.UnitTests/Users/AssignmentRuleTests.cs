@@ -1,12 +1,12 @@
 using ErrorOr;
 using Sergin.SharedKernel.Domain.Securities;
-using Sergin.UserAccess.Application.Authorization;
-using Sergin.UserAccess.Domain.Roles;
-using Sergin.UserAccess.Domain.Scopes;
-using Sergin.UserAccess.Domain.Users;
-using Sergin.UserAccess.Domain.Users.Assignments;
+using Sergin.Administration.UserAccess.Application.Authorization;
+using Sergin.Administration.UserAccess.Domain.Roles;
+using Sergin.Administration.UserAccess.Domain.Scopes;
+using Sergin.Administration.UserAccess.Domain.Users;
+using Sergin.Administration.UserAccess.Domain.Users.Assignments;
 
-namespace Sergin.UserAccess.UnitTests.Users;
+namespace Sergin.Administration.UserAccess.UnitTests.Users;
 
 /// <summary>The assignment business rules, one test each (NFR-7), on Company &gt; North &gt; Feeder 1, plus South.</summary>
 public sealed class AssignmentRuleTests

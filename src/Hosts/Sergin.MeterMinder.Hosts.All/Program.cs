@@ -1,9 +1,9 @@
 using Sergin.Administration.Settings;
+using Sergin.Administration.UserAccess;
 using Sergin.MeterMinder.DeviceManagement;
 using Sergin.MeterMinder.Hosts.All.Components;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Modules;
-using Sergin.UserAccess;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 

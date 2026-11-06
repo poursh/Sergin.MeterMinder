@@ -4,7 +4,7 @@ using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.UserAccess.Domain.Users;
+using Sergin.Administration.UserAccess.Domain.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 
@@ -50,8 +50,8 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
     [InlineData("/dm/devices", "Device Management", "Devices")]
     [InlineData("/dm/manufacturers/new", "Device Management", "Manufacturers")]
     [InlineData("/dm/manufacturers/" + UnseededId + "/models/new", "Device Management", "Manufacturers")]
-    [InlineData("/ua/users", "User Access", "Users")]
-    [InlineData("/ua/users/" + UnseededId, "User Access", "Users")]
+    [InlineData("/ua/users", "Administration", "Users")]
+    [InlineData("/ua/users/" + UnseededId, "Administration", "Users")]
     public async Task ModulePage_NamesItsModule_BetweenHomeAndSection(string path, string module, string section)
     {
         string strip = await GetBreadcrumbStripAsync(path);

@@ -15,7 +15,7 @@ using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Users;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Revoke;
+using Sergin.Administration.UserAccess.Application.Contracts.Users.Assignments.Commands.Revoke;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 

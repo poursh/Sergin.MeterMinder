@@ -6,14 +6,14 @@ using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
-using Sergin.UserAccess.Application.Contracts.Roles.Commands.Create;
-using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Move;
-using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
-using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Revoke;
-using Sergin.UserAccess.Domain.Roles;
+using Sergin.Administration.UserAccess.Application.Contracts.Roles.Commands.Create;
+using Sergin.Administration.UserAccess.Application.Contracts.Scopes.Commands.Move;
+using Sergin.Administration.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
+using Sergin.Administration.UserAccess.Application.Contracts.Users.Assignments.Commands.Revoke;
+using Sergin.Administration.UserAccess.Domain.Roles;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
-using Sergin.UserAccess.Application.Configurations.Roles;
-using Sergin.UserAccess.Application.Configurations.Users;
+using Sergin.Administration.UserAccess.Application.Configurations.Roles;
+using Sergin.Administration.UserAccess.Application.Configurations.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 

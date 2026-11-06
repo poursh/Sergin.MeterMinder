@@ -19,7 +19,7 @@ using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Move;
+using Sergin.Administration.UserAccess.Application.Contracts.Scopes.Commands.Move;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Scoping;
 

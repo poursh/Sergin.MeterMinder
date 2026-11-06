@@ -1,7 +1,7 @@
 using ErrorOr;
-using Sergin.UserAccess.Domain.Scopes;
+using Sergin.Administration.UserAccess.Domain.Scopes;
 
-namespace Sergin.UserAccess.UnitTests.Scopes;
+namespace Sergin.Administration.UserAccess.UnitTests.Scopes;
 
 public sealed class ScopeTreeTests
 {

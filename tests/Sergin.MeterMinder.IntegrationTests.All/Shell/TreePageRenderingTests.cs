@@ -2,7 +2,7 @@ using System.Net;
 using System.Text.RegularExpressions;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.IntegrationTests;
-using Sergin.UserAccess.Domain.Scopes;
+using Sergin.Administration.UserAccess.Domain.Scopes;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 

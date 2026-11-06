@@ -23,9 +23,9 @@ using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.UserAccess.Application.Contracts.Users.Commands.Create;
-using Sergin.UserAccess.Domain.Scopes;
-using Sergin.UserAccess.Domain.Users;
+using Sergin.Administration.UserAccess.Application.Contracts.Users.Commands.Create;
+using Sergin.Administration.UserAccess.Domain.Scopes;
+using Sergin.Administration.UserAccess.Domain.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 
