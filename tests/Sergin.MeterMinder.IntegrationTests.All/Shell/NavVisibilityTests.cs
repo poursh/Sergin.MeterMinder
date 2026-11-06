@@ -81,6 +81,8 @@ public sealed class NavVisibilityTests(SerginWebApiFactory<Program> factory)
                     services.AddSingleton(new SerginUiModuleCatalog(
                     [
                         .. real.Modules,
+                        // Each fake module needs a distinct UiAssembly, or endpoint mapping throws "Assembly already defined";
+                        // these SharedKernel assemblies are borrowed because they hold no [Route] components.
                         new SharedGroupModule("open", typeof(SerginNavItem).Assembly, new SerginNavItem(TestText.Of("Open entry"), "/open/page", string.Empty)),
                         new SharedGroupModule(
                             "gated",

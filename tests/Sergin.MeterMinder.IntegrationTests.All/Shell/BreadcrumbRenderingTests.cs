@@ -88,9 +88,9 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
     [Fact]
     public async Task OldPlatformRoute_IsNotFound()
     {
-        HttpClient client = factory.CreateClient();
+        using HttpClient client = factory.CreateClient();
 
-        HttpResponseMessage response = await client.GetAsync(new Uri("/pf/languages", UriKind.Relative));
+        using HttpResponseMessage response = await client.GetAsync(new Uri("/pf/languages", UriKind.Relative));
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
