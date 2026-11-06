@@ -5,6 +5,8 @@ using ErrorOr;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.MeterMinder.IntegrationTests.All.Authorization;
+using Sergin.Platform.Application.Configurations.Languages;
 using Sergin.Platform.Application.Contracts.Languages.Commands.Add;
 using Sergin.Platform.Application.Contracts.Languages.Commands.Delete;
 using Sergin.Platform.Application.Contracts.Languages.Commands.GetAudit;
@@ -93,12 +95,52 @@ public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> fact
         }
     }
 
+    /// <summary>
+    /// A reader (languages read, not manage) sees the name and direction as text: no rename form, no direction select,
+    /// no publish or delete. The administrator sees them all.
+    /// </summary>
+    [Fact]
+    public async Task LanguageDetail_ForAReader_HidesTheManageControls()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = Dispatcher(scope);
+        Guid language = await AddLanguageAsync(dispatcher, "lv-LV", "Latviesu");
+
+        try
+        {
+            string manager = await GetAsync($"/pf/languages/{language}");
+            Assert.Contains(">Rename<", manager, StringComparison.Ordinal);
+            Assert.Contains("aria-label=\"Direction\"", manager, StringComparison.Ordinal);
+
+            RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+            TestCaller reader = await scenario.CreateGrantedCallerAsync(scenario.North, LanguagePermissions.Read.Permission);
+            await using WebApplicationFactory<Program> host = factory.WithWebHostBuilder(builder =>
+                builder.ConfigureTestServices(services => services.AddSingleton<IUserContextFactory>(new FixedUserContextFactory(reader))));
+            using HttpClient client = host.CreateClient();
+
+            string html = WebUtility.HtmlDecode(await client.GetStringAsync(new Uri($"/pf/languages/{language}", UriKind.Relative)));
+
+            Assert.Contains("Latviesu", html, StringComparison.Ordinal);
+            Assert.Contains("From the culture (Left to right)", html, StringComparison.Ordinal);
+            Assert.DoesNotContain(">Rename<", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("aria-label=\"Direction\"", html, StringComparison.Ordinal);
+            Assert.DoesNotContain(">Publish<", html, StringComparison.Ordinal);
+            Assert.DoesNotContain(">Delete<", html, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await DeleteLanguageAsync(dispatcher, language);
+        }
+    }
+
     [Fact]
     public async Task LanguageDetail_UnknownId_ShowsNotFound()
     {
         string html = await GetAsync($"/pf/languages/{Guid.CreateVersion7()}");
 
         Assert.Contains("<title>Language</title>", html, StringComparison.Ordinal);
+        Assert.Contains("Not found", html, StringComparison.Ordinal);
+        Assert.Contains("The record was not found, or you cannot see it here.", html, StringComparison.Ordinal);
         Assert.DoesNotContain(" translated", html, StringComparison.Ordinal);
     }
 
@@ -129,7 +171,7 @@ public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> fact
     }
 
     [Fact]
-    public async Task TranslationList_Renders_WithStatusFilter()
+    public async Task TranslationList_RendersColumnsFilterToggleAndTrail()
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = Dispatcher(scope);
