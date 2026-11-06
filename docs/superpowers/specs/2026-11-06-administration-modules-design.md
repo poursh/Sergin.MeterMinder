@@ -74,12 +74,15 @@ that return an *equal* group are already equal by value. What is missing:
 
 - **Where the shared title is declared.** The text catalog refuses a key outside its module, so neither module
   can declare `administration.*` for the other. SharedKernel declares the group once, as a well-known
-  definition (`SerginNavGroups.Administration`: title `common.nav-groups.administration` "Administration", an
-  icon, Order 200). Both modules return it from `NavGroup`. "Administration" is generic to any Sergin host, so
-  it fits SharedKernel; a host that does not want it simply has no module returning it.
+  definition (`SerginNavGroups.Administration` in `Sergin.SharedKernel.Presentation.Blazor`, since the icon is a
+  MudBlazor constant: title `ShellTexts.Navigation.AdministrationGroup`, key
+  `common.navigation.administration-group`, "Administration", Order 200). Both modules return it from
+  `NavGroup`. "Administration" is generic to any Sergin host, so it fits SharedKernel; a host that does not want
+  it simply has no module returning it.
 - **Merging by group.** `SerginUiModuleCatalog` groups sections by `SerginNavGroup` (value equality) instead of
   by module. The items of every module returning the group share one section, ordered by `SerginNavItem.Order`
-  across modules. UserAccess takes items 10–90 and Settings 100 onward, so the order is stable.
+  across modules. UserAccess keeps its items at 200 and 210, and Settings' Languages moves from 100 to 300, so
+  the order is stable.
 - **Breadcrumbs.** `GroupOf(href)` already returns a group, not a module, so it works unchanged once sections
   merge.
 - **Expansion state.** `SerginNavMenu` already keys expansion by `SerginNavGroup`, so a merged group opens and
