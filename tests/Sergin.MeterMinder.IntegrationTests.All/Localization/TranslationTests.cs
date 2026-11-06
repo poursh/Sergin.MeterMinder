@@ -230,7 +230,9 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
             TranslationId known = await AddTranslationAsync(dispatcher, language, CommonTexts.Save.Key.Value, "Uložit");
             ErrorOr<DeleteTranslationCommandResponse> refused =
                 await SendAtTranslationVersionAsync(dispatcher, known, new DeleteTranslationCommand(known));
-            Assert.Equal(ErrorType.Validation, Assert.Single(refused.Errors).Type);
+            Error refusal = Assert.Single(refused.Errors);
+            Assert.Equal(ErrorType.Validation, refusal.Type);
+            Assert.Equal("Id", refusal.Code);
 
             ErrorOr<DeleteTranslationCommandResponse> deleted = await SendAtTranslationVersionAsync(
                 dispatcher, new TranslationId(orphanId), new DeleteTranslationCommand(new TranslationId(orphanId)));
@@ -278,6 +280,31 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
             ListQueryResponse<GetTranslationListItem> all = await ListAsync(dispatcher, language);
             Assert.Equal(catalog.Entries.Count, all.Total);
             Assert.Equal(all.Data.Select(item => item.Key).Order(StringComparer.Ordinal), all.Data.Select(item => item.Key));
+        }
+        finally
+        {
+            await DeleteLanguageAsync(dispatcher, language);
+        }
+    }
+
+    [Fact]
+    public async Task List_PagesTheFilteredRows()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = Dispatcher(scope);
+        TextCatalog catalog = factory.Services.GetRequiredService<TextCatalog>();
+        Guid language = await AddLanguageAsync(dispatcher, "lt-LT", "Lietuvių");
+
+        try
+        {
+            int platformKeys = catalog.Entries.Count(entry => entry.Module == "platform");
+
+            ErrorOr<ListQueryResponse<GetTranslationListItem>> page = await dispatcher.SendAsync(new GetTranslationListQueryCommand(
+                new LanguageId(language), Paggination.Create(1, 2), module: "platform", status: TranslationStatus.Untranslated));
+
+            Assert.False(page.IsError, page.IsError ? page.FirstError.Description : string.Empty);
+            Assert.Equal(platformKeys, page.Value.Total);
+            Assert.Single(page.Value.Data);
         }
         finally
         {
