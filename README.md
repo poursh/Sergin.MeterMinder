@@ -90,9 +90,7 @@ dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.All
 
 Compose builds the app image and starts PostgreSQL, Keycloak and the Aspire dashboard next to it. This stack runs in `Keycloak` mode, so you sign in for real — the realm export seeds a user **`dev`** with password **`dev`**. Submodules must be initialized first; the build context copies the whole working tree.
 
-**After pulling the migration reset**, see [Upgrading an existing clone](#upgrading-an-existing-clone) (the dev database must be dropped once).
-
-**After pulling the migration reset** (every module now has a single `InitialCreate`; the old named migrations are gone), drop the dev database volume once so the schemas are rebuilt from scratch:
+**After pulling the migration reset** (every module now has a single `InitialCreate`; the old named migrations are gone), see [Upgrading an existing clone](#upgrading-an-existing-clone); the dev database must be dropped once, so drop the volume so the schemas are rebuilt from scratch:
 
 ```bash
 docker compose -f docker-compose/docker-compose.yml down -v
