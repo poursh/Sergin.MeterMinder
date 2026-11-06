@@ -8,7 +8,7 @@
 [![Keycloak 26](https://img.shields.io/badge/Keycloak-26.7-4D4D4D)](docker-compose/.files/identity/sergin-realm.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-2E7D32)](LICENSE)
 
-Meter Minder is the hostable root of the **Sergin** platform. One process composes two modules: **DeviceManagement** (`dm`), the head-end system that owns devices, manufacturers and their device models, and **UserAccess** (`ua`), which owns users, the scope tree, roles and role assignments — the scoped RBAC every permission check is answered from. Each module is a Clean Architecture stack with its own PostgreSQL schema, its own migrations and its own Razor pages. The host is a twenty-line `Program.cs` that hands both to a shared bootstrap.
+Meter Minder is the hostable root of the **Sergin** platform. One process composes three modules: **DeviceManagement** (`dm`), the head-end system that owns devices, manufacturers and their device models, and **UserAccess** (`ua`), which owns users, the scope tree, roles and role assignments — the scoped RBAC every permission check is answered from, and **Settings** (`st`), which owns the platform's own configuration (languages and translations today). UserAccess and Settings sit together under `src/Modules/Administration/` and share one **Administration** group in the drawer. Each module is a Clean Architecture stack with its own PostgreSQL schema, its own migrations and its own Razor pages. The host is a twenty-line `Program.cs` that hands them to a shared bootstrap.
 
 ## At a glance
 
@@ -24,18 +24,19 @@ Meter Minder is the hostable root of the **Sergin** platform. One process compos
 | **Observability** | .NET Aspire service defaults (OpenTelemetry, health checks, resilience) and the Aspire dashboard container. |
 | **Tests** | An xUnit integration project driving the real host against a disposable `postgres:17` from Testcontainers, plus a small UserAccess domain unit-test project. |
 
-## Three repositories, one working tree
+## Four repositories, one working tree
 
-This is the root of a three-repo split. Two directories are git submodules that point at their own repositories; every `ProjectReference` resolves because they are mounted at the same relative paths they occupied before the split.
+This is the root of a four-repo split. Three directories are git submodules that point at their own repositories; every `ProjectReference` resolves by relative path from where they are mounted.
 
 | Path | Repository | What it holds |
 |---|---|---|
 | `.` | [Sergin.MeterMinder](https://github.com/poursh/Sergin.MeterMinder) | The host, the DeviceManagement module, the integration tests, Docker Compose |
 | `src/SharedKernel/` | [Sergin.SharedKernel](https://github.com/poursh/Sergin.SharedKernel) | Framework building blocks and host bootstraps. Depends on no other Sergin repository, but builds only inside a host: its build rules and package versions come from this repo's `Directory.Build.props`/`Directory.Packages.props`. |
-| `src/Modules/UserAccess/` | [Sergin.UserAccess](https://github.com/poursh/Sergin.UserAccess) | The UserAccess module. Embed-only: it compiles only when mounted here. |
+| `src/Modules/Administration/UserAccess/` | [Sergin.Administration.UserAccess](https://github.com/poursh/Sergin.Administration.UserAccess) | The UserAccess module. Embed-only: it compiles only when mounted here. |
+| `src/Modules/Administration/Settings/` | [Sergin.Administration.Settings](https://github.com/poursh/Sergin.Administration.Settings) | The Settings module (languages and translations). Embed-only, like UserAccess. |
 
 > [!IMPORTANT]
-> Clone with `--recurse-submodules`, or run `git submodule update --init --recursive` afterwards — a plain clone leaves both directories empty and the build fails on unresolvable project references. A commit made inside either directory belongs to that submodule's repository, not to this one.
+> Clone with `--recurse-submodules`, or run `git submodule update --init --recursive` afterwards — a plain clone leaves all three directories empty and the build fails on unresolvable project references. A commit made inside any of them belongs to that submodule's repository, not to this one.
 
 ```
 .
@@ -43,11 +44,13 @@ This is the root of a three-repo split. Two directories are git submodules that 
 │   ├── Hosts/Sergin.MeterMinder.Hosts.All/     Blazor Server host — the only runnable project
 │   ├── Modules/
 │   │   ├── DeviceManagement/                    schema dm — Devices, Manufacturers (+ models)
-│   │   └── UserAccess/                          schema ua — Users, Roles, Scopes   (submodule)
+│   │   └── Administration/
+│   │       ├── UserAccess/                      schema ua — Users, Roles, Scopes   (submodule)
+│   │       └── Settings/                        schema st — Languages, Translations (submodule)
 │   └── SharedKernel/                            building blocks, bootstraps        (submodule)
 ├── tests/
 │   ├── Sergin.MeterMinder.IntegrationTests.All/ the real host against a Testcontainers postgres:17
-│   └── Sergin.UserAccess.UnitTests/             scoped-RBAC domain rules, no database
+│   └── Sergin.Administration.UserAccess.UnitTests/ scoped-RBAC domain rules, no database
 ├── docker-compose/                              app + postgres:17 + Keycloak + Aspire dashboard, dev seeds
 └── docs/superpowers/                            design specs and implementation plans
 ```
@@ -55,6 +58,12 @@ This is the root of a three-repo split. Two directories are git submodules that 
 ## Quick start
 
 Requires the **.NET 10 SDK** (Visual Studio 17.13+ or Rider). Run every command from the repository root.
+
+On Windows, enable long paths once before cloning (one path inside UserAccess exceeds 260 characters in a deep checkout):
+
+```bash
+git config --global core.longpaths true
+```
 
 ```bash
 git clone --recurse-submodules https://github.com/poursh/Sergin.MeterMinder.git
@@ -78,6 +87,12 @@ dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.All
 ### Run the whole stack in Docker
 
 Compose builds the app image and starts PostgreSQL, Keycloak and the Aspire dashboard next to it. This stack runs in `Keycloak` mode, so you sign in for real — the realm export seeds a user **`dev`** with password **`dev`**. Submodules must be initialized first; the build context copies the whole working tree.
+
+**After pulling the migration reset** (every module now has a single `InitialCreate`; the old named migrations are gone), drop the dev database volume once so the schemas are rebuilt from scratch:
+
+```bash
+docker compose -f docker-compose/docker-compose.yml down -v
+```
 
 ```bash
 docker compose -f docker-compose/docker-compose.yml up --build
@@ -189,7 +204,7 @@ sequenceDiagram
     R->>O: processed, or retry with backoff
 ```
 
-The default `IIntegrationEventDispatcher` delivers in-process; a multi-host deployment registers a broker-backed one in `Program.cs` before the bootstrap and it wins. That method is the only seam a transport ever plugs into. Both `dm` and `ua` have opted in (their `AddOutbox` migrations create the tables). **One event is live today**: when a scope moves, UserAccess publishes `ScopesMovedIntegrationEvent`, and a SharedKernel handler registered for every module rewrites the stored scope paths of that module's scoped records (in `dm`, devices). The rest of the pipe is proven by the `Events/` tests with a test-only aggregate. The design is in [`docs/superpowers/specs/2026-09-13-outbox-design.md`](docs/superpowers/specs/2026-09-13-outbox-design.md).
+The default `IIntegrationEventDispatcher` delivers in-process; a multi-host deployment registers a broker-backed one in `Program.cs` before the bootstrap and it wins. That method is the only seam a transport ever plugs into. Both `dm` and `ua` have opted in (their `InitialCreate` migrations create the tables). **One event is live today**: when a scope moves, UserAccess publishes `ScopesMovedIntegrationEvent`, and a SharedKernel handler registered for every module rewrites the stored scope paths of that module's scoped records (in `dm`, devices). The rest of the pipe is proven by the `Events/` tests with a test-only aggregate. The design is in [`docs/superpowers/specs/2026-09-13-outbox-design.md`](docs/superpowers/specs/2026-09-13-outbox-design.md).
 
 > [!NOTE]
 > **There is no Web API host.** It was dropped because the Blazor UI dispatches to handlers in-process and the HTTP hop bought nothing. The capability is intact: both modules implement `ISerginWebApiModule`, ship their `.Presentation.WebApi` endpoints, and `Sergin.SharedKernel.Hosts.WebApi` still builds. Restoring an API is a new twenty-line `Program.cs` in a separate host project — not a rewrite, and not a second `Add…` call in this one.
@@ -206,11 +221,11 @@ dotnet ef migrations add <Name> \
   --startup-project src/Hosts/Sergin.MeterMinder.Hosts.All
 
 dotnet ef migrations add <Name> \
-  --project src/Modules/UserAccess/Sergin.UserAccess.Infrastructure.Data \
+  --project src/Modules/Administration/UserAccess/Sergin.Administration.UserAccess.Infrastructure.Data \
   --startup-project src/Hosts/Sergin.MeterMinder.Hosts.All
 ```
 
-Migrations apply automatically at startup in the Development environment only — which is why `docker-compose.yml` keeps `ASPNETCORE_ENVIRONMENT: Development` even in `Keycloak` mode.
+Each module has exactly one migration, `InitialCreate` (UserAccess's also seeds the Root scope and the `administrator` and `viewer` roles). A schema change adds a new migration after it; the scaffolded file needs converting to a file-scoped namespace by hand before it builds, and `InitialCreate` shows the shape. Migrations apply automatically at startup in the Development environment only — which is why `docker-compose.yml` keeps `ASPNETCORE_ENVIRONMENT: Development` even in `Keycloak` mode.
 
 > [!TIP]
 > The design-time factories read `Sergin:ConnectionStrings:Database` from `appsettings.Development.json` only — not from environment variables or user secrets. `migrations add` scaffolds fine without one; `database update` from the CLI needs the key added to that file locally.
@@ -224,7 +239,7 @@ dotnet test tests/Sergin.MeterMinder.IntegrationTests.All/Sergin.MeterMinder.Int
 Needs Docker: the shared `SerginWebApiFactory<Program>` fixture starts a `postgres:17` container once per run and every test class joins it through `[Collection(nameof(IntegrationTestCollection))]`. The suite exercises the real host end to end. A second, small project holds the UserAccess domain rules with no database:
 
 ```bash
-dotnet test tests/Sergin.UserAccess.UnitTests/Sergin.UserAccess.UnitTests.csproj
+dotnet test tests/Sergin.Administration.UserAccess.UnitTests/Sergin.Administration.UserAccess.UnitTests.csproj
 ```
 
 | Folder | Covers |
