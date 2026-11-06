@@ -2,20 +2,23 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
+using Sergin.Administration.UserAccess.Application.Configurations.Roles;
+using Sergin.Administration.UserAccess.Presentation.Blazor.Roles;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.IntegrationTests.All.Localization;
 using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
-using Sergin.Administration.UserAccess.Application.Configurations.Roles;
-using Sergin.Administration.UserAccess.Presentation.Blazor.Roles;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Permissions;
 
 /// <summary>
 /// A module's subheader on the role pages (<see cref="PermissionLabels.Module"/>): the module's drawer group title, in
 /// the caller's culture; the platform's own heading for the <c>sys</c> schema; the schema itself for a module this host
-/// shows no group for — never a raw resource key.
+/// shows no group for — never a raw resource key. The pickers show one subheader per drawer group
+/// (<see cref="PermissionLabels.Sections"/>), so modules sharing a group, like UserAccess and Settings under
+/// Administration, appear under one heading with every aggregate of both beneath it.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class PermissionModuleLabelTests(SerginWebApiFactory<Program> factory)
@@ -57,6 +60,28 @@ public sealed class PermissionModuleLabelTests(SerginWebApiFactory<Program> fact
         using CultureScope culture = new("en");
 
         Assert.Equal("zz", Module(factory, "zz"));
+    }
+
+    [Fact]
+    public void Sections_SharedNavGroup_IsOneHeadingHoldingEveryModulesAggregates()
+    {
+        using CultureScope culture = new("en");
+        using IServiceScope scope = factory.Services.CreateScope();
+
+        IReadOnlyList<PermissionPickerSection> sections = PermissionLabels.Sections(
+            scope.ServiceProvider.GetRequiredService<PermissionCatalog>(),
+            scope.ServiceProvider.GetRequiredService<SerginUiModuleCatalog>(),
+            scope.ServiceProvider.GetRequiredService<IStringLocalizer>());
+
+        PermissionPickerSection administration = Assert.Single(sections, section => section.Title == "Administration");
+
+        Assert.Contains(administration.Groups, group => group.Permissions.All(permission => permission.Schema == "ua"));
+        Assert.Contains(administration.Groups, group => group.Permissions.All(permission => permission.Schema == "st"));
+
+        // Drawer order: Device Management (100), Administration (200), then the platform's own heading.
+        Assert.Equal(
+            [DeviceManagementTexts.MenuTitle.Default, "Administration", RoleTexts.PlatformModule.Default],
+            sections.Select(section => section.Title));
     }
 
     [Theory]
