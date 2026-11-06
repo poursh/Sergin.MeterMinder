@@ -1,13 +1,13 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Concurrency;
-using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Errors;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Concurrency;
 
-/// <summary>Both version errors render with their HTTP status and their code's title and detail.</summary>
+/// <summary>Both version errors render with their HTTP status and their code's declared title and detail (common.errors.*).</summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class VersionProblemRenderingTests(SerginWebApiFactory<Program> factory)
 {
@@ -17,8 +17,8 @@ public sealed class VersionProblemRenderingTests(SerginWebApiFactory<Program> fa
         SerginProblem problem = SerginProblemFactory.Create(VersionErrors.Required, Localizer());
 
         Assert.Equal(StatusCodes.Status428PreconditionRequired, problem.StatusCode);
-        Assert.Equal(Localizer()["General.VersionRequired.title"].Value, problem.Title);
-        Assert.Equal(Localizer()["General.VersionRequired"].Value, problem.Detail);
+        Assert.Equal(ErrorTexts.VersionRequired.Title.Default, problem.Title);
+        Assert.Equal(ErrorTexts.VersionRequired.Detail.Default, problem.Detail);
     }
 
     [Fact]
@@ -27,9 +27,9 @@ public sealed class VersionProblemRenderingTests(SerginWebApiFactory<Program> fa
         SerginProblem problem = SerginProblemFactory.Create(VersionErrors.Stale, Localizer());
 
         Assert.Equal(StatusCodes.Status412PreconditionFailed, problem.StatusCode);
-        Assert.Equal(Localizer()["General.VersionStale.title"].Value, problem.Title);
-        Assert.Equal(Localizer()["General.VersionStale"].Value, problem.Detail);
+        Assert.Equal(ErrorTexts.VersionStale.Title.Default, problem.Title);
+        Assert.Equal(ErrorTexts.VersionStale.Detail.Default, problem.Detail);
     }
 
-    private ILocalizer Localizer() => factory.Services.GetRequiredService<ILocalizer>();
+    private IStringLocalizer Localizer() => factory.Services.GetRequiredService<IStringLocalizer>();
 }

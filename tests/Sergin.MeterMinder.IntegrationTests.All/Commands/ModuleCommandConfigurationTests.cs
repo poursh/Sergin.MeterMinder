@@ -19,6 +19,8 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.Platform.Application;
+using Sergin.Platform.Application.Contracts;
 using Sergin.UserAccess.Application;
 using Sergin.UserAccess.Application.Configurations;
 using Sergin.UserAccess.Application.Contracts.Roles.Commands.Rename;
@@ -57,6 +59,8 @@ public sealed class ModuleCommandConfigurationTests
             DeviceManagementApplicationAssemblyReference.Assembly,
             typeof(GetUserByIdQueryCommand).Assembly,
             UserAccessApplicationAssemblyReference.Assembly,
+            PlatformApplicationContractsAssemblyReference.Assembly,
+            PlatformApplicationAssemblyReference.Assembly,
         ];
 
         foreach (Assembly assembly in assemblies)
@@ -206,8 +210,8 @@ public sealed class ModuleCommandConfigurationTests
     }
 
     [Fact]
-    public void ModulesDeclareThirtyOneRequests()
+    public void ModulesDeclareThirtySevenRequests()
     {
-        Assert.Equal(31, Registry.ConfiguredTypes.Count);
+        Assert.Equal(37, Registry.ConfiguredTypes.Count);
     }
 }

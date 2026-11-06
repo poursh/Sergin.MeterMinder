@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Models;
@@ -16,7 +17,7 @@ public sealed partial class ManufacturerCreateView
     private IReadOnlyList<SerginBreadcrumb> Trail { get; } =
     [
         SerginBreadcrumb.Of(DeviceManagementNavigation.Manufacturers),
-        new("New manufacturer"),
+        new(ManufacturerTexts.New),
     ];
 
     [Inject]
@@ -27,6 +28,9 @@ public sealed partial class ManufacturerCreateView
 
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
+
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     [CascadingParameter]
     private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;

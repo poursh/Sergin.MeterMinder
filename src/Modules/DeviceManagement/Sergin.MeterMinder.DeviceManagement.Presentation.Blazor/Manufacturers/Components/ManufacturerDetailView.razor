@@ -1,5 +1,5 @@
-<SerginAggregateDetailView Title="Manufacturer" Trail="Trail" Problem="problem" Ready="@(manufacturer is not null)" Actions="Actions"
-                           OverviewCollapsed="true" FieldsTitle="@manufacturer?.Name">
+<SerginAggregateDetailView TitleText="ManufacturerTexts.Singular" Trail="Trail" Problem="problem" Ready="@(manufacturer is not null)" Actions="Actions"
+                           OverviewCollapsed="true" FieldsTitleData="@manufacturer?.Name">
     <HeaderActions>
         <SerginReloadButton OnReload="ReloadAsync" />
         <SerginCopyLinkButton />
@@ -10,19 +10,19 @@
     </HeaderActions>
     <Overview>
         <SerginOverviewCards>
-            <SerginOverviewCard Label="Models" Value="@overview?.Models.ToString(Culture)" Caption="of this manufacturer" />
-            <SerginOverviewCard Label="Devices" Value="@overview?.Devices.ToString(Culture)" Caption="in every scope" />
+            <SerginOverviewCard LabelText="ManufacturerTexts.OverviewModels" ValueData="@Count(overview?.Models)" CaptionData="@Localizer.Text(ManufacturerTexts.OverviewOfManufacturer)" />
+            <SerginOverviewCard LabelText="ManufacturerTexts.OverviewDevices" ValueData="@Count(overview?.Devices)" CaptionData="@Localizer.Text(ManufacturerTexts.OverviewInEveryScope)" />
         </SerginOverviewCards>
     </Overview>
     <OverviewSummary>
-        <MudText Typo="Typo.body2"><b>@(overview?.Models.ToString(Culture) ?? "–")</b> models</MudText>
-        <MudText Typo="Typo.body2"><b>@(overview?.Devices.ToString(Culture) ?? "–")</b> devices</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.Models))</b> @Localizer.Text(ManufacturerTexts.SummaryModels)</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.Devices))</b> @Localizer.Text(ManufacturerTexts.SummaryDevices)</MudText>
     </OverviewSummary>
     <Fields>
         @if (manufacturer is not null)
         {
-            <SerginDetailField Label="Name" Value="@manufacturer.Name" />
-            <SerginDetailField Label="Address" Value="@manufacturer.Address" />
+            <SerginDetailField LabelText="ManufacturerTexts.Name.Label" Value="@manufacturer.Name" />
+            <SerginDetailField LabelText="ManufacturerTexts.Address.Label" Value="@manufacturer.Address" />
         }
     </Fields>
     <Entities>

@@ -32,6 +32,9 @@ public sealed partial class DeviceDetailView
     [Inject]
     private IDialogService DialogService { get; set; } = default!;
 
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
     [CascadingParameter]
     private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;
 
@@ -40,14 +43,14 @@ public sealed partial class DeviceDetailView
     private IReadOnlyList<SerginBreadcrumb> Trail =>
     [
         SerginBreadcrumb.Of(DeviceManagementNavigation.Devices),
-        new(device?.DeviceId ?? "Device"),
+        device is null ? new(DeviceTexts.Singular) : SerginBreadcrumb.Data(device.DeviceId),
     ];
 
     // Edit, then Delete at the far end; each hidden from a user who lacks its permission on the current scope.
     private IReadOnlyList<SerginPageAction> Actions =>
     [
-        new("Edit", Icons.Material.Outlined.Edit, SerginActionKind.Secondary, Href: $"/dm/devices/{Id}/edit", Permission: DevicePermissions.Update),
-        new("Delete", Icons.Material.Outlined.Delete, SerginActionKind.Danger, OnClick: EventCallback.Factory.Create(this, DeleteAsync),
+        new(CommonTexts.Edit, Icons.Material.Outlined.Edit, SerginActionKind.Secondary, Href: $"/dm/devices/{Id}/edit", Permission: DevicePermissions.Update),
+        new(CommonTexts.Delete, Icons.Material.Outlined.Delete, SerginActionKind.Danger, OnClick: EventCallback.Factory.Create(this, DeleteAsync),
             Permission: DevicePermissions.Delete, Disabled: deleting),
     ];
 
@@ -76,7 +79,8 @@ public sealed partial class DeviceDetailView
 
     private async Task DeleteAsync()
     {
-        if (!await DialogService.ConfirmDeleteAsync("Delete device", $"Delete {device?.DeviceId}? It disappears from every list and page."))
+        if (!await DialogService.ConfirmDeleteAsync(
+                Localizer, DeviceTexts.DeleteTitle, DeviceTexts.DeleteConfirm, new { device?.DeviceId }))
         {
             return;
         }

@@ -7,6 +7,7 @@ using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Co
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Components;
 
@@ -19,15 +20,21 @@ public sealed partial class ManufacturerListView
     // The manufacturer is not Scoped(), so the permission is checked on any scope, as the pipeline checks it.
     private IReadOnlyList<SerginPageAction> Actions { get; } =
     [
-        new("New manufacturer", Icons.Material.Filled.Add, SerginActionKind.Primary, Href: "/dm/manufacturers/new",
+        new(ManufacturerTexts.New, Icons.Material.Filled.Add, SerginActionKind.Primary, Href: "/dm/manufacturers/new",
             Permission: ManufacturerPermissions.Update, AnyScope: true),
     ];
 
     private IReadOnlyList<SerginBulkAction<GetManufacturerListItem>> BulkActions =>
     [
-        new("Delete", Icons.Material.Outlined.Delete, SerginActionKind.Danger, DeleteSelectedAsync,
+        new(CommonTexts.Delete, Icons.Material.Outlined.Delete, SerginActionKind.Danger, DeleteSelectedAsync,
             Permission: ManufacturerPermissions.Delete, AnyScope: true),
     ];
+
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
 
     [Inject]
     private ISerginDispatcher Dispatcher { get; set; } = default!;
@@ -51,7 +58,7 @@ public sealed partial class ManufacturerListView
     private async Task DeleteAsync(GetManufacturerListItem item)
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                "Delete manufacturer", $"Delete {item.Name} and its models? They disappear from every list and page."))
+                Localizer, ManufacturerTexts.DeleteTitle, ManufacturerTexts.DeleteConfirm, new { item.Name }))
         {
             return;
         }
@@ -70,14 +77,14 @@ public sealed partial class ManufacturerListView
     private async Task DeleteSelectedAsync(IReadOnlyList<GetManufacturerListItem> items)
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                "Delete manufacturers", $"Delete {items.Count} manufacturers and their models? They disappear from every list and page."))
+                Localizer, ManufacturerTexts.DeleteManyTitle, ManufacturerTexts.DeleteManyConfirm, new { Count = Formatter.Number(items.Count) }))
         {
             return;
         }
 
         SerginBulkOutcome outcome = await SerginBulk.RunAsync(items, SendDeleteAsync);
 
-        outcome.Report(ErrorPresenter, Snackbar, "deleted");
+        outcome.Report(ErrorPresenter, Snackbar, Localizer, Formatter, CommonTexts.BulkDeleted);
         await list.ReloadAsync();
     }
 

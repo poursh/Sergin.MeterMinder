@@ -7,5 +7,5 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices
 internal sealed class DeleteDeviceCommandConfiguration : ICommandConfiguration<DeleteDeviceCommand, Device>
 {
     public void Configure(CommandConfigurationBuilder<DeleteDeviceCommand> builder) =>
-        builder.RequirePermissions(DevicePermissions.Delete).RequireExpectedVersion();
+        builder.RequirePermissions(DevicePermissions.Delete).RequireExpectedVersion().NotShown(command => command.Id);
 }

@@ -2,7 +2,6 @@ using ErrorOr;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.DependencyInjection;
-using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Errors;
 using Sergin.SharedKernel.Presentation.WebApi.Endpoints.Results;
@@ -13,12 +12,12 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Validation;
 /// How a validation error reaches a caller. ValidationPipelineBehavior puts the offending property name
 /// in Code and FluentValidation's message in Description, so the presentation layer must show the
 /// Description rather than look the Code up as a resource key, and must show every error rather than
-/// the first. Pure mapping; the fixture is used only for the host's ILocalizer.
+/// the first. Pure mapping; the fixture is used only for the host's IStringLocalizer.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class ValidationProblemRenderingTests(SerginWebApiFactory<Program> factory)
 {
-    private ILocalizer Localizer => factory.Services.GetRequiredService<ILocalizer>();
+    private IStringLocalizer Localizer => factory.Services.GetRequiredService<IStringLocalizer>();
 
     [Fact]
     public void SerginProblemFactory_ValidationError_UsesTheMessageAsDetail()

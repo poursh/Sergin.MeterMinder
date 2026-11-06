@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Remove;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
@@ -8,6 +9,7 @@ using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.DeviceModels.Components;
 
@@ -39,6 +41,12 @@ public sealed partial class DeviceModelListView
     public EventCallback OnChanged { get; set; }
 
     [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
+    [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
+
+    [Inject]
     private ISerginDispatcher Dispatcher { get; set; } = default!;
 
     [Inject]
@@ -54,7 +62,7 @@ public sealed partial class DeviceModelListView
     // the catalog belongs to no scope.
     private IReadOnlyList<SerginPageAction> Actions =>
     [
-        new("Add model", Icons.Material.Filled.Add, SerginActionKind.Primary,
+        new(DeviceModelTexts.Add, Icons.Material.Filled.Add, SerginActionKind.Primary,
             Href: $"/dm/manufacturers/{ManufacturerId}/models/new",
             Permission: ManufacturerPermissions.Update, AnyScope: true),
     ];
@@ -62,7 +70,7 @@ public sealed partial class DeviceModelListView
     // Removing models changes the manufacturer, like adding one.
     private IReadOnlyList<SerginBulkAction<GetDeviceModelListItem>> BulkActions =>
     [
-        new("Remove", Icons.Material.Outlined.Delete, SerginActionKind.Danger, RemoveSelectedAsync,
+        new(CommonTexts.Remove, Icons.Material.Outlined.Delete, SerginActionKind.Danger, RemoveSelectedAsync,
             Permission: ManufacturerPermissions.Update, AnyScope: true),
     ];
 
@@ -79,7 +87,7 @@ public sealed partial class DeviceModelListView
     private async Task RemoveAsync(GetDeviceModelListItem model)
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                "Remove device model", $"Remove {model.Name}? It disappears from its manufacturer and every list.", "Remove"))
+                Localizer, DeviceModelTexts.RemoveTitle, DeviceModelTexts.RemoveConfirm, new { model.Name }, CommonTexts.Remove))
         {
             return;
         }
@@ -107,7 +115,11 @@ public sealed partial class DeviceModelListView
     private async Task RemoveSelectedAsync(IReadOnlyList<GetDeviceModelListItem> models)
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                "Remove device models", $"Remove {models.Count} models? They disappear from their manufacturer and every list.", "Remove"))
+                Localizer,
+                DeviceModelTexts.RemoveManyTitle,
+                DeviceModelTexts.RemoveManyConfirm,
+                new { Count = Formatter.Number(models.Count) },
+                CommonTexts.Remove))
         {
             return;
         }
@@ -131,7 +143,7 @@ public sealed partial class DeviceModelListView
             },
             VersionErrors.IsStale);
 
-        outcome.Report(ErrorPresenter, Snackbar, "removed");
+        outcome.Report(ErrorPresenter, Snackbar, Localizer, Formatter, CommonTexts.BulkRemoved);
 
         // As for one remove: a success moved the version the manufacturer view holds, and a stale answer found it out of date.
         if (outcome.Succeeded > 0 || outcome.Errors.Any(VersionErrors.IsStale))

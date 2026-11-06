@@ -1,4 +1,3 @@
-using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
@@ -12,6 +11,7 @@ using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Devi
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Errors;
+using Sergin.SharedKernel.Presentation.Localizations;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Components;
 
@@ -28,6 +28,9 @@ public sealed partial class ManufacturerDetailView
     public Guid Id { get; set; }
 
     [Inject]
+    private ICultureFormatter Formatter { get; set; } = default!;
+
+    [Inject]
     private ISerginDispatcher Dispatcher { get; set; } = default!;
 
     [Inject]
@@ -35,6 +38,9 @@ public sealed partial class ManufacturerDetailView
 
     [Inject]
     private IDialogService DialogService { get; set; } = default!;
+
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
 
     [CascadingParameter]
     private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;
@@ -44,17 +50,17 @@ public sealed partial class ManufacturerDetailView
     private IReadOnlyList<SerginBreadcrumb> Trail =>
     [
         SerginBreadcrumb.Of(DeviceManagementNavigation.Manufacturers),
-        new(manufacturer?.Name ?? "Manufacturer"),
+        manufacturer is null ? new(ManufacturerTexts.Singular) : SerginBreadcrumb.Data(manufacturer.Name),
     ];
 
-    private static CultureInfo Culture => CultureInfo.CurrentCulture;
+    private string Count(int? value) => value is { } number ? Formatter.Number(number) : "–";
 
     // The manufacturer is not Scoped(), so its actions are checked on any scope, as the pipeline checks them.
     private IReadOnlyList<SerginPageAction> Actions =>
     [
-        new("Edit", Icons.Material.Outlined.Edit, SerginActionKind.Secondary, Href: $"/dm/manufacturers/{Id}/edit",
+        new(CommonTexts.Edit, Icons.Material.Outlined.Edit, SerginActionKind.Secondary, Href: $"/dm/manufacturers/{Id}/edit",
             Permission: ManufacturerPermissions.Update, AnyScope: true),
-        new("Delete", Icons.Material.Outlined.Delete, SerginActionKind.Danger, OnClick: EventCallback.Factory.Create(this, DeleteAsync),
+        new(CommonTexts.Delete, Icons.Material.Outlined.Delete, SerginActionKind.Danger, OnClick: EventCallback.Factory.Create(this, DeleteAsync),
             Permission: ManufacturerPermissions.Delete, AnyScope: true, Disabled: deleting),
     ];
 
@@ -101,7 +107,7 @@ public sealed partial class ManufacturerDetailView
     private async Task DeleteAsync()
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                "Delete manufacturer", $"Delete {manufacturer?.Name} and its models? They disappear from every list and page."))
+                Localizer, ManufacturerTexts.DeleteTitle, ManufacturerTexts.DeleteConfirm, new { manufacturer?.Name }))
         {
             return;
         }

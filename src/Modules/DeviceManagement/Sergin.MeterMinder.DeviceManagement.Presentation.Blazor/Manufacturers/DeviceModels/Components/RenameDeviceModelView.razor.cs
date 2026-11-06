@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Components;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.DeviceModels.Models;
@@ -39,6 +41,9 @@ public sealed partial class RenameDeviceModelView
     [Inject]
     private IUiErrorPresenter ErrorPresenter { get; set; } = default!;
 
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
     [CascadingParameter]
     private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;
 
@@ -50,9 +55,11 @@ public sealed partial class RenameDeviceModelView
     private IReadOnlyList<SerginBreadcrumb> Trail =>
     [
         SerginBreadcrumb.Of(DeviceManagementNavigation.Manufacturers),
-        new(manufacturerName ?? "Manufacturer", $"/dm/manufacturers/{ManufacturerId}"),
-        new(loadedModelName ?? "Device model", ModelHref),
-        new("Rename"),
+        manufacturerName is null
+            ? new(ManufacturerTexts.Singular, $"/dm/manufacturers/{ManufacturerId}")
+            : SerginBreadcrumb.Data(manufacturerName, $"/dm/manufacturers/{ManufacturerId}"),
+        loadedModelName is null ? new(DeviceModelTexts.Singular, ModelHref) : SerginBreadcrumb.Data(loadedModelName, ModelHref),
+        new(CommonTexts.Rename),
     ];
 
     protected override void OnInitialized() => validation = FormValidator.RulesFor(ToCommand);

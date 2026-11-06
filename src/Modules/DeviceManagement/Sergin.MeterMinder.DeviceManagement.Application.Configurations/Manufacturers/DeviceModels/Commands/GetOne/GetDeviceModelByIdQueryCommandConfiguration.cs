@@ -7,5 +7,8 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufac
 internal sealed class GetDeviceModelByIdQueryCommandConfiguration : ICommandConfiguration<GetDeviceModelByIdQueryCommand, Manufacturer>
 {
     public void Configure(CommandConfigurationBuilder<GetDeviceModelByIdQueryCommand> builder) =>
-        builder.RequirePermissions(ManufacturerPermissions.Read);
+        builder.RequirePermissions(ManufacturerPermissions.Read)
+            .Texts(DeviceModelTexts.Category)
+            .NotShown(command => command.ManufacturerId)
+            .NotShown(command => command.Id);
 }

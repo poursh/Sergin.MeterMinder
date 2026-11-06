@@ -1,6 +1,8 @@
 using FluentValidation;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
+using Sergin.SharedKernel.Application.Localizations.Validation;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.Delete;
 
@@ -16,7 +18,7 @@ internal sealed class DeleteManufacturerCommandValidator : AbstractValidator<Del
         RuleFor(x => x.Id)
             .MustAsync(async (id, cancellationToken) =>
                 !await devices.AnyUsingManufacturerAsync(new ManufacturerId(id), cancellationToken))
-            .WithMessage("The manufacturer's models are still used by a device; delete those devices first.")
+            .WithMessage(_ => ValidationTexts.Template(ManufacturerTexts.InUse))
             .When(x => x.Id != Guid.Empty);
     }
 }

@@ -101,6 +101,8 @@ public sealed class CommandConfigurationPlacementTests
 
     private sealed class PlacementModule(Assembly application, Assembly contracts, Assembly configurations) : ISerginModule
     {
+        public string Name => "Placement";
+
         public string Schema => "placement";
 
         public Assembly ApplicationAssembly => application;
@@ -118,6 +120,8 @@ public sealed class CommandConfigurationPlacementTests
 
     private sealed class PlacementRemoteModule(Assembly contracts, Assembly configurations) : ISerginRemoteModule
     {
+        public string Name => "Placement";
+
         public string Schema => "placement";
 
         public Assembly ContractsAssembly => contracts;

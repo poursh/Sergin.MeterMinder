@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Concurrency;
@@ -35,6 +36,9 @@ public sealed partial class DeviceModelDetailView
     [Inject]
     private IDialogService DialogService { get; set; } = default!;
 
+    [Inject]
+    private IStringLocalizer Localizer { get; set; } = default!;
+
     [CascadingParameter]
     private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;
 
@@ -44,18 +48,20 @@ public sealed partial class DeviceModelDetailView
     private IReadOnlyList<SerginBreadcrumb> Trail =>
     [
         SerginBreadcrumb.Of(DeviceManagementNavigation.Manufacturers),
-        new(deviceModel?.ManufacturerName ?? "Manufacturer", $"/dm/manufacturers/{ManufacturerId}"),
-        new(deviceModel?.Name ?? "Device model"),
+        deviceModel is null
+            ? new(ManufacturerTexts.Singular, $"/dm/manufacturers/{ManufacturerId}")
+            : SerginBreadcrumb.Data(deviceModel.ManufacturerName, $"/dm/manufacturers/{ManufacturerId}"),
+        deviceModel is null ? new(DeviceModelTexts.Singular) : SerginBreadcrumb.Data(deviceModel.Name),
     ];
 
     // Renaming and removing change the manufacturer, so they need its Update permission, on any scope like the
     // model list's commands: the catalog belongs to no scope.
     private IReadOnlyList<SerginPageAction> Actions =>
     [
-        new("Rename", Icons.Material.Outlined.Edit, SerginActionKind.Secondary,
+        new(CommonTexts.Rename, Icons.Material.Outlined.Edit, SerginActionKind.Secondary,
             Href: $"/dm/manufacturers/{ManufacturerId}/models/{Id}/edit",
             Permission: ManufacturerPermissions.Update, AnyScope: true),
-        new("Remove", Icons.Material.Outlined.Delete, SerginActionKind.Danger, OnClick: EventCallback.Factory.Create(this, RemoveAsync),
+        new(CommonTexts.Remove, Icons.Material.Outlined.Delete, SerginActionKind.Danger, OnClick: EventCallback.Factory.Create(this, RemoveAsync),
             Permission: ManufacturerPermissions.Update, AnyScope: true, Disabled: removing),
     ];
 
@@ -88,13 +94,9 @@ public sealed partial class DeviceModelDetailView
 
     private async Task RemoveAsync()
     {
-        bool? confirmed = await DialogService.ShowMessageBoxAsync(
-            "Remove device model",
-            $"Remove {deviceModel?.Name}? It disappears from its manufacturer and every list.",
-            yesText: "Remove",
-            cancelText: "Cancel");
-
-        if (confirmed != true)
+        if (!await DialogService.ConfirmDeleteAsync(
+                Localizer, DeviceModelTexts.RemoveTitle, DeviceModelTexts.RemoveConfirm, new { deviceModel?.Name },
+                CommonTexts.Remove))
         {
             return;
         }

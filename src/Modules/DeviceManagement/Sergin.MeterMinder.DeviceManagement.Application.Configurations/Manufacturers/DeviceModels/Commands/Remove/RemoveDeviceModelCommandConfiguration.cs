@@ -8,5 +8,8 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufac
 internal sealed class RemoveDeviceModelCommandConfiguration : ICommandConfiguration<RemoveDeviceModelCommand, Manufacturer>
 {
     public void Configure(CommandConfigurationBuilder<RemoveDeviceModelCommand> builder) =>
-        builder.RequirePermissions(ManufacturerPermissions.Update).RequireExpectedVersion();
+        builder.RequirePermissions(ManufacturerPermissions.Update).RequireExpectedVersion()
+            .Texts(DeviceModelTexts.Category)
+            .NotShown(command => command.ManufacturerId)
+            .NotShown(command => command.Id);
 }

@@ -1,5 +1,6 @@
 using MudBlazor;
 using Sergin.SharedKernel.Modules;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
 
@@ -12,19 +13,19 @@ namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor;
 public static class DeviceManagementNavigation
 {
     public static SerginNavGroup Group { get; } = new(
-        "Device Management",
+        DeviceManagementTexts.MenuTitle,
         Icons.Material.Filled.ElectricMeter,
         Order: 100);
 
     public static SerginNavItem Devices { get; } = new(
-        "Devices",
+        DeviceTexts.Title,
         "/dm/devices",
         Icons.Material.Filled.Router,
         Order: 100,
         RequiredPermission: DevicePermissions.Read);
 
     public static SerginNavItem Manufacturers { get; } = new(
-        "Manufacturers",
+        ManufacturerTexts.Title,
         "/dm/manufacturers",
         Icons.Material.Filled.Factory,
         Order: 110,

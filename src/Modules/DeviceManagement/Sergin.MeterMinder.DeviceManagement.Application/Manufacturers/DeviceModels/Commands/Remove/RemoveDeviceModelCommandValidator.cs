@@ -1,6 +1,8 @@
 using FluentValidation;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
+using Sergin.SharedKernel.Application.Localizations.Validation;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels.Commands.Remove;
 
@@ -20,7 +22,7 @@ internal sealed class RemoveDeviceModelCommandValidator : AbstractValidator<Remo
         RuleFor(x => x.Id)
             .MustAsync(async (id, cancellationToken) =>
                 !await devices.AnyUsingModelAsync(new DeviceModelInternalId(id), cancellationToken))
-            .WithMessage("The model is still used by a device; delete those devices first.")
+            .WithMessage(_ => ValidationTexts.Template(DeviceModelTexts.InUse))
             .When(x => x.Id != Guid.Empty);
     }
 }

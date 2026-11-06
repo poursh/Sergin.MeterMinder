@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.IntegrationTests.All.Shell;
 using System.Reflection;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -33,7 +34,7 @@ public sealed class PermissionCatalogHostTests(SerginWebApiFactory<Program> fact
 
         Assert.All(
             modules.NavItems.Where(item => item.RequiredPermission is not null),
-            item => Assert.True(catalog.Contains(item.RequiredPermission!), item.Label));
+            item => Assert.True(catalog.Contains(item.RequiredPermission!), item.Label.Default));
     }
 
     [Fact]
@@ -81,6 +82,8 @@ public sealed class PermissionCatalogHostTests(SerginWebApiFactory<Program> fact
     {
         private static Assembly NoComponents => typeof(PermissionDefinition).Assembly;
 
+        public string Name => "TestBad";
+
         public string Schema => "testbad";
 
         public Assembly ApplicationAssembly => NoComponents;
@@ -91,10 +94,10 @@ public sealed class PermissionCatalogHostTests(SerginWebApiFactory<Program> fact
 
         public Assembly UiAssembly => NoComponents;
 
-        public SerginNavGroup NavGroup { get; } = new("Test", string.Empty);
+        public SerginNavGroup NavGroup { get; } = new(TestText.Of("Test"), string.Empty);
 
         public IReadOnlyCollection<SerginNavItem> NavItems =>
-            [new("Bad", "/testbad/things", string.Empty, RequiredPermission: MalformedNavPermissions.Bad)];
+            [new(TestText.Of("Bad"), "/testbad/things", string.Empty, RequiredPermission: MalformedNavPermissions.Bad)];
 
         public void AddServices(IServiceCollection services, IConfigurationSection configuration)
         {
@@ -113,6 +116,8 @@ public sealed class PermissionCatalogHostTests(SerginWebApiFactory<Program> fact
 
         private static Assembly NoComponents => typeof(PermissionDefinition).Assembly;
 
+        public string Name => "TestNav";
+
         public string Schema => "testnav";
 
         public Assembly ApplicationAssembly => NoComponents;
@@ -123,10 +128,10 @@ public sealed class PermissionCatalogHostTests(SerginWebApiFactory<Program> fact
 
         public Assembly UiAssembly => NoComponents;
 
-        public SerginNavGroup NavGroup { get; } = new("Test", string.Empty);
+        public SerginNavGroup NavGroup { get; } = new(TestText.Of("Test"), string.Empty);
 
         public IReadOnlyCollection<SerginNavItem> NavItems { get; } =
-            [new(Label, "/testnav/things", string.Empty, RequiredPermission: Unregistered)];
+            [new(TestText.Of(Label), "/testnav/things", string.Empty, RequiredPermission: Unregistered)];
 
         public void AddServices(IServiceCollection services, IConfigurationSection configuration)
         {

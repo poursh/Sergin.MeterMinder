@@ -16,31 +16,31 @@ public sealed class NavSectionCatalogTests
     [
         new NavModule(
             "zz",
-            new SerginNavGroup("Zeta", string.Empty, Order: 10),
-            [new("Second", "/zz/second", string.Empty, Order: 2), new("First", "/zz/first", string.Empty, Order: 1)]),
+            new SerginNavGroup(TestText.Of("Zeta"), string.Empty, Order: 10),
+            [new(TestText.Of("Second"), "/zz/second", string.Empty, Order: 2), new(TestText.Of("First"), "/zz/first", string.Empty, Order: 1)]),
         new NavModule(
             "bb",
-            new SerginNavGroup("Beta", string.Empty, Order: 5),
-            [new("Same order, later label", "/bb/b", string.Empty), new("Same order, earlier label", "/bb/a", string.Empty)]),
+            new SerginNavGroup(TestText.Of("Beta"), string.Empty, Order: 5),
+            [new(TestText.Of("Same order, later label"), "/bb/b", string.Empty), new(TestText.Of("Same order, earlier label"), "/bb/a", string.Empty)]),
         new NavModule(
             "aa",
-            new SerginNavGroup("Alpha", string.Empty, Order: 10),
-            [new("Only", "/aa/only", string.Empty)]),
+            new SerginNavGroup(TestText.Of("Alpha"), string.Empty, Order: 10),
+            [new(TestText.Of("Only"), "/aa/only", string.Empty)]),
     ]);
 
     [Fact]
     public void Sections_AreOrderedByGroupOrder_ThenTitle()
-        => Assert.Equal(["Beta", "Alpha", "Zeta"], Catalog.NavSections.Select(section => section.Group.Title));
+        => Assert.Equal(["Beta", "Alpha", "Zeta"], Catalog.NavSections.Select(section => section.Group.Title.Default));
 
     [Fact]
     public void ItemsWithinASection_AreOrderedByOrder_ThenLabel()
     {
         Assert.Equal(
             ["Same order, earlier label", "Same order, later label"],
-            Catalog.NavSections.Single(section => section.Group.Title == "Beta").Items.Select(item => item.Label));
+            Catalog.NavSections.Single(section => section.Group.Title.Default == "Beta").Items.Select(item => item.Label.Default));
         Assert.Equal(
             ["First", "Second"],
-            Catalog.NavSections.Single(section => section.Group.Title == "Zeta").Items.Select(item => item.Label));
+            Catalog.NavSections.Single(section => section.Group.Title.Default == "Zeta").Items.Select(item => item.Label.Default));
     }
 
     [Fact]
@@ -53,7 +53,7 @@ public sealed class NavSectionCatalogTests
     [InlineData("/zz/second", "Zeta")]
     [InlineData("/aa/only", "Alpha")]
     public void GroupOf_AnEntrysHref_IsItsModulesGroup(string href, string title)
-        => Assert.Equal(title, Catalog.GroupOf(href)?.Title);
+        => Assert.Equal(title, Catalog.GroupOf(href)?.Title.Default);
 
     [Theory]
     [InlineData("/zz/second/details")]
@@ -65,6 +65,8 @@ public sealed class NavSectionCatalogTests
         : ISerginWebUiModule
     {
         private static Assembly NoComponents => typeof(SerginNavItem).Assembly;
+
+        public string Name => schema;
 
         public string Schema => schema;
 

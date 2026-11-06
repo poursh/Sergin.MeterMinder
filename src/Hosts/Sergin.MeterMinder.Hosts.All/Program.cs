@@ -1,5 +1,7 @@
 using Sergin.MeterMinder.DeviceManagement;
 using Sergin.MeterMinder.Hosts.All.Components;
+using Sergin.Platform;
+using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Modules;
 using Sergin.UserAccess;
 
@@ -7,9 +9,12 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults("sergin-all");
 
-IReadOnlyCollection<ISerginModule> modules = [new DeviceManagementModule(), new UserAccessModule()];
+IReadOnlyCollection<ISerginModule> modules = [new DeviceManagementModule(), new UserAccessModule(), new PlatformModule()];
 
 builder.AddSerginBlazorApp(modules, configureHome: home => home.UseComponent<MeterMinderHome>());
+
+// The host's own texts (its home slot's product copy), beside the modules' and SharedKernel's in the catalog.
+builder.Services.AddSingleton(TextSource.FromTypes("MeterMinder", typeof(MeterMinderTexts)));
 
 WebApplication app = builder.Build();
 

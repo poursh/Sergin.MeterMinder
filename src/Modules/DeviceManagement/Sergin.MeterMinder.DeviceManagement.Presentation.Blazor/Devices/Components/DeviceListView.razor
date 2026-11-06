@@ -1,46 +1,46 @@
-<SerginAggregateListView Title="Devices" Trail="Trail" Actions="Actions">
+<SerginAggregateListView TitleText="DeviceTexts.Title" Trail="Trail" Actions="Actions">
     <HeaderActions>
         <SerginReloadButton OnReload="ReloadAsync" />
     </HeaderActions>
     <Overview>
         <SerginOverviewCards>
-            @foreach ((string label, string value, string sub) in OverviewCards)
+            @foreach ((TextDefinition label, string value, string sub) in OverviewCards)
             {
-                <SerginOverviewCard Label="@label" Value="@value" Caption="@sub" />
+                <SerginOverviewCard LabelText="label" ValueData="@value" CaptionData="@sub" />
             }
         </SerginOverviewCards>
     </Overview>
     <OverviewSummary>
-        <MudText Typo="Typo.body2"><b>@(overview?.Devices.ToString(Culture) ?? "–")</b> devices</MudText>
-        <MudText Typo="Typo.body2"><b>@(overview?.ModelsInUse.ToString(Culture) ?? "–")</b> models in use</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.Devices))</b> @Localizer.Text(DeviceTexts.SummaryDevices)</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.ModelsInUse))</b> @Localizer.Text(DeviceTexts.SummaryModelsInUse)</MudText>
     </OverviewSummary>
     <ChildContent>
         <SerginAggregateList @ref="list" TItem="GetDeviceListItem" Load="LoadAsync"
-                             SearchPlaceholder="Search device ID or model…"
+                             SearchPlaceholderText="DeviceTexts.SearchPlaceholder"
                              BuildFilters="BuildFilters" OnFilterRemoved="OnFilterRemoved" OnFiltersReset="ResetFilterFields"
                              OnFilterPanelOpened="LoadFilterOptionsAsync" BulkActions="BulkActions">
             <HeaderContent>
-                <MudTh><MudTableSortLabel T="GetDeviceListItem" SortLabel="@DeviceListFields.DeviceId">Device ID</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel T="GetDeviceListItem" SortLabel="@DeviceListFields.DeviceModelName">Model</MudTableSortLabel></MudTh>
-                <MudTh><MudTableSortLabel T="GetDeviceListItem" SortLabel="@DeviceListFields.ManufacturerName">Manufacturer</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="GetDeviceListItem" SortLabel="@DeviceListFields.DeviceId">@Localizer.Text(DeviceTexts.DeviceId.Label)</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="GetDeviceListItem" SortLabel="@DeviceListFields.DeviceModelName">@Localizer.Text(DeviceTexts.DeviceModelName.Label)</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel T="GetDeviceListItem" SortLabel="@DeviceListFields.ManufacturerName">@Localizer.Text(DeviceTexts.ManufacturerName.Label)</MudTableSortLabel></MudTh>
             </HeaderContent>
             <RowTemplate>
-                <MudTd DataLabel="Device ID"><MudLink Href="@($"/dm/devices/{context.Id}")">@context.DeviceId</MudLink></MudTd>
-                <MudTd DataLabel="Model">@context.DeviceModelName</MudTd>
-                <MudTd DataLabel="Manufacturer">@context.ManufacturerName</MudTd>
+                <MudTd DataLabel="@Localizer.Text(DeviceTexts.DeviceId.Label)"><MudLink Href="@($"/dm/devices/{context.Id}")">@context.DeviceId</MudLink></MudTd>
+                <MudTd DataLabel="@Localizer.Text(DeviceTexts.DeviceModelName.Label)">@context.DeviceModelName</MudTd>
+                <MudTd DataLabel="@Localizer.Text(DeviceTexts.ManufacturerName.Label)">@context.ManufacturerName</MudTd>
             </RowTemplate>
             <RowCommands>
-                <MudTooltip Text="Edit">
-                    <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Href="@($"/dm/devices/{context.Id}/edit")" aria-label="Edit" />
+                <MudTooltip Text="@Localizer.Text(CommonTexts.Edit)">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" Href="@($"/dm/devices/{context.Id}/edit")" aria-label="@Localizer.Text(CommonTexts.Edit)" />
                 </MudTooltip>
-                <MudTooltip Text="Delete">
-                    <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" OnClick="@(() => DeleteAsync(context))" aria-label="Delete" />
+                <MudTooltip Text="@Localizer.Text(CommonTexts.Delete)">
+                    <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" OnClick="@(() => DeleteAsync(context))" aria-label="@Localizer.Text(CommonTexts.Delete)" />
                 </MudTooltip>
             </RowCommands>
             <FilterPanel>
                 <MudGrid Spacing="3">
                     <MudItem xs="12" sm="6" md="3">
-                        <MudSelect T="Guid?" Label="Manufacturer" Value="filterManufacturerId" ValueChanged="OnFilterManufacturerChangedAsync"
+                        <MudSelect T="Guid?" Label="@Localizer.Text(DeviceTexts.ManufacturerId.Label)" Value="filterManufacturerId" ValueChanged="OnFilterManufacturerChangedAsync"
                                    Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
                             @foreach (GetManufacturerListItem manufacturer in manufacturers)
                             {
@@ -49,7 +49,7 @@
                         </MudSelect>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
-                        <MudSelect T="Guid?" Label="Model" @bind-Value="filterModelId" Disabled="@(filterManufacturerId is null)"
+                        <MudSelect T="Guid?" Label="@Localizer.Text(DeviceTexts.DeviceModelId.Label)" @bind-Value="filterModelId" Disabled="@(filterManufacturerId is null)"
                                    Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense">
                             @foreach (GetDeviceModelListItem model in models)
                             {
@@ -58,7 +58,7 @@
                         </MudSelect>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
-                        <MudSelect T="Guid?" Label="Scope" @bind-Value="filterScopeId" Clearable="true"
+                        <MudSelect T="Guid?" Label="@Localizer.Text(DeviceTexts.ScopeId.Label)" @bind-Value="filterScopeId" Clearable="true"
                                    Variant="Variant.Outlined" Margin="Margin.Dense">
                             @foreach (ScopeOption scope in scopes)
                             {
@@ -67,7 +67,7 @@
                         </MudSelect>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
-                        <MudDateRangePicker Label="Created between" @bind-DateRange="filterCreated" Clearable="true"
+                        <MudDateRangePicker Label="@Localizer.Text(DeviceTexts.CreatedBetween)" Culture="@Formatter.Culture" @bind-DateRange="filterCreated" Clearable="true"
                                             Variant="Variant.Outlined" Margin="Margin.Dense" />
                     </MudItem>
                 </MudGrid>
