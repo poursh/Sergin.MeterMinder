@@ -50,11 +50,9 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
             services.AddScoped<IValidator<NamedThingCommand>, NamedThingCommandValidator>();
             services.AddScoped<IValidator<UniqueThingCommand>, UniqueThingCommandValidator>();
             services.AddSingleton<IUniqueKeyRepository<ThingName>, TakenThingNames>();
-            services.AddScoped<IValidator<ReferenceThingCommand>, ReferenceThingCommandValidator>();
             services.AddScoped<IValidator<NamedReferenceThingCommand>, NamedReferenceThingCommandValidator>();
             services.AddTransient<IRequestHandler<NamedReferenceThingCommand, ErrorOr<Guid>>, EchoHandler<NamedReferenceThingCommand>>();
             services.AddSingleton<IRepository<ThingRoot, Guid>, NoThings>();
-            services.AddTransient<IRequestHandler<ReferenceThingCommand, ErrorOr<Guid>>, EchoHandler<ReferenceThingCommand>>();
             services.AddTransient<IRequestHandler<NamedThingCommand, ErrorOr<Guid>>, EchoHandler<NamedThingCommand>>();
             services.AddTransient<IRequestHandler<UniqueThingCommand, ErrorOr<Guid>>, EchoHandler<UniqueThingCommand>>();
         }));
@@ -113,16 +111,6 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
 
         Assert.Equal(nameof(UniqueThingCommand.Name), error.Code);
         Assert.Equal("'Anzeigename' ist bereits vergeben.", error.Description);
-    }
-
-    [Fact]
-    public async Task MustExistIn_NamesTheAggregate()
-    {
-        using CultureScope culture = new("en");
-
-        Error error = await SendAndFailAsync(new ReferenceThingCommand(Guid.CreateVersion7()));
-
-        Assert.Equal("'Thing Id' must refer to an existing ThingRoot.", error.Description);
     }
 
     [Fact]
@@ -237,8 +225,6 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
 
     internal sealed record UniqueThingCommand(ThingName Name) : ICommand<Guid>;
 
-    internal sealed record ReferenceThingCommand(Guid ThingId) : ICommand<Guid>;
-
     internal sealed record NamedReferenceThingCommand(Guid ThingId) : ICommand<Guid>;
 
     /// <summary>A root with no table; only its feature configuration, which names the category, is read.</summary>
@@ -271,11 +257,6 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
     internal sealed class UniqueThingCommandValidator : AbstractValidator<UniqueThingCommand>
     {
         public UniqueThingCommandValidator(IUniqueKeyRepository<ThingName> names) => RuleFor(x => x.Name).MustBeUniqueIn(names);
-    }
-
-    internal sealed class ReferenceThingCommandValidator : AbstractValidator<ReferenceThingCommand>
-    {
-        public ReferenceThingCommandValidator(IRepository<ThingRoot, Guid> things) => RuleFor(x => x.ThingId).MustExistIn(things);
     }
 
     internal sealed class NamedReferenceThingCommandValidator : AbstractValidator<NamedReferenceThingCommand>

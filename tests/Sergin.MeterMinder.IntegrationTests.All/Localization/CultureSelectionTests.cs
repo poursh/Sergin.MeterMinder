@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -136,6 +137,40 @@ public sealed class CultureSelectionTests(SerginWebApiFactory<Program> factory) 
         Assert.Equal(["fr"], cultures);
     }
 
+    // A store that cannot be read must not take every request down with it: the page renders in the default culture.
+    [Fact]
+    public async Task StoreFailure_RendersInTheDefaultCulture()
+    {
+        await using WebApplicationFactory<Program> failing = host.WithWebHostBuilder(builder => builder.ConfigureTestServices(
+            services => services.AddSingleton<ITranslationStore>(new FailingTranslationStore())));
+
+        using HttpClient client = failing.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = false });
+        using HttpRequestMessage request = new(HttpMethod.Get, new Uri("/", UriKind.Relative));
+        request.Headers.Add("Cookie", $"{CookieName}={Uri.EscapeDataString("c=de|uic=de")}");
+
+        lookupCultures.Clear();
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(["en"], lookupCultures.ToHashSet(StringComparer.Ordinal));
+        Assert.Contains(logLevels, entry => entry == LogLevel.Warning);
+    }
+
+    // The switch works from first paint: the prerendered switcher is a plain GET form, not a circuit event.
+    [Fact]
+    public async Task Switcher_PrerendersAGetFormToTheSwitch()
+    {
+        using HttpClient client = Client();
+        string html = await client.GetStringAsync(new Uri("/dm/devices", UriKind.Relative));
+
+        Match form = Regex.Match(html, "<form[^>]*class=\"sergin-language-switcher[^>]*>", RegexOptions.CultureInvariant);
+        Assert.True(form.Success, "No language switcher form in the prerender.");
+        Assert.Contains("method=\"get\"", form.Value, StringComparison.Ordinal);
+        Assert.Contains("action=\"/culture/set\"", form.Value, StringComparison.Ordinal);
+        Assert.Matches(@"<select[^>]*name=""culture""[^>]*onchange=""this\.form\.submit\(\)""", html);
+        Assert.Matches("<input[^>]*type=\"hidden\"[^>]*name=\"redirectUri\"[^>]*value=\"/dm/devices\"", html);
+    }
+
     [Fact]
     public void DefaultCulture_Invalid_FailsStart()
     {
@@ -212,6 +247,15 @@ public sealed class CultureSelectionTests(SerginWebApiFactory<Program> factory) 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.False(lookupCultures.IsEmpty, "The prerender looked no text up.");
         return lookupCultures.ToHashSet(StringComparer.Ordinal);
+    }
+
+    private sealed class FailingTranslationStore : ITranslationStore
+    {
+        public Task<IReadOnlyList<LanguageInfo>> GetLanguagesAsync(CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("The translation store is down.");
+
+        public Task<IReadOnlyDictionary<string, StoredTranslation>> GetTranslationsAsync(string culture, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("The translation store is down.");
     }
 
     private sealed class FixedPreviewPolicy(bool allowed) : IDraftLanguagePreviewPolicy

@@ -66,6 +66,36 @@ public sealed class RightToLeftRenderingTests(SerginWebApiFactory<Program> facto
         Assert.Contains(".sergin-language-select", css, StringComparison.Ordinal);
     }
 
+    // The right-to-left face is served by the host itself, so an air-gapped deployment still gets it.
+    [Fact]
+    public async Task RtlCulture_LinksTheSelfHostedFont_AndItIsServed()
+    {
+        string html = await RenderAsync("fa-IR", [Language("fa-IR", "فارسی", rtl: true, published: true)]);
+
+        Assert.DoesNotContain("fonts.googleapis.com/css2?family=Vazirmatn", html, StringComparison.Ordinal);
+        Match link = Regex.Match(html, @"href=""(?<href>fonts/vazirmatn/vazirmatn[^""]*\.css)""");
+        Assert.True(link.Success, "The right-to-left page links no self-hosted Vazirmatn stylesheet.");
+
+        using HttpClient client = factory.CreateClient();
+        string css = await client.GetStringAsync(new Uri("/" + link.Groups["href"].Value, UriKind.Relative));
+
+        foreach (Match font in Regex.Matches(css, @"url\(""(?<file>[^""]+\.woff2)""\)"))
+        {
+            using HttpResponseMessage served = await client.GetAsync(new Uri("/fonts/vazirmatn/" + font.Groups["file"].Value, UriKind.Relative));
+            Assert.Equal(HttpStatusCode.OK, served.StatusCode);
+        }
+
+        Assert.Equal(3, Regex.Count(css, "@font-face"));
+    }
+
+    [Fact]
+    public async Task LtrCulture_DoesNotLoadTheRightToLeftFont()
+    {
+        string html = await RenderAsync(null, [Language("de", "Deutsch", rtl: false, published: true)]);
+
+        Assert.DoesNotContain("vazirmatn", html, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task LtrCulture_Dir_Ltr()
     {

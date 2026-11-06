@@ -133,6 +133,14 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
         Assert.True(catalog.TryGet(LanguageErrorKeys.UnknownCulture, out _));
     }
 
+    // A stored culture this machine cannot build (written on another host) reads left to right instead of throwing.
+    [Fact]
+    public void Direction_UnbuildableStoredCulture_LeftToRight()
+    {
+        Assert.False(Language.ResolveRightToLeft("not a culture!", LanguageDirection.FromCulture));
+        Assert.True(Language.ResolveRightToLeft("not a culture!", LanguageDirection.RightToLeft));
+    }
+
     [Fact]
     public async Task Direction_DerivedFromCulture_AndOverridable()
     {

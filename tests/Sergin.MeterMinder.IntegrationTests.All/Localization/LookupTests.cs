@@ -67,6 +67,45 @@ public sealed class LookupTests(SerginWebApiFactory<Program> factory) : IAsyncLi
         Assert.Equal("ذخیره", Localizer.Text(CommonTexts.Save));
     }
 
+    // A draft parent's text is unreviewed: a user of its published child culture must not see it.
+    [Fact]
+    public async Task DraftParentCulture_Skipped()
+    {
+        store.Set("fa-IR", LookupTexts.DeleteDevice.Key.Value, "حذف دستگاه {DeviceId}؟", LookupTexts.DeleteDevice.Default);
+        store.Set("fa", CommonTexts.Save.Key.Value, "ذخیره", CommonTexts.Save.Default);
+        store.MarkDraft("fa");
+        await Cache.EnsureLoadedAsync("fa-IR", CancellationToken.None);
+
+        using CultureScope culture = new("fa-IR");
+
+        Assert.Equal("Save", Localizer.Text(CommonTexts.Save));
+    }
+
+    [Fact]
+    public async Task PublishedParentCulture_Shown()
+    {
+        store.Set("fa-IR", LookupTexts.DeleteDevice.Key.Value, "حذف دستگاه {DeviceId}؟", LookupTexts.DeleteDevice.Default);
+        store.Set("fa", CommonTexts.Save.Key.Value, "ذخیره", CommonTexts.Save.Default);
+        await Cache.EnsureLoadedAsync("fa-IR", CancellationToken.None);
+
+        using CultureScope culture = new("fa-IR");
+
+        Assert.Equal("ذخیره", Localizer.Text(CommonTexts.Save));
+    }
+
+    // The requested culture already passed the culture provider's gate, so a translator previewing a draft sees it.
+    [Fact]
+    public async Task DraftRequestedCulture_StillShown()
+    {
+        store.Set("fa", CommonTexts.Save.Key.Value, "ذخیره", CommonTexts.Save.Default);
+        store.MarkDraft("fa");
+        await Cache.EnsureLoadedAsync("fa", CancellationToken.None);
+
+        using CultureScope culture = new("fa");
+
+        Assert.Equal("ذخیره", Localizer.Text(CommonTexts.Save));
+    }
+
     [Fact]
     public async Task ParentCulture_UsedWhenTheCultureTranslationDrifted()
     {
@@ -229,6 +268,7 @@ public sealed class LookupTests(SerginWebApiFactory<Program> factory) : IAsyncLi
     private sealed class FakeTranslationStore : ITranslationStore
     {
         private readonly Dictionary<string, Dictionary<string, StoredTranslation>> translations = new(StringComparer.Ordinal);
+        private readonly HashSet<string> drafts = new(StringComparer.Ordinal);
         private readonly TaskCompletionSource heldReadStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly TaskCompletionSource heldLanguagesReadStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private TaskCompletionSource? hold;
@@ -254,6 +294,9 @@ public sealed class LookupTests(SerginWebApiFactory<Program> factory) : IAsyncLi
             return hold;
         }
 
+        /// <summary>The language list answers <paramref name="culture"/> as a draft rather than published.</summary>
+        public void MarkDraft(string culture) => drafts.Add(culture);
+
         public void Set(string culture, string key, string text, string sourceText)
         {
             if (!translations.TryGetValue(culture, out Dictionary<string, StoredTranslation>? byKey))
@@ -268,7 +311,7 @@ public sealed class LookupTests(SerginWebApiFactory<Program> factory) : IAsyncLi
         public async Task<IReadOnlyList<LanguageInfo>> GetLanguagesAsync(CancellationToken cancellationToken)
         {
             IReadOnlyList<LanguageInfo> snapshot =
-                [.. translations.Keys.Select(culture => new LanguageInfo(culture, culture, IsRightToLeft: false, IsPublished: true))];
+                [.. translations.Keys.Select(culture => new LanguageInfo(culture, culture, IsRightToLeft: false, IsPublished: !drafts.Contains(culture)))];
 
             if (languagesHold is { } held)
             {

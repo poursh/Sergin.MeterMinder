@@ -21,8 +21,8 @@
     }
     @if (DocumentCulture.Dir == "rtl")
     {
-        @* The right-to-left face, applied by the [dir=rtl] rule in app.css. *@
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@@400;500;700&display=swap" />
+        @* The right-to-left face, self-hosted (wwwroot/fonts/vazirmatn, OFL), applied by the [dir=rtl] rule in app.css. *@
+        <link rel="stylesheet" href="@Assets["fonts/vazirmatn/vazirmatn.css"]" />
     }
     <link rel="stylesheet" href="@Assets["app.css"]" />
     @* The scoped CSS of the host and of the RCLs it references (the language switcher's). *@

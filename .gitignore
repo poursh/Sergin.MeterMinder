@@ -182,8 +182,9 @@ DocProject/Help/*.hhp
 DocProject/Help/Html2
 DocProject/Help/html
 
-# Click-Once directory
-publish/
+# Click-Once directory, anchored to the repo root: unanchored, git on Windows also matches it case-insensitively
+# against a Publish/ feature folder (Commands/Publish/, Endpoints/Publish/) and silently leaves that source out.
+/publish/
 
 # Publish Web Output
 *.[Pp]ublish.xml
