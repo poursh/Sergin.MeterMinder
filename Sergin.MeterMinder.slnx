@@ -29,6 +29,20 @@
     <Project Path="src/Hosts/Sergin.MeterMinder.Hosts.All/Sergin.MeterMinder.Hosts.All.csproj" />
   </Folder>
   <Folder Name="/src/Modules/" />
+  <Folder Name="/src/Modules/Administration/" />
+  <Folder Name="/src/Modules/Administration/Settings/">
+    <Project Path="src/Modules/Administration/Settings/Sergin.Administration.Settings.Application.Contracts/Sergin.Administration.Settings.Application.Contracts.csproj" />
+    <Project Path="src/Modules/Administration/Settings/Sergin.Administration.Settings.Application.Configurations/Sergin.Administration.Settings.Application.Configurations.csproj" />
+    <Project Path="src/Modules/Administration/Settings/Sergin.Administration.Settings.Application/Sergin.Administration.Settings.Application.csproj" />
+    <Project Path="src/Modules/Administration/Settings/Sergin.Administration.Settings.Domain/Sergin.Administration.Settings.Domain.csproj" />
+    <Project Path="src/Modules/Administration/Settings/Sergin.Administration.Settings.Infrastructure.Data/Sergin.Administration.Settings.Infrastructure.Data.csproj" />
+    <Project Path="src/Modules/Administration/Settings/Sergin.Administration.Settings.Infrastructure/Sergin.Administration.Settings.Infrastructure.csproj" />
+    <Project Path="src/Modules/Administration/Settings/Sergin.Administration.Settings/Sergin.Administration.Settings.csproj" />
+  </Folder>
+  <Folder Name="/src/Modules/Administration/Settings/Presentation/">
+    <Project Path="src/Modules/Administration/Settings/Sergin.Administration.Settings.Presentation.WebApi/Sergin.Administration.Settings.Presentation.WebApi.csproj" />
+    <Project Path="src/Modules/Administration/Settings/Sergin.Administration.Settings.Presentation.Blazor/Sergin.Administration.Settings.Presentation.Blazor.csproj" />
+  </Folder>
   <Folder Name="/src/Modules/DeviceManagement/">
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Application.Contracts/Sergin.MeterMinder.DeviceManagement.Application.Contracts.csproj" />
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Application.Configurations/Sergin.MeterMinder.DeviceManagement.Application.Configurations.csproj" />
@@ -46,19 +60,6 @@
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts.csproj" />
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Client/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Client.csproj" />
     <Project Path="src/Modules/DeviceManagement/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Server/Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Server.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Platform/">
-    <Project Path="src/Modules/Platform/Sergin.Platform.Application.Contracts/Sergin.Platform.Application.Contracts.csproj" />
-    <Project Path="src/Modules/Platform/Sergin.Platform.Application.Configurations/Sergin.Platform.Application.Configurations.csproj" />
-    <Project Path="src/Modules/Platform/Sergin.Platform.Application/Sergin.Platform.Application.csproj" />
-    <Project Path="src/Modules/Platform/Sergin.Platform.Domain/Sergin.Platform.Domain.csproj" />
-    <Project Path="src/Modules/Platform/Sergin.Platform.Infrastructure.Data/Sergin.Platform.Infrastructure.Data.csproj" />
-    <Project Path="src/Modules/Platform/Sergin.Platform.Infrastructure/Sergin.Platform.Infrastructure.csproj" />
-    <Project Path="src/Modules/Platform/Sergin.Platform/Sergin.Platform.csproj" />
-  </Folder>
-  <Folder Name="/src/Modules/Platform/Presentation/">
-    <Project Path="src/Modules/Platform/Sergin.Platform.Presentation.WebApi/Sergin.Platform.Presentation.WebApi.csproj" />
-    <Project Path="src/Modules/Platform/Sergin.Platform.Presentation.Blazor/Sergin.Platform.Presentation.Blazor.csproj" />
   </Folder>
   <Folder Name="/src/Modules/UserAccess/">
     <Project Path="src/Modules/UserAccess/Sergin.UserAccess.Application.Contracts/Sergin.UserAccess.Application.Contracts.csproj" />

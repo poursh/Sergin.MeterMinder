@@ -10,20 +10,20 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.IntegrationTests.All.Lists;
-using Sergin.Platform.Application.Configurations.Languages;
-using Sergin.Platform.Application.Configurations.Translations;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Add;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Delete;
-using Sergin.Platform.Application.Contracts.Languages.Commands.GetOne;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Publish;
-using Sergin.Platform.Application.Contracts.Translations.Commands.Add;
-using Sergin.Platform.Application.Contracts.Translations.Commands.Change;
-using Sergin.Platform.Application.Contracts.Translations.Commands.Delete;
-using Sergin.Platform.Application.Contracts.Translations.Commands.GetList;
-using Sergin.Platform.Application.Contracts.Translations.Commands.GetOne;
-using Sergin.Platform.Application.Contracts.Translations.Commands.GetProgress;
-using Sergin.Platform.Domain.Languages;
-using Sergin.Platform.Domain.Translations;
+using Sergin.Administration.Settings.Application.Configurations.Languages;
+using Sergin.Administration.Settings.Application.Configurations.Translations;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Add;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Delete;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.GetOne;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Publish;
+using Sergin.Administration.Settings.Application.Contracts.Translations.Commands.Add;
+using Sergin.Administration.Settings.Application.Contracts.Translations.Commands.Change;
+using Sergin.Administration.Settings.Application.Contracts.Translations.Commands.Delete;
+using Sergin.Administration.Settings.Application.Contracts.Translations.Commands.GetList;
+using Sergin.Administration.Settings.Application.Contracts.Translations.Commands.GetOne;
+using Sergin.Administration.Settings.Application.Contracts.Translations.Commands.GetProgress;
+using Sergin.Administration.Settings.Domain.Languages;
+using Sergin.Administration.Settings.Domain.Translations;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Queries;
@@ -47,7 +47,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
 {
-    private const string GoneKey = "platform.gone.key";
+    private const string GoneKey = "settings.gone.key";
 
     [Fact]
     public async Task Add_ShowsOnNextRender()
@@ -183,7 +183,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
             Assert.Equal(TranslationStatus.Translated, (await ItemAsync(dispatcher, language, key)).Status);
 
             // The code's default changed after the translation was made: what the row was translated from no longer matches.
-            await ExecuteAsync("UPDATE pf.translation SET source_text = 'Store' WHERE id = @Id;", ("Id", id.Value));
+            await ExecuteAsync("UPDATE st.translation SET source_text = 'Store' WHERE id = @Id;", ("Id", id.Value));
 
             GetTranslationListItem flagged = await ItemAsync(dispatcher, language, key);
             Assert.Equal(TranslationStatus.NeedsReview, flagged.Status);
@@ -213,7 +213,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
             var orphanId = Guid.CreateVersion7();
             await ExecuteAsync(
                 """
-                INSERT INTO pf.translation (id, language_id, key, text, source_text, created_at_utc, created_by, row_version)
+                INSERT INTO st.translation (id, language_id, key, text, source_text, created_at_utc, created_by, row_version)
                 VALUES (@Id, @LanguageId, @Key, 'Pryč', 'Gone', now(), @Id, gen_random_uuid());
                 """,
                 ("Id", orphanId),
@@ -223,7 +223,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
             GetTranslationListItem orphan = await ItemAsync(dispatcher, language, GoneKey);
             Assert.Equal(TranslationStatus.Orphaned, orphan.Status);
             Assert.Equal(orphanId, orphan.TranslationId);
-            Assert.Equal("platform", orphan.Module);
+            Assert.Equal("settings", orphan.Module);
             Assert.Equal("gone", orphan.Category);
             Assert.Equal("Gone", orphan.Default);
 
@@ -259,20 +259,20 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
             await AddTranslationAsync(dispatcher, language, CommonTexts.Save.Key.Value, "Mentés");
 
             ListQueryResponse<GetTranslationListItem> translated =
-                await ListAsync(dispatcher, language, module: "platform", status: TranslationStatus.Translated);
+                await ListAsync(dispatcher, language, module: "settings", status: TranslationStatus.Translated);
             Assert.Equal([TranslationTexts.Title.Key.Value], translated.Data.Select(item => item.Key));
             Assert.Equal(1, translated.Total);
 
-            int platformKeys = catalog.Entries.Count(entry => entry.Module == "platform");
+            int settingsKeys = catalog.Entries.Count(entry => entry.Module == "settings");
             ListQueryResponse<GetTranslationListItem> untranslated =
-                await ListAsync(dispatcher, language, module: "platform", status: TranslationStatus.Untranslated);
-            Assert.Equal(platformKeys - 1, untranslated.Total);
+                await ListAsync(dispatcher, language, module: "settings", status: TranslationStatus.Untranslated);
+            Assert.Equal(settingsKeys - 1, untranslated.Total);
             Assert.All(untranslated.Data, item => Assert.Null(item.Text));
 
             ListQueryResponse<GetTranslationListItem> category =
-                await ListAsync(dispatcher, language, module: "platform", category: "translations");
+                await ListAsync(dispatcher, language, module: "settings", category: "translations");
             Assert.NotEmpty(category.Data);
-            Assert.All(category.Data, item => Assert.StartsWith("platform.translations.", item.Key, StringComparison.Ordinal));
+            Assert.All(category.Data, item => Assert.StartsWith("settings.translations.", item.Key, StringComparison.Ordinal));
 
             ListQueryResponse<GetTranslationListItem> searched = await ListAsync(dispatcher, language, term: "MENTÉS");
             Assert.Equal([CommonTexts.Save.Key.Value], searched.Data.Select(item => item.Key));
@@ -297,13 +297,13 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
 
         try
         {
-            int platformKeys = catalog.Entries.Count(entry => entry.Module == "platform");
+            int settingsKeys = catalog.Entries.Count(entry => entry.Module == "settings");
 
             ErrorOr<ListQueryResponse<GetTranslationListItem>> page = await dispatcher.SendAsync(new GetTranslationListQueryCommand(
-                new LanguageId(language), Paggination.Create(1, 2), module: "platform", status: TranslationStatus.Untranslated));
+                new LanguageId(language), Paggination.Create(1, 2), module: "settings", status: TranslationStatus.Untranslated));
 
             Assert.False(page.IsError, page.IsError ? page.FirstError.Description : string.Empty);
-            Assert.Equal(platformKeys, page.Value.Total);
+            Assert.Equal(settingsKeys, page.Value.Total);
             Assert.Single(page.Value.Data);
         }
         finally
@@ -326,10 +326,10 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
 
             await AddTranslationAsync(dispatcher, language, CommonTexts.Save.Key.Value, "Salvează");
             TranslationId review = await AddTranslationAsync(dispatcher, language, TranslationTexts.Title.Key.Value, "Traduceri");
-            await ExecuteAsync("UPDATE pf.translation SET source_text = 'Old' WHERE id = @Id;", ("Id", review.Value));
+            await ExecuteAsync("UPDATE st.translation SET source_text = 'Old' WHERE id = @Id;", ("Id", review.Value));
             await ExecuteAsync(
                 """
-                INSERT INTO pf.translation (id, language_id, key, text, source_text, created_at_utc, created_by, row_version)
+                INSERT INTO st.translation (id, language_id, key, text, source_text, created_at_utc, created_by, row_version)
                 VALUES (@Id, @LanguageId, @Key, 'Dispărut', 'Gone', now(), @Id, gen_random_uuid());
                 """,
                 ("Id", Guid.CreateVersion7()),
@@ -360,7 +360,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
 
         await DeleteLanguageAsync(dispatcher, language);
 
-        Assert.Equal(0L, await ScalarAsync("SELECT count(*) FROM pf.translation WHERE language_id = @Id;", ("Id", language)));
+        Assert.Equal(0L, await ScalarAsync("SELECT count(*) FROM st.translation WHERE language_id = @Id;", ("Id", language)));
         Assert.False(cache.TryGet("fi-FI", CommonTexts.Save.Key.Value, out _));
     }
 
@@ -373,9 +373,9 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
     {
         await using WebApplicationFactory<Program> host = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
-            ServiceDescriptor platform = services.Last(descriptor => descriptor.ServiceType == typeof(ITranslationStore));
+            ServiceDescriptor settings = services.Last(descriptor => descriptor.ServiceType == typeof(ITranslationStore));
             services.Replace(ServiceDescriptor.Singleton<ITranslationStore>(provider =>
-                new FailingTranslationsStore((ITranslationStore)ActivatorUtilities.CreateInstance(provider, platform.ImplementationType!))));
+                new FailingTranslationsStore((ITranslationStore)ActivatorUtilities.CreateInstance(provider, settings.ImplementationType!))));
         }));
         var store = (FailingTranslationsStore)host.Services.GetRequiredService<ITranslationStore>();
         ITranslationCache cache = host.Services.GetRequiredService<ITranslationCache>();
@@ -446,7 +446,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
         CommandSettings settings = factory.Services.GetRequiredService<CommandConfigurationRegistry>().For(request);
 
         Assert.Equal(TranslationPermissions.Edit, Assert.Single(settings.RequiredPermissions));
-        Assert.Equal("permission.pf.translations.edit", TranslationPermissions.Edit.Permission.Value);
+        Assert.Equal("permission.st.translations.edit", TranslationPermissions.Edit.Permission.Value);
         Assert.Equal(PermissionScope.Any, settings.PermissionScope);
         Assert.Equal(typeof(Translation), settings.AggregateRoot);
         Assert.Equal(versioned, settings.RequiresExpectedVersion);
@@ -467,7 +467,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
     [Fact]
     public void ErrorKeys_AreTheDeclaredOnes()
     {
-        Assert.Equal("platform.translations.errors.placeholders-differ", TranslationTexts.PlaceholdersDiffer.Key.Value);
+        Assert.Equal("settings.translations.errors.placeholders-differ", TranslationTexts.PlaceholdersDiffer.Key.Value);
         Assert.Equal(["Expected"], TranslationTexts.PlaceholdersDiffer.Placeholders);
         Assert.True(factory.Services.GetRequiredService<TextCatalog>().TryGet(TranslationTexts.PlaceholdersDiffer.Key.Value, out _));
     }
@@ -604,7 +604,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
     }
 
     // A user signed in through the identity provider for the first time: the seeded viewer role at the root, which
-    // holds no Platform permission.
+    // holds no Settings permission.
     private async Task<IUserContext> ViewerAsync()
     {
         string subject = Guid.CreateVersion7().ToString();

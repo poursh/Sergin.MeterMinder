@@ -6,13 +6,13 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
-using Sergin.Platform.Application.Configurations.Languages;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Add;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Delete;
-using Sergin.Platform.Application.Contracts.Languages.Commands.GetAudit;
-using Sergin.Platform.Application.Contracts.Languages.Commands.GetOne;
-using Sergin.Platform.Application.Contracts.Translations.Commands.Add;
-using Sergin.Platform.Domain.Languages;
+using Sergin.Administration.Settings.Application.Configurations.Languages;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Add;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Delete;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.GetAudit;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.GetOne;
+using Sergin.Administration.Settings.Application.Contracts.Translations.Commands.Add;
+using Sergin.Administration.Settings.Domain.Languages;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Localizations;
@@ -25,14 +25,14 @@ using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 
 /// <summary>
-/// The Platform module's admin pages (spec decision 23) as the prerender draws them: the language list, a language's
+/// The Settings module's admin pages (spec decision 23) as the prerender draws them: the language list, a language's
 /// detail with its progress, and a language's translations with their columns and filter. A list's rows are loaded by
 /// the table after the first render, so they are not in the prerender (the headless-browser check covers them); the
 /// drawer entry needs the languages read permission. Pages are HTML-decoded, since Blazor encodes non-ASCII text.
 /// Every test deletes the language it adds.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
-public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> factory)
+public sealed class SettingsPageRenderingTests(SerginWebApiFactory<Program> factory)
 {
     [Fact]
     public async Task LanguageList_Renders()
@@ -43,10 +43,10 @@ public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> fact
 
         try
         {
-            string html = await GetAsync("/pf/languages");
+            string html = await GetAsync("/st/languages");
 
             Assert.Contains("<title>Languages</title>", html, StringComparison.Ordinal);
-            Assert.Contains("href=\"/pf/languages/new\"", html, StringComparison.Ordinal);
+            Assert.Contains("href=\"/st/languages/new\"", html, StringComparison.Ordinal);
             Assert.Contains("Search culture or name…", html, StringComparison.Ordinal);
             Assert.Contains(">Display name<", html, StringComparison.Ordinal);
             Assert.Contains(">Direction<", html, StringComparison.Ordinal);
@@ -60,7 +60,7 @@ public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> fact
     [Fact]
     public async Task LanguageCreate_Renders()
     {
-        string html = await GetAsync("/pf/languages/new");
+        string html = await GetAsync("/st/languages/new");
 
         Assert.Contains("<title>New language</title>", html, StringComparison.Ordinal);
         Assert.Contains("Culture", html, StringComparison.Ordinal);
@@ -81,12 +81,12 @@ public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> fact
                 new AddTranslationCommand(new LanguageId(language), CommonTexts.Save.Key.Value, "Uložiť"));
             Assert.False(added.IsError, added.IsError ? added.FirstError.Description : string.Empty);
 
-            string html = await GetAsync($"/pf/languages/{language}");
+            string html = await GetAsync($"/st/languages/{language}");
 
             Assert.Contains("Slovenčina", html, StringComparison.Ordinal);
             Assert.Contains("sk-SK", html, StringComparison.Ordinal);
             Assert.Contains($"1 of {total.ToString("N0", CultureInfo.GetCultureInfo("en"))} translated", html, StringComparison.Ordinal);
-            Assert.Contains($"href=\"/pf/languages/{language}/translations\"", html, StringComparison.Ordinal);
+            Assert.Contains($"href=\"/st/languages/{language}/translations\"", html, StringComparison.Ordinal);
             Assert.Contains("Publish", html, StringComparison.Ordinal);
         }
         finally
@@ -108,7 +108,7 @@ public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> fact
 
         try
         {
-            string manager = await GetAsync($"/pf/languages/{language}");
+            string manager = await GetAsync($"/st/languages/{language}");
             Assert.Contains(">Rename<", manager, StringComparison.Ordinal);
             Assert.Contains("aria-label=\"Direction\"", manager, StringComparison.Ordinal);
 
@@ -118,7 +118,7 @@ public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> fact
                 builder.ConfigureTestServices(services => services.AddSingleton<IUserContextFactory>(new FixedUserContextFactory(reader))));
             using HttpClient client = host.CreateClient();
 
-            string html = WebUtility.HtmlDecode(await client.GetStringAsync(new Uri($"/pf/languages/{language}", UriKind.Relative)));
+            string html = WebUtility.HtmlDecode(await client.GetStringAsync(new Uri($"/st/languages/{language}", UriKind.Relative)));
 
             Assert.Contains("Latviesu", html, StringComparison.Ordinal);
             Assert.Contains("From the culture (Left to right)", html, StringComparison.Ordinal);
@@ -136,7 +136,7 @@ public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> fact
     [Fact]
     public async Task LanguageDetail_UnknownId_ShowsNotFound()
     {
-        string html = await GetAsync($"/pf/languages/{Guid.CreateVersion7()}");
+        string html = await GetAsync($"/st/languages/{Guid.CreateVersion7()}");
 
         Assert.Contains("<title>Language</title>", html, StringComparison.Ordinal);
         Assert.Contains("Not found", html, StringComparison.Ordinal);
@@ -179,14 +179,14 @@ public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> fact
 
         try
         {
-            string html = await GetAsync($"/pf/languages/{language}/translations");
+            string html = await GetAsync($"/st/languages/{language}/translations");
 
             Assert.Contains("<title>Translations</title>", html, StringComparison.Ordinal);
             Assert.Contains(">Default (English)<", html, StringComparison.Ordinal);
             Assert.Contains(">Translation<", html, StringComparison.Ordinal);
             Assert.Contains(">Status<", html, StringComparison.Ordinal);
             Assert.Contains("aria-label=\"Advanced filter\"", html, StringComparison.Ordinal);
-            Assert.Contains($"href=\"/pf/languages/{language}\"", html, StringComparison.Ordinal);
+            Assert.Contains($"href=\"/st/languages/{language}\"", html, StringComparison.Ordinal);
             Assert.Contains("Slovenščina", html, StringComparison.Ordinal);
         }
         finally
@@ -199,7 +199,7 @@ public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> fact
     public async Task NavEntry_HiddenWithoutRead()
     {
         string administrator = await GetAsync("/");
-        Assert.Contains("href=\"/pf/languages\"", administrator, StringComparison.Ordinal);
+        Assert.Contains("href=\"/st/languages\"", administrator, StringComparison.Ordinal);
 
         IUserContext viewer = await ViewerAsync();
         await using WebApplicationFactory<Program> host = factory.WithWebHostBuilder(builder =>
@@ -208,7 +208,7 @@ public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> fact
 
         string html = await client.GetStringAsync(new Uri("/", UriKind.Relative));
 
-        Assert.DoesNotContain("href=\"/pf/languages\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("href=\"/st/languages\"", html, StringComparison.Ordinal);
     }
 
     private static ISerginDispatcher Dispatcher(IServiceScope scope) => scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
@@ -241,7 +241,7 @@ public sealed class PlatformPageRenderingTests(SerginWebApiFactory<Program> fact
     }
 
     // A user signed in through the identity provider for the first time: the seeded viewer role at the root, which
-    // holds no Platform permission.
+    // holds no Settings permission.
     private async Task<IUserContext> ViewerAsync()
     {
         string subject = Guid.CreateVersion7().ToString();

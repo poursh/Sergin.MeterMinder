@@ -13,10 +13,10 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.IntegrationTests.All.Concurrency;
 using Sergin.MeterMinder.IntegrationTests.All.Lists;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Add;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Delete;
-using Sergin.Platform.Application.Contracts.Languages.Commands.GetOne;
-using Sergin.Platform.Domain.Languages;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Add;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Delete;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.GetOne;
+using Sergin.Administration.Settings.Domain.Languages;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Domain;
@@ -57,8 +57,8 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
         "/dm/devices/new",
         "/dm/manufacturers",
         "/dm/manufacturers/new",
-        "/pf/languages",
-        "/pf/languages/new",
+        "/st/languages",
+        "/st/languages/new",
         "/ua/roles/new",
         "/ua/scopes",
         "/ua/scopes/new",
@@ -101,8 +101,8 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
                 $"/dm/manufacturers/{manufacturer.Value}/models/new",
                 $"/dm/manufacturers/{manufacturer.Value}/models/{model.Value}",
                 $"/dm/manufacturers/{manufacturer.Value}/models/{model.Value}/edit",
-                $"/pf/languages/{language}",
-                $"/pf/languages/{language}/translations",
+                $"/st/languages/{language}",
+                $"/st/languages/{language}/translations",
                 $"/ua/roles/{ViewerRoleId}",
                 $"/ua/scopes/{Scope.RootId.Value}",
                 $"/ua/users/{user}",

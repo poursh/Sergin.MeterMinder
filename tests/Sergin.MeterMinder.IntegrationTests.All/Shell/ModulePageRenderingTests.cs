@@ -62,7 +62,7 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
     [InlineData("/dm/manufacturers/01920000-0000-7000-8000-000000000001/edit", "Device Management")]
     [InlineData("/ua/users", "User Access")]
     [InlineData("/ua/users/new", "User Access")]
-    [InlineData("/pf/languages", "Platform")]
+    [InlineData("/st/languages", "Administration")]
     public async Task Drawer_GroupsEntriesByModule_AndOpensTheCurrentPagesGroup(string path, string openGroup)
     {
         HttpClient client = factory.CreateClient();
@@ -74,7 +74,7 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
             match => match.Groups["expanded"].Value == "true",
             StringComparer.Ordinal);
 
-        Assert.Equal(["Device Management", "Platform", "User Access"], groups.Keys.Order(StringComparer.Ordinal));
+        Assert.Equal(["Administration", "Device Management", "User Access"], groups.Keys.Order(StringComparer.Ordinal));
         Assert.All(groups, group => Assert.Equal(group.Key == openGroup, group.Value));
     }
 

@@ -5,16 +5,16 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Add;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Delete;
-using Sergin.Platform.Application.Contracts.Languages.Commands.GetList;
-using Sergin.Platform.Application.Contracts.Languages.Commands.GetOne;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Publish;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Rename;
-using Sergin.Platform.Application.Contracts.Languages.Commands.SetDirection;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Unpublish;
-using Sergin.Platform.Application.Configurations.Languages;
-using Sergin.Platform.Domain.Languages;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Add;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Delete;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.GetList;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.GetOne;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Publish;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Rename;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.SetDirection;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Unpublish;
+using Sergin.Administration.Settings.Application.Configurations.Languages;
+using Sergin.Administration.Settings.Domain.Languages;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Queries;
@@ -31,7 +31,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 /// The Language aggregate (spec decision 21) through <see cref="ISerginDispatcher"/>, the way its pages send: the
 /// culture is normalised and unique after normalisation, English and unknown cultures are refused, the direction is
 /// derived and overridable, a write reaches the translation cache's language list, and the writes need
-/// <c>permission.pf.languages.manage</c> and a current version. Every test deletes the languages it adds: the database
+/// <c>permission.st.languages.manage</c> and a current version. Every test deletes the languages it adds: the database
 /// and the cache are shared by the whole collection, and a published language would show in every other test's switcher.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
@@ -267,9 +267,9 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
     {
         await using WebApplicationFactory<Program> host = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
-            ServiceDescriptor platform = services.Last(descriptor => descriptor.ServiceType == typeof(ITranslationStore));
+            ServiceDescriptor settings = services.Last(descriptor => descriptor.ServiceType == typeof(ITranslationStore));
             services.Replace(ServiceDescriptor.Singleton<ITranslationStore>(provider =>
-                new FailingLanguagesStore((ITranslationStore)ActivatorUtilities.CreateInstance(provider, platform.ImplementationType!))));
+                new FailingLanguagesStore((ITranslationStore)ActivatorUtilities.CreateInstance(provider, settings.ImplementationType!))));
         }));
         var store = (FailingLanguagesStore)host.Services.GetRequiredService<ITranslationStore>();
         ITranslationCache cache = host.Services.GetRequiredService<ITranslationCache>();
@@ -430,7 +430,7 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
     }
 
     // A user signed in through the identity provider for the first time: the seeded viewer role at the root, which
-    // holds no Platform permission.
+    // holds no Settings permission.
     private async Task<IUserContext> ViewerAsync()
     {
         string subject = Guid.CreateVersion7().ToString();

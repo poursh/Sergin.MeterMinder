@@ -4,11 +4,11 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
-using Sergin.Platform.Application.Configurations.Translations;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Add;
-using Sergin.Platform.Application.Contracts.Languages.Commands.Delete;
-using Sergin.Platform.Application.Contracts.Languages.Commands.GetOne;
-using Sergin.Platform.Domain.Languages;
+using Sergin.Administration.Settings.Application.Configurations.Translations;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Add;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.Delete;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.GetOne;
+using Sergin.Administration.Settings.Domain.Languages;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain;
@@ -20,10 +20,10 @@ using Sergin.UserAccess.Application.Contracts.Users.Assignments.Commands.Revoke;
 namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 
 /// <summary>
-/// The Platform module's real draft-preview policy (spec decision 9), against the real registration: a holder of the
+/// The Settings module's real draft-preview policy (spec decision 9), against the real registration: a holder of the
 /// translations edit permission on any scope sees draft languages in the switcher and may switch to one; everyone
 /// else, including a translator whose grant was revoked, quietly gets the default culture. Draft languages are
-/// created through the real Platform commands, which leave them as drafts.
+/// created through the real Settings commands, which leave them as drafts.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class DraftPreviewTests(SerginWebApiFactory<Program> factory)
@@ -135,7 +135,7 @@ public sealed class DraftPreviewTests(SerginWebApiFactory<Program> factory)
         factory.WithWebHostBuilder(builder =>
             builder.ConfigureTestServices(services => services.AddSingleton<IUserContextFactory>(caller)));
 
-    // The seeded viewer role at the root holds no Platform permission.
+    // The seeded viewer role at the root holds no Settings permission.
     private async Task<IUserContext> ViewerAsync()
     {
         RbacScenario tree = await RbacScenario.BuildAsync(factory);

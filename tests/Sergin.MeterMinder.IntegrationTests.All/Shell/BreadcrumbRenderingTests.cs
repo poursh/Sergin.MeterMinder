@@ -66,6 +66,35 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
         Assert.True(home >= 0 && moduleAt > home && sectionAt > moduleAt, $"{path}: expected Home > {module} > {section} in {strip}");
     }
 
+    /// <summary>
+    /// The Settings module joins the shared Administration drawer group, so its pages name that group as their
+    /// module step rather than a group of their own.
+    /// </summary>
+    [Fact]
+    public async Task LanguagesPage_TrailNamesTheAdministrationGroup()
+    {
+        string strip = await GetBreadcrumbStripAsync("/st/languages");
+
+        string moduleStep = "<li class=\"mud-breadcrumb-item mud-disabled\"><a href=\"#\" aria-label=\"Administration\" title=\"Administration\"";
+
+        int home = strip.IndexOf(HomeLink, StringComparison.Ordinal);
+        int moduleAt = strip.IndexOf(moduleStep, StringComparison.Ordinal);
+        int sectionAt = strip.IndexOf(Current("Languages"), StringComparison.Ordinal);
+
+        Assert.True(home >= 0 && moduleAt > home && sectionAt > moduleAt, $"expected Home > Administration > Languages in {strip}");
+    }
+
+    /// <summary>The module's old <c>/pf/</c> routes went with its old schema; nothing answers them any more.</summary>
+    [Fact]
+    public async Task OldPlatformRoute_IsNotFound()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync(new Uri("/pf/languages", UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
     [Theory]
     [InlineData("/dm/devices/new", "/dm/devices", "New device")]
     [InlineData("/dm/manufacturers/new", "/dm/manufacturers", "New manufacturer")]
