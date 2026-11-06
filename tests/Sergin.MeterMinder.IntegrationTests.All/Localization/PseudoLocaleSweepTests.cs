@@ -5,9 +5,13 @@ using System.Text.RegularExpressions;
 using ErrorOr;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
+using Sergin.MeterMinder.IntegrationTests.All.Concurrency;
 using Sergin.MeterMinder.IntegrationTests.All.Lists;
 using Sergin.Platform.Application.Contracts.Languages.Commands.Add;
 using Sergin.Platform.Application.Contracts.Languages.Commands.Delete;
@@ -28,9 +32,10 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 /// <summary>
 /// The pseudo-locale sweep: a published culture <c>qps-ploc</c> translates every catalog key as <c>⟦default⟧</c>, and
 /// every page a person can open — each parameterless module route, plus a detail and an edit route per aggregate over
-/// seeded rows — is rendered under it. Every visible text in the app bar, the drawer and <c>&lt;main&gt;</c> must then
-/// be wrapped in <c>⟦⟧</c>, whitespace and punctuation, or stored data (seeded rows, the configured app name, the
-/// dev user, the scope and role names). Anything else is a literal that bypasses the catalog. The prerender only:
+/// seeded rows — is rendered under it. Every visible text in the document title and the body must then be wrapped in
+/// <c>⟦⟧</c>, whitespace and punctuation, or data a swept page shows, each value read by id: the seeded rows, the
+/// configured app name, the dev user and the root scope everywhere, and on a page that shows them its own rows (the
+/// viewer role, the root's roles, the scope tree). Anything else is a literal that bypasses the catalog. The prerender only:
 /// a table's rows and a popover's items load after first render (the headless-browser check covers those).
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
@@ -42,6 +47,8 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
     private const string CookieName = ".AspNetCore.Culture";
 
     private static readonly string[] SeededPrefixes = ["maker", "street", "model", "dev", "user", "lang"];
+
+    private static readonly string[] DevUserKeys = ["UserName", "FirstName", "LastName", "Email"];
 
     private static readonly string[] ParameterlessRoutes =
     [
@@ -103,10 +110,10 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
 
             string[] data =
             [
-                .. await StoredDataAsync(),
+                .. await SharedRowsAsync(),
                 .. SeededPrefixes.Select(prefix => $"{prefix}-{marker}"),
                 .. new[] { device, user, language, manufacturer.Value, model.Value }.Select(id => id.ToString()),
-                "Meter Minder",
+                ApplicationName,
 
                 // The language switcher names each language in itself (its endonym), whatever the page's language.
                 CultureInfo.GetCultureInfo("en").NativeName,
@@ -121,7 +128,9 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
             {
                 string html = await RenderAsync(client, route);
 
-                leftovers.AddRange(VisibleTexts(html).Where(text => !IsTranslatedOrData(text, data)).Select(text => $"{route}: '{text}'"));
+                string[] allowed = [.. data, .. await RouteRowsAsync(route)];
+
+                leftovers.AddRange(VisibleTexts(html).Where(text => !IsTranslatedOrData(text, allowed)).Select(text => $"{route}: '{text}'"));
             }
 
             Assert.True(leftovers.Count == 0, "Untranslated text:\n" + string.Join('\n', leftovers.Distinct(StringComparer.Ordinal)));
@@ -129,6 +138,8 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
         finally
         {
             await DeleteLanguageAsync(dispatcher, language);
+            await DeleteCatalogRowsAsync(dispatcher, device, manufacturer);
+            await ExecuteAsync("DELETE FROM ua.users WHERE id = @Id;", user);
         }
     }
 
@@ -139,9 +150,9 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
     {
         string visible = Regex.Replace(
             html,
-            // The Development-only theme manager (a temporary drawer in MudBlazor.ThemeManager's own English) is a
-            // design tool, not the product.
-            @"<script\b.*?</script>|<style\b.*?</style>|<svg\b.*?</svg>|<!--.*?-->|<aside class=""[^""]*mud-drawer-temporary[^""]*"".*?</aside>",
+            // The Development-only theme manager (MudBlazor.ThemeManager's button and the drawer right after it, in that
+            // package's own English) is a design tool, not the product: cut from its button to the end of that drawer.
+            @"<script\b.*?</script>|<style\b.*?</style>|<svg\b.*?</svg>|<!--.*?-->|<div class=""mud-thememanager-button\b.*?</aside>",
             string.Empty,
             RegexOptions.Singleline | RegexOptions.IgnoreCase,
             TimeSpan.FromSeconds(5));
@@ -198,31 +209,113 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
         return !rest.Any(char.IsLetter);
     }
 
-    private async Task<string[]> StoredDataAsync()
+    private string ApplicationName => Configuration["Sergin:ApplicationName"]!;
+
+    private IConfiguration Configuration => factory.Services.GetRequiredService<IConfiguration>();
+
+    /// <summary>
+    /// The stored values every swept page may show besides the rows the sweep seeds: the root scope's name (the app bar's
+    /// scope picker) and the dev user (the app bar). Each read by id; nothing table-wide, so a word another test happens to
+    /// store cannot hide a literal on a page that does not show it.
+    /// </summary>
+    private async Task<string[]> SharedRowsAsync()
+    {
+        IConfigurationSection devUser = Configuration.GetSection("Sergin:DevUser");
+
+        return
+        [
+            .. await NamesAsync("SELECT name FROM ua.scopes WHERE id = @Id;", Scope.RootId.Value),
+            .. DevUserKeys.Select(key => devUser[key]).OfType<string>(),
+        ];
+    }
+
+    /// <summary>
+    /// The stored rows one page shows of its own: the viewer role's page its name; the root scope's page the roles it
+    /// owns; and every page of the scope tree the tree's live nodes, since the tree layout lists them.
+    /// </summary>
+    private async Task<string[]> RouteRowsAsync(string route)
+    {
+        List<string> values = [];
+
+        if (route == $"/ua/roles/{ViewerRoleId}")
+        {
+            values.AddRange(await NamesAsync("SELECT name FROM ua.roles WHERE id = @Id;", Guid.Parse(ViewerRoleId)));
+        }
+
+        if (route == $"/ua/scopes/{Scope.RootId.Value}")
+        {
+            values.AddRange(await NamesAsync(
+                "SELECT name FROM ua.roles WHERE owner_scope_id = @Id AND deleted_at_utc IS NULL;", Scope.RootId.Value));
+        }
+
+        if (route.StartsWith("/ua/scopes", StringComparison.Ordinal))
+        {
+            values.AddRange(await NamesAsync("SELECT name FROM ua.scopes WHERE deleted_at_utc IS NULL;"));
+        }
+
+        return [.. values];
+    }
+
+    private async Task<IReadOnlyList<string>> NamesAsync(string sql, Guid? id = null)
     {
         using IServiceScope scope = factory.Services.CreateScope();
         using DbConnection connection = await scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>().CreateConnectionAsync();
         await using DbCommand command = connection.CreateCommand();
 
-        command.CommandText = """
-            SELECT name FROM ua.scopes
-            UNION SELECT name FROM ua.roles
-            UNION SELECT user_name FROM ua.users
-            UNION SELECT first_name FROM ua.users WHERE first_name IS NOT NULL
-            UNION SELECT last_name FROM ua.users WHERE last_name IS NOT NULL
-            UNION SELECT email FROM ua.users WHERE email IS NOT NULL;
-            """;
+        // Every statement is a literal in this class; the id goes in as a parameter.
+#pragma warning disable CA2100
+        command.CommandText = sql;
+#pragma warning restore CA2100
+        if (id is { } value)
+        {
+            AddParameter(command, "Id", value);
+        }
 
-        List<string> values = [];
+        List<string> names = [];
 
         await using DbDataReader reader = await command.ExecuteReaderAsync();
 
         while (await reader.ReadAsync())
         {
-            values.Add(reader.GetString(0));
+            names.Add(reader.GetString(0));
         }
 
-        return [.. values];
+        return names;
+    }
+
+    private async Task ExecuteAsync(string sql, Guid id)
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        using DbConnection connection = await scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>().CreateConnectionAsync();
+        await using DbCommand command = connection.CreateCommand();
+
+        // A literal statement; the id goes in as a parameter.
+#pragma warning disable CA2100
+        command.CommandText = sql;
+#pragma warning restore CA2100
+        AddParameter(command, "Id", id);
+        await command.ExecuteNonQueryAsync();
+    }
+
+    private static void AddParameter(DbCommand command, string name, object value)
+    {
+        DbParameter parameter = command.CreateParameter();
+        parameter.ParameterName = name;
+        parameter.Value = value;
+        command.Parameters.Add(parameter);
+    }
+
+    private static async Task DeleteCatalogRowsAsync(ISerginDispatcher dispatcher, Guid device, ManufacturerId manufacturer)
+    {
+        ErrorOr<DeleteDeviceCommandResponse> deviceDeleted =
+            await dispatcher.SendAtDeviceVersionAsync(device, new DeleteDeviceCommand(device));
+        Assert.False(deviceDeleted.IsError, deviceDeleted.IsError ? deviceDeleted.FirstError.Description : string.Empty);
+
+        // Soft-deletes the manufacturer and, with it, the seeded model.
+        ErrorOr<DeleteManufacturerCommandResponse> manufacturerDeleted =
+            await dispatcher.SendAtManufacturerVersionAsync(manufacturer.Value, new DeleteManufacturerCommand(manufacturer.Value));
+        Assert.False(
+            manufacturerDeleted.IsError, manufacturerDeleted.IsError ? manufacturerDeleted.FirstError.Description : string.Empty);
     }
 
     private static async Task<string> RenderAsync(HttpClient client, string route)

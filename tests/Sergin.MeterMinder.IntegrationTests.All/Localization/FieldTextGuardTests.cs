@@ -1,10 +1,15 @@
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.MeterMinder.DeviceManagement;
+using Sergin.Platform;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Hosts.Localizations;
 using Sergin.SharedKernel.IntegrationTests;
+using Sergin.SharedKernel.Modules;
+using Sergin.UserAccess;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 
@@ -27,6 +32,31 @@ public sealed class FieldTextGuardTests(SerginWebApiFactory<Program> factory)
             factory.Services.GetRequiredService<TextCatalog>()));
 
         Assert.Null(refused);
+    }
+
+    [Fact]
+    public void Guard_ReadsEveryModulesContractsAssembly()
+    {
+        FieldTextGuard guard = factory.Services.GetRequiredService<FieldTextGuard>();
+        ISerginModule[] modules = [new DeviceManagementModule(), new UserAccessModule(), new PlatformModule()];
+
+        Assert.Equivalent(modules.Select(module => module.ContractsAssembly), guard.Assemblies);
+    }
+
+    [Fact]
+    public void Guard_RunsAtHostStart_NamingTheUnlabelledProperty()
+    {
+        // The real guard reads the Contracts assemblies; this one reads the test assembly, so the test configuration's
+        // request is in its reach. What is proven is that start runs the guard over the host's own registry and catalog.
+        using WebApplicationFactory<Program> broken = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.AddSingleton(ModuleConfigurationSource.FromTypes(typeof(UnlabelledCommandConfiguration)));
+            services.AddSingleton(new FieldTextGuard([typeof(UnlabelledCommand).Assembly]));
+        }));
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => broken.CreateClient());
+
+        Assert.Contains($"{typeof(UnlabelledCommand).FullName}.{nameof(UnlabelledCommand.Extra)}", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
