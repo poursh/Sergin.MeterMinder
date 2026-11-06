@@ -59,7 +59,7 @@ This is the root of a four-repo split. Three directories are git submodules that
 
 Requires the **.NET 10 SDK** (Visual Studio 17.13+ or Rider). Run every command from the repository root.
 
-On Windows, enable long paths once before cloning (one path inside UserAccess exceeds 260 characters in a deep checkout):
+On Windows, enable long paths once before cloning (some UserAccess paths exceed 260 characters in a deep checkout):
 
 ```bash
 git config --global core.longpaths true
