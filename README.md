@@ -59,24 +59,7 @@ This is the root of a four-repo split. Three directories are git submodules that
 
 Requires the **.NET 10 SDK** (Visual Studio 17.13+ or Rider). Run every command from the repository root.
 
-### Upgrading an existing clone
-
-If you cloned before the `administration-modules` change, do this once after pulling. The old `src/Modules/UserAccess/` and `src/Modules/Platform/` directories stay on disk (untracked), and `.git/config` keeps the old submodule URLs:
-
-```bash
-rm -rf src/Modules/UserAccess src/Modules/Platform   # nothing uncommitted in them
-git submodule sync --recursive
-git submodule update --init --recursive
-```
-
-Then reset the dev database, because every module's migrations were replaced by one `InitialCreate`. Keeping the old database fails startup with Postgres `42P07` ("relation ... already exists", for example on `inbox_messages`).
-
-```bash
-# Compose database
-docker compose -f docker-compose/docker-compose.yml down -v
-# a database used with `dotnet run`
-psql -U postgres -c 'DROP DATABASE "Sergin_DB";' -c 'CREATE DATABASE "Sergin_DB";'
-```
+### Fresh clone
 
 On Windows, enable long paths once before cloning (some UserAccess paths exceed 260 characters in a deep checkout):
 
@@ -109,35 +92,6 @@ Compose builds the app image and starts PostgreSQL, Keycloak and the Aspire dash
 
 **After pulling the migration reset**, see [Upgrading an existing clone](#upgrading-an-existing-clone) (the dev database must be dropped once).
 
-On Windows, enable long paths once before cloning (some UserAccess paths exceed 260 characters in a deep checkout):
-
-```bash
-git config --global core.longpaths true
-```
-
-```bash
-git clone --recurse-submodules https://github.com/poursh/Sergin.MeterMinder.git
-cd Sergin.MeterMinder
-dotnet build Sergin.MeterMinder.slnx
-```
-
-### Run it on your machine
-
-`dotnet run` starts the host in `DevUser` mode: no sign-in, every request runs as the user configured under `Sergin:DevUser`, and the Development environment applies EF migrations on startup. It needs a PostgreSQL instance and a connection string, which is never committed — give it one as a user secret:
-
-```bash
-dotnet user-secrets set "Sergin:ConnectionStrings:Database" \
-  "Host=localhost;Port=5432;Database=Sergin_DB;Username=postgres;Password=<yours>" \
-  --project src/Hosts/Sergin.MeterMinder.Hosts.All
-
-dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.All
-# → http://localhost:5002
-```
-
-### Run the whole stack in Docker
-
-Compose builds the app image and starts PostgreSQL, Keycloak and the Aspire dashboard next to it. This stack runs in `Keycloak` mode, so you sign in for real — the realm export seeds a user **`dev`** with password **`dev`**. Submodules must be initialized first; the build context copies the whole working tree.
-
 **After pulling the migration reset** (every module now has a single `InitialCreate`; the old named migrations are gone), drop the dev database volume once so the schemas are rebuilt from scratch:
 
 ```bash
@@ -166,6 +120,28 @@ docker exec -i -e PGPASSWORD=<pwd> Sergin.Database psql -U postgres -d Sergin_DB
 The same ports apply to `dotnet run` (`launchSettings.json`) and to Compose (`docker-compose.yml`).
 
 In **Visual Studio**, open `Sergin.MeterMinder.slnx`, set `docker-compose` (`docker-compose/docker-compose.dcproj`) as the startup project and press F5 — it builds the images, starts the stack and attaches the debugger.
+
+### Upgrading an existing clone
+
+If you cloned before the `administration-modules` change, do this once after pulling. The old `src/Modules/UserAccess/` and `src/Modules/Platform/` directories stay on disk (untracked), and `.git/config` keeps the old submodule URLs:
+
+```bash
+git -C src/Modules/UserAccess status    # commit or copy anything it lists
+git -C src/Modules/Platform status      # commit or copy anything it lists
+rm -rf src/Modules/UserAccess src/Modules/Platform
+git submodule sync --recursive
+git submodule update --init --recursive
+```
+
+Then reset the dev database, because every module's migrations were replaced by one `InitialCreate`. Keeping the old database fails startup with Postgres `42P07` ("relation ... already exists", for example on `inbox_messages`).
+
+```bash
+# Compose database
+docker compose -f docker-compose/docker-compose.yml down -v
+# a database used with `dotnet run`
+psql -U postgres -c 'DROP DATABASE "Sergin_DB";' -c 'CREATE DATABASE "Sergin_DB";'
+```
+
 
 ## Signing in
 
