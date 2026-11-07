@@ -14,7 +14,7 @@ public sealed class TextCatalogTests(SerginWebApiFactory<Program> factory)
     [Fact]
     public void Catalog_CollectsTextsAndFieldParts()
     {
-        var catalog = TextCatalog.FromSources([TextSource.FromTypes("DeviceManagement", typeof(Devices))]);
+        var catalog = TextCatalog.FromSources([TextSource.FromTypes("DeviceManagement", TextOrigin.Application, typeof(Devices))]);
 
         Assert.Equal(3, catalog.Entries.Count);
         Assert.True(catalog.TryGet("device-management.devices.new", out TextDefinition? definition));
@@ -27,7 +27,7 @@ public sealed class TextCatalogTests(SerginWebApiFactory<Program> factory)
     public void Catalog_RefusesDuplicateKey()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            TextCatalog.FromSources([TextSource.FromTypes("DeviceManagement", typeof(Devices), typeof(DevicesAgain))]));
+            TextCatalog.FromSources([TextSource.FromTypes("DeviceManagement", TextOrigin.Application, typeof(Devices), typeof(DevicesAgain))]));
 
         Assert.Contains("device-management.devices.new", error.Message, StringComparison.Ordinal);
         Assert.Contains(typeof(Devices).FullName!, error.Message, StringComparison.Ordinal);
@@ -38,7 +38,7 @@ public sealed class TextCatalogTests(SerginWebApiFactory<Program> factory)
     public void Catalog_RefusesSameKeyTwoDefaults()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            TextCatalog.FromSources([TextSource.FromTypes("DeviceManagement", typeof(Devices), typeof(DevicesOtherDefault))]));
+            TextCatalog.FromSources([TextSource.FromTypes("DeviceManagement", TextOrigin.Application, typeof(Devices), typeof(DevicesOtherDefault))]));
 
         Assert.Contains("device-management.devices.new", error.Message, StringComparison.Ordinal);
         Assert.Contains("'New device'", error.Message, StringComparison.Ordinal);
@@ -49,7 +49,7 @@ public sealed class TextCatalogTests(SerginWebApiFactory<Program> factory)
     public void Catalog_RefusesForeignModule()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            TextCatalog.FromSources([TextSource.FromTypes("UserAccess", typeof(Devices))]));
+            TextCatalog.FromSources([TextSource.FromTypes("UserAccess", TextOrigin.Application, typeof(Devices))]));
 
         Assert.Contains(typeof(Devices).FullName!, error.Message, StringComparison.Ordinal);
         Assert.Contains("user-access", error.Message, StringComparison.Ordinal);
@@ -61,7 +61,7 @@ public sealed class TextCatalogTests(SerginWebApiFactory<Program> factory)
         Assert.True(TextCatalog.FromSources([TextSource.Common]).TryGet("common.actions.save", out _));
 
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            TextCatalog.FromSources([TextSource.FromTypes("DeviceManagement", typeof(CommonInAModule))]));
+            TextCatalog.FromSources([TextSource.FromTypes("DeviceManagement", TextOrigin.Application, typeof(CommonInAModule))]));
 
         Assert.Contains(typeof(CommonInAModule).FullName!, error.Message, StringComparison.Ordinal);
         Assert.Contains("device-management", error.Message, StringComparison.Ordinal);

@@ -26,7 +26,7 @@ public sealed class ErrorTextTests(SerginWebApiFactory<Program> factory) : IAsyn
         host = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<ITranslationStore>(store);
-            services.AddSingleton(TextSource.FromTypes("DeviceManagement", typeof(ErrorTestTexts)));
+            services.AddSingleton(TextSource.FromTypes("DeviceManagement", TextOrigin.Application, typeof(ErrorTestTexts)));
         }));
 
         return Task.CompletedTask;

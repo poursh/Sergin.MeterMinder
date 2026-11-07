@@ -113,7 +113,7 @@ public sealed class FieldTextGuardTests(SerginWebApiFactory<Program> factory)
         FieldTextGuard.Check(
             [requestType, .. more],
             CommandConfigurationRegistry.FromConfigurationTypes([configurationType]),
-            TextCatalog.FromSources([TextSource.FromTypes("DeviceManagement", typeof(GuardTestTexts))]));
+            TextCatalog.FromSources([TextSource.FromTypes("DeviceManagement", TextOrigin.Application, typeof(GuardTestTexts))]));
 
     public static class GuardTestTexts
     {

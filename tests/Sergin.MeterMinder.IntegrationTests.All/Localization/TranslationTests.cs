@@ -227,6 +227,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
             Assert.Equal("settings", orphan.Module);
             Assert.Equal("gone", orphan.Category);
             Assert.Equal("Gone", orphan.Default);
+            Assert.Null(orphan.Origin);
 
             TranslationId known = await AddTranslationAsync(dispatcher, language, CommonTexts.Save.Key.Value, "Uložit");
             ErrorOr<DeleteTranslationCommandResponse> refused =
@@ -239,6 +240,42 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
                 dispatcher, new TranslationId(orphanId), new DeleteTranslationCommand(new TranslationId(orphanId)));
             Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
             Assert.DoesNotContain((await ListAsync(dispatcher, language, status: TranslationStatus.Orphaned)).Data, item => item.Key == GoneKey);
+        }
+        finally
+        {
+            await DeleteLanguageAsync(dispatcher, language);
+        }
+    }
+
+    [Fact]
+    public async Task List_FiltersByOrigin_AndLeavesOrphansOut()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = Dispatcher(scope);
+        TextCatalog catalog = factory.Services.GetRequiredService<TextCatalog>();
+        Guid language = await AddLanguageAsync(dispatcher, "sk-SK", "Slovenčina");
+
+        try
+        {
+            await ExecuteAsync(
+                """
+                INSERT INTO st.translation (id, language_id, key, text, source_text, created_at_utc, created_by, row_version)
+                VALUES (@Id, @LanguageId, @Key, 'Preč', 'Gone', now(), @Id, gen_random_uuid());
+                """,
+                ("Id", Guid.CreateVersion7()),
+                ("LanguageId", language),
+                ("Key", GoneKey));
+
+            ListQueryResponse<GetTranslationListItem> screens = await ListAsync(dispatcher, language, origin: TextOrigin.Ui);
+            ListQueryResponse<GetTranslationListItem> messages = await ListAsync(dispatcher, language, origin: TextOrigin.Application);
+
+            Assert.Equal(catalog.Entries.Count(entry => entry.Origin == TextOrigin.Ui), screens.Total);
+            Assert.Equal(catalog.Entries.Count(entry => entry.Origin == TextOrigin.Application), messages.Total);
+            Assert.All(screens.Data, item => Assert.Equal(TextOrigin.Ui, item.Origin));
+            Assert.All(messages.Data, item => Assert.Equal(TextOrigin.Application, item.Origin));
+            Assert.Contains(screens.Data, item => item.Key == TranslationUiTexts.Title.Key.Value);
+            Assert.Contains(messages.Data, item => item.Key == TranslationTexts.Key.Label.Key.Value);
+            Assert.DoesNotContain(screens.Data.Concat(messages.Data), item => item.Key == GoneKey);
         }
         finally
         {
@@ -517,10 +554,11 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
         string? term = null,
         string? module = null,
         string? category = null,
-        TranslationStatus? status = null)
+        TranslationStatus? status = null,
+        TextOrigin? origin = null)
     {
         ErrorOr<ListQueryResponse<GetTranslationListItem>> list = await dispatcher.SendAsync(new GetTranslationListQueryCommand(
-            new LanguageId(language), Paggination.Create(100_000, 1), term is null ? null : new Term(term), module, category, status));
+            new LanguageId(language), Paggination.Create(100_000, 1), term is null ? null : new Term(term), module, category, status, origin));
 
         Assert.False(list.IsError, list.IsError ? list.FirstError.Description : string.Empty);
         return list.Value;

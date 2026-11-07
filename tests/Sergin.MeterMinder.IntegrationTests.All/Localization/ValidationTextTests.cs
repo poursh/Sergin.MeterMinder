@@ -44,7 +44,7 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
         host = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
         {
             services.AddSingleton<ITranslationStore>(store);
-            services.AddSingleton(TextSource.FromTypes("DeviceManagement", typeof(ValidationTestTexts)));
+            services.AddSingleton(TextSource.FromTypes("DeviceManagement", TextOrigin.Application, typeof(ValidationTestTexts)));
             services.AddSingleton(ModuleConfigurationSource.FromTypes(
                 typeof(NamedThingCommandConfiguration), typeof(UniqueThingCommandConfiguration), typeof(ThingRootConfiguration)));
             services.AddScoped<IValidator<NamedThingCommand>, NamedThingCommandValidator>();
