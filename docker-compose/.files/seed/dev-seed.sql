@@ -1,7 +1,8 @@
--- DEV ONLY mock data: 4 regions / 12 areas, 5 manufacturers, 11 models, N devices (default 1000).
+-- DEV ONLY mock data: 4 regions / 12 areas, 5 manufacturers, 11 models, N devices (default 1000),
+-- and two Settings languages (fa published with a few translations, de as a draft).
 -- Run after the app has applied migrations (Development startup):
 --   docker exec -i -e PGPASSWORD=<pwd> Sergin.Database psql -U postgres -d Sergin_DB -v ON_ERROR_STOP=1 -v device_count=100000 < docker-compose/.files/seed/dev-seed.sql
--- Idempotent and top-up only: scopes and catalog are created once, devices MTR-<n> are added up to device_count.
+-- Idempotent and top-up only: scopes, catalog and languages are created once, devices MTR-<n> are added up to device_count.
 -- Never run against a real environment.
 \if :{?device_count}
 \else
@@ -45,6 +46,42 @@ SELECT gen_random_uuid(),name,addr,now(),'01920000-0000-7000-8000-00000000000f',
 INSERT INTO dm.device_model(id,manufacturer_id,name,created_at_utc,created_by)
 SELECT gen_random_uuid(), mf.id, mo, now(),'01920000-0000-7000-8000-00000000000f'
 FROM m JOIN dm.manufacturer mf ON mf.name=m.name, unnest(m.models) mo;
+COMMIT;
+\endif
+
+-- Settings languages: fa published (right to left from its culture) so the switcher offers it, de a draft only a
+-- translator sees. A handful of shell texts are translated; the rest fall back to the English default.
+-- source_text is the English default the translation was made from, so these rows read as up to date.
+SELECT count(*) = 0 AS need_languages FROM st.language WHERE culture = 'fa' \gset
+\if :need_languages
+BEGIN;
+INSERT INTO st.language(id,culture,display_name,direction,status,created_at_utc,created_by,row_version) VALUES
+ (gen_random_uuid(),'fa','فارسی','FromCulture','Published',now(),'01920000-0000-7000-8000-00000000000f',gen_random_uuid()),
+ (gen_random_uuid(),'de','Deutsch','FromCulture','Draft',now(),'01920000-0000-7000-8000-00000000000f',gen_random_uuid())
+ON CONFLICT (culture) DO NOTHING;
+INSERT INTO st.translation(id,language_id,key,text,source_text,created_at_utc,created_by,row_version)
+SELECT gen_random_uuid(), l.id, t.key, t.text, t.source, now(), '01920000-0000-7000-8000-00000000000f', gen_random_uuid()
+FROM (VALUES
+ ('fa','common.navigation.home','خانه','Home'),
+ ('fa','common.navigation.administration-group','مدیریت','Administration'),
+ ('fa','common.actions.create','ایجاد','Create'),
+ ('fa','common.actions.add','افزودن','Add'),
+ ('fa','common.actions.edit','ویرایش','Edit'),
+ ('fa','common.actions.rename','تغییر نام','Rename'),
+ ('fa','common.actions.remove','برداشتن','Remove'),
+ ('fa','common.actions.save','ذخیره','Save'),
+ ('fa','common.actions.cancel','انصراف','Cancel'),
+ ('fa','common.actions.delete','حذف','Delete'),
+ ('fa','common.actions.reload','بارگذاری دوباره','Reload'),
+ ('fa','common.actions.open','باز کردن','Open'),
+ ('fa','common.actions.close','بستن','Close'),
+ ('de','common.navigation.home','Startseite','Home'),
+ ('de','common.navigation.administration-group','Verwaltung','Administration'),
+ ('de','common.actions.save','Speichern','Save'),
+ ('de','common.actions.cancel','Abbrechen','Cancel')
+) t(culture,key,text,source)
+JOIN st.language l ON l.culture = t.culture
+ON CONFLICT (language_id,key) DO NOTHING;
 COMMIT;
 \endif
 

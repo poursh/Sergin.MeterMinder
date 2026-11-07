@@ -26,8 +26,11 @@ public sealed class ExternalIdentityProvisioningTests(SerginWebApiFactory<Progra
 
         // The migration seeds "viewer" and provisioning assigns it, so a brand-new user can actually
         // see something. Without that they would sign in successfully to an empty application.
-        Assert.True(await HoldsAtRootAsync(result.UserId, DevicePermissions.Read.Permission.Value));
         Assert.True(await HoldsAtRootAsync(result.UserId, UserPermissions.Read.Permission.Value));
+
+        // The viewer holds only UserAccess's own permission: the migration names no other module's, so another
+        // module's reads are the host's to grant.
+        Assert.False(await HoldsAtRootAsync(result.UserId, DevicePermissions.Read.Permission.Value));
     }
 
     /// <summary>
