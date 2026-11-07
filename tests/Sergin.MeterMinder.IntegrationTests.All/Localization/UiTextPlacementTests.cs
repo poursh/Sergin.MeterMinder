@@ -1,5 +1,9 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.Administration.UserAccess.Presentation.Blazor.Roles;
+using Sergin.Administration.UserAccess.Presentation.Blazor.Scopes;
+using Sergin.Administration.UserAccess.Presentation.Blazor.Users;
+using Sergin.Administration.UserAccess.Presentation.Blazor.Users.Assignments;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.IntegrationTests;
@@ -23,6 +27,10 @@ public sealed class UiTextPlacementTests(SerginWebApiFactory<Program> factory)
     public static TheoryData<string, Type> MovedKeys => new()
     {
         { "common.navigation.home", typeof(ShellTexts.Navigation) },
+        { "user-access.users.new", typeof(UserUiTexts) },
+        { "user-access.users.assignments.revoke", typeof(AssignmentUiTexts) },
+        { "user-access.roles.delete-confirm", typeof(RoleUiTexts) },
+        { "user-access.scopes.tree-root", typeof(ScopeUiTexts) },
     };
 
     [Fact]
