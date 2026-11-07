@@ -25,6 +25,9 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
     [GeneratedRegex("<button[^>]*aria-expanded=\"(?<expanded>true|false)\"[^>]*aria-label=\"Toggle (?<title>[^\"]+)\"")]
     private static partial Regex NavGroupToggle();
 
+    [GeneratedRegex("<[^>]*class=\"[^\"]*sergin-nav-caption[^\"]*\"[^>]*>(?<caption>[^<]*)<")]
+    private static partial Regex NavCaption();
+
     [Theory]
     [InlineData("/")]
     [InlineData("/dm/devices")]
@@ -91,6 +94,20 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
             .Single(section => section.Group == SerginNavGroups.Administration);
 
         Assert.Equal(["/ua/users", "/ua/scopes", "/st/languages"], administration.Items.Select(item => item.Href));
+    }
+
+    /// <summary>
+    /// The shared Administration group captions each module's entries; Device Management, a group of one module,
+    /// carries no caption. The dev user sees every entry, so both captions render.
+    /// </summary>
+    [Fact]
+    public async Task Drawer_AdministrationGroup_CaptionsEachModule()
+    {
+        HttpClient client = factory.CreateClient();
+
+        string html = await client.GetStringAsync("/");
+
+        Assert.Equal(["User Access", "Settings"], NavCaption().Matches(html).Select(match => match.Groups["caption"].Value.Trim()));
     }
 
     /// <summary>

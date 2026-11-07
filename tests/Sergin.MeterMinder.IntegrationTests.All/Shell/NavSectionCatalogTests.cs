@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
 
@@ -32,8 +33,8 @@ public sealed class NavSectionCatalogTests
 
     private static readonly SerginUiModuleCatalog SharedCatalog = new(
     [
-        new NavModule("cc", SharedGroup, [new(TestText.Of("B"), "/cc/b", string.Empty, Order: 210)]),
-        new NavModule("dd", SharedGroup, [new(TestText.Of("A"), "/dd/a", string.Empty, Order: 200)]),
+        new NavModule("cc", SharedGroup, [new(TestText.Of("B"), "/cc/b", string.Empty, Order: 210)], TestText.Of("Caption C")),
+        new NavModule("dd", SharedGroup, [new(TestText.Of("A"), "/dd/a", string.Empty, Order: 200)], TestText.Of("Caption D")),
         new NavModule(
             "ee",
             new SerginNavGroup(TestText.Of("Own"), string.Empty, Order: 30),
@@ -47,6 +48,20 @@ public sealed class NavSectionCatalogTests
         Assert.Equal(["/dd/a", "/cc/b"], shared.Items.Select(item => item.Href));
         Assert.Equal(2, SharedCatalog.NavSections.Count);
     }
+
+    [Fact]
+    public void ModulesSharingAGroup_EachGetASubsection_UnderTheirCaption_OrderedByLowestEntry()
+    {
+        SerginNavSection shared = SharedCatalog.NavSections.Single(section => section.Group == SharedGroup);
+
+        Assert.Equal(["Caption D", "Caption C"], shared.Subsections.Select(subsection => subsection.Caption?.Default));
+        Assert.Equal(["/dd/a"], shared.Subsections.First().Items.Select(item => item.Href));
+        Assert.True(shared.ShowsCaptions);
+    }
+
+    [Fact]
+    public void AGroupOfOneModule_ShowsNoCaptions()
+        => Assert.False(SharedCatalog.NavSections.Single(section => section.Group.Title.Default == "Own").ShowsCaptions);
 
     [Theory]
     [InlineData("/cc/b")]
@@ -87,7 +102,8 @@ public sealed class NavSectionCatalogTests
     [InlineData("/nowhere")]
     public void GroupOf_AnyOtherHref_IsNull(string href) => Assert.Null(Catalog.GroupOf(href));
 
-    private sealed class NavModule(string schema, SerginNavGroup group, IReadOnlyCollection<SerginNavItem> items)
+    private sealed class NavModule(
+        string schema, SerginNavGroup group, IReadOnlyCollection<SerginNavItem> items, TextDefinition? caption = null)
         : ISerginWebUiModule
     {
         private static Assembly NoComponents => typeof(SerginNavItem).Assembly;
@@ -105,6 +121,8 @@ public sealed class NavSectionCatalogTests
         public Assembly UiAssembly => NoComponents;
 
         public SerginNavGroup NavGroup => group;
+
+        public TextDefinition? NavCaption => caption;
 
         public IReadOnlyCollection<SerginNavItem> NavItems => items;
 
