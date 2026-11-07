@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Add;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
@@ -51,7 +50,7 @@ public sealed partial class AddDeviceModelView
         manufacturerName is null
             ? new(ManufacturerTexts.Singular, $"/dm/manufacturers/{ManufacturerId}")
             : SerginBreadcrumb.Data(manufacturerName, $"/dm/manufacturers/{ManufacturerId}"),
-        new(DeviceModelTexts.New),
+        new(DeviceModelUiTexts.New),
     ];
 
     protected override void OnInitialized() => validation = FormValidator.RulesFor(ToCommand);

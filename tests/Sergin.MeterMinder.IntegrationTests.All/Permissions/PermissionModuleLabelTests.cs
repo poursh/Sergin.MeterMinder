@@ -2,9 +2,8 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
-using Sergin.Administration.UserAccess.Application.Configurations.Roles;
 using Sergin.Administration.UserAccess.Presentation.Blazor.Roles;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
+using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor;
 using Sergin.MeterMinder.IntegrationTests.All.Localization;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -28,14 +27,14 @@ public sealed class PermissionModuleLabelTests(SerginWebApiFactory<Program> fact
     {
         using CultureScope culture = new("en");
 
-        Assert.Equal(DeviceManagementTexts.MenuTitle.Default, Module(factory, "dm"));
+        Assert.Equal(DeviceManagementUiTexts.MenuTitle.Default, Module(factory, "dm"));
     }
 
     [Fact]
     public async Task Module_ForAModuleSchema_IsTranslated()
     {
         TestTranslationStore store = new();
-        store.Set("de", DeviceManagementTexts.MenuTitle.Key.Value, "Geräteverwaltung", DeviceManagementTexts.MenuTitle.Default);
+        store.Set("de", DeviceManagementUiTexts.MenuTitle.Key.Value, "Geräteverwaltung", DeviceManagementUiTexts.MenuTitle.Default);
 
         using WebApplicationFactory<Program> host = factory.WithWebHostBuilder(builder => builder.ConfigureTestServices(
             services => services.AddSingleton<ITranslationStore>(store)));
@@ -51,7 +50,7 @@ public sealed class PermissionModuleLabelTests(SerginWebApiFactory<Program> fact
     {
         using CultureScope culture = new("en");
 
-        Assert.Equal(RoleTexts.PlatformModule.Default, Module(factory, "sys"));
+        Assert.Equal(RoleUiTexts.PlatformModule.Default, Module(factory, "sys"));
     }
 
     [Fact]
@@ -80,7 +79,7 @@ public sealed class PermissionModuleLabelTests(SerginWebApiFactory<Program> fact
 
         // Drawer order: Device Management (100), Administration (200), then the platform's own heading.
         Assert.Equal(
-            [DeviceManagementTexts.MenuTitle.Default, "Administration", RoleTexts.PlatformModule.Default],
+            [DeviceManagementUiTexts.MenuTitle.Default, "Administration", RoleUiTexts.PlatformModule.Default],
             sections.Select(section => section.Title));
     }
 

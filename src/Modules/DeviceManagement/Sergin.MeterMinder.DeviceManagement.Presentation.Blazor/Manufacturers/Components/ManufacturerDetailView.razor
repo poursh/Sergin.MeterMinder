@@ -10,13 +10,13 @@
     </HeaderActions>
     <Overview>
         <SerginOverviewCards>
-            <SerginOverviewCard LabelText="ManufacturerTexts.OverviewModels" ValueData="@Count(overview?.Models)" CaptionData="@Localizer.Text(ManufacturerTexts.OverviewOfManufacturer)" />
-            <SerginOverviewCard LabelText="ManufacturerTexts.OverviewDevices" ValueData="@Count(overview?.Devices)" CaptionData="@Localizer.Text(ManufacturerTexts.OverviewInEveryScope)" />
+            <SerginOverviewCard LabelText="ManufacturerUiTexts.OverviewModels" ValueData="@Count(overview?.Models)" CaptionData="@Localizer.Text(ManufacturerUiTexts.OverviewOfManufacturer)" />
+            <SerginOverviewCard LabelText="ManufacturerUiTexts.OverviewDevices" ValueData="@Count(overview?.Devices)" CaptionData="@Localizer.Text(ManufacturerUiTexts.OverviewInEveryScope)" />
         </SerginOverviewCards>
     </Overview>
     <OverviewSummary>
-        <MudText Typo="Typo.body2"><b>@(Count(overview?.Models))</b> @Localizer.Text(ManufacturerTexts.SummaryModels)</MudText>
-        <MudText Typo="Typo.body2"><b>@(Count(overview?.Devices))</b> @Localizer.Text(ManufacturerTexts.SummaryDevices)</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.Models))</b> @Localizer.Text(ManufacturerUiTexts.SummaryModels)</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.Devices))</b> @Localizer.Text(ManufacturerUiTexts.SummaryDevices)</MudText>
     </OverviewSummary>
     <Fields>
         @if (manufacturer is not null)

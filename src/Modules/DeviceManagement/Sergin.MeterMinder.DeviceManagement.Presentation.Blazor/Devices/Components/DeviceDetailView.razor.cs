@@ -80,7 +80,7 @@ public sealed partial class DeviceDetailView
     private async Task DeleteAsync()
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                Localizer, DeviceTexts.DeleteTitle, DeviceTexts.DeleteConfirm, new { device?.DeviceId }))
+                Localizer, DeviceUiTexts.DeleteTitle, DeviceUiTexts.DeleteConfirm, new { device?.DeviceId }))
         {
             return;
         }

@@ -8,7 +8,7 @@
         {
             <SerginDetailField LabelText="DeviceModelTexts.Name.Label" Value="@deviceModel.Name" />
             <SerginDetailField LabelText="DeviceModelTexts.ManufacturerName.Label"><MudLink Href="@($"/dm/manufacturers/{deviceModel.ManufacturerId}")">@deviceModel.ManufacturerName</MudLink></SerginDetailField>
-            <SerginDetailField LabelText="DeviceModelTexts.Identifier" Value="@deviceModel.Id.ToString()" />
+            <SerginDetailField LabelText="DeviceModelUiTexts.Identifier" Value="@deviceModel.Id.ToString()" />
         }
     </Fields>
 </SerginEntityDetailView>

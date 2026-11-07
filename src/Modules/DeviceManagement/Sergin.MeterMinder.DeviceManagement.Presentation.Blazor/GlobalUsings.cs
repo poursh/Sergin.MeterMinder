@@ -26,3 +26,6 @@ global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufactu
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Rename;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOverview;
 global using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOverview;
+global using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices;
+global using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers;
+global using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.DeviceModels;

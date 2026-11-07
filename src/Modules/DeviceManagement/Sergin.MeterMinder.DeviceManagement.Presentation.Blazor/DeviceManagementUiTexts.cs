@@ -1,12 +1,13 @@
 using Sergin.SharedKernel.Application.Localizations;
 
-namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations;
+namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor;
 
 /// <summary>
-/// The module's own texts that belong to no aggregate: its menu title (the drawer group). The verbs its pages share
+/// The module's own texts that belong to no aggregate: its menu title (the drawer group). Only the UI shows it, so it
+/// is declared here rather than in Application.Configurations. The verbs its pages share
 /// (Create, Edit, Rename, Remove, and the bulk outcome words) are SharedKernel's <c>CommonTexts</c>.
 /// </summary>
-public static class DeviceManagementTexts
+public static class DeviceManagementUiTexts
 {
     public static readonly TextCategory Category = TextCategory.Create("DeviceManagement");
 

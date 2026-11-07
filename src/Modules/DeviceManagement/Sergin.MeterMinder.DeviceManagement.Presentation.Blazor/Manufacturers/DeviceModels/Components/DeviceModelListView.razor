@@ -1,20 +1,20 @@
-<SerginEntityListView TitleText="DeviceModelTexts.Title" Count="total" Actions="Actions">
+<SerginEntityListView TitleText="DeviceModelUiTexts.Title" Count="total" Actions="Actions">
     <SerginEntityList @ref="list" TItem="GetDeviceModelListItem" Load="LoadModelsAsync" TotalChanged="OnTotalChanged"
-                      EmptyMessage="DeviceModelTexts.Empty" SearchPlaceholderText="DeviceModelTexts.SearchPlaceholder" BulkActions="BulkActions">
+                      EmptyMessage="DeviceModelUiTexts.Empty" SearchPlaceholderText="DeviceModelUiTexts.SearchPlaceholder" BulkActions="BulkActions">
         <HeaderContent>
             <MudTh><MudTableSortLabel T="GetDeviceModelListItem" SortLabel="@DeviceModelListFields.Name">@Localizer.Text(DeviceModelTexts.Name.Label)</MudTableSortLabel></MudTh>
-            <MudTh>@Localizer.Text(DeviceModelTexts.DevicesColumn)</MudTh>
+            <MudTh>@Localizer.Text(DeviceModelUiTexts.DevicesColumn)</MudTh>
         </HeaderContent>
         <RowTemplate>
             <MudTd DataLabel="@Localizer.Text(DeviceModelTexts.Name.Label)"><SerginEntityLink Href="@($"/dm/manufacturers/{ManufacturerId}/models/{context.Id}")">@context.Name</SerginEntityLink></MudTd>
-            <MudTd DataLabel="@Localizer.Text(DeviceModelTexts.DevicesColumn)">@Localizer.Text(DeviceModelTexts.DeviceCount, new { Count = Formatter.Number(context.DeviceCount) })</MudTd>
+            <MudTd DataLabel="@Localizer.Text(DeviceModelUiTexts.DevicesColumn)">@Localizer.Text(DeviceModelUiTexts.DeviceCount, new { Count = Formatter.Number(context.DeviceCount) })</MudTd>
         </RowTemplate>
         <RowCommands>
             <MudTooltip Text="@Localizer.Text(CommonTexts.Rename)">
                 <MudIconButton Icon="@Icons.Material.Outlined.Edit" Size="Size.Small" aria-label="@Localizer.Text(CommonTexts.Rename)"
                                Href="@($"/dm/manufacturers/{ManufacturerId}/models/{context.Id}/edit")" />
             </MudTooltip>
-            <MudTooltip Text="@Localizer.Text(context.DeviceCount > 0 ? DeviceModelTexts.InUseTooltip : CommonTexts.Remove)">
+            <MudTooltip Text="@Localizer.Text(context.DeviceCount > 0 ? DeviceModelUiTexts.InUseTooltip : CommonTexts.Remove)">
                 <MudIconButton Icon="@Icons.Material.Outlined.Delete" Size="Size.Small" aria-label="@Localizer.Text(CommonTexts.Remove)"
                                Disabled="@(context.DeviceCount > 0 || Version is null)" OnClick="@(() => RemoveAsync(context))" />
             </MudTooltip>

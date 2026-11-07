@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
+using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.IntegrationTests.All.Lists;
 using Sergin.Administration.Settings.Application.Configurations.Languages;
@@ -22,6 +22,7 @@ using Sergin.Administration.Settings.Application.Contracts.Translations.Commands
 using Sergin.Administration.Settings.Application.Contracts.Translations.Commands.GetList;
 using Sergin.Administration.Settings.Application.Contracts.Translations.Commands.GetOne;
 using Sergin.Administration.Settings.Application.Contracts.Translations.Commands.GetProgress;
+using Sergin.Administration.Settings.Presentation.Blazor.Translations;
 using Sergin.Administration.Settings.Domain.Languages;
 using Sergin.Administration.Settings.Domain.Translations;
 using Sergin.SharedKernel.Application;
@@ -87,10 +88,10 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
 
         try
         {
-            Assert.Contains("{DeviceId}", DeviceTexts.DeleteConfirm.Default, StringComparison.Ordinal);
+            Assert.Contains("{DeviceId}", DeviceUiTexts.DeleteConfirm.Default, StringComparison.Ordinal);
 
             ErrorOr<AddTranslationCommandResponse> added = await dispatcher.SendAsync(
-                new AddTranslationCommand(new LanguageId(language), DeviceTexts.DeleteConfirm.Key.Value, "Gerät {DeviceID} löschen?"));
+                new AddTranslationCommand(new LanguageId(language), DeviceUiTexts.DeleteConfirm.Key.Value, "Gerät {DeviceID} löschen?"));
 
             Assert.True(added.IsError);
             Error error = Assert.Single(added.Errors);
@@ -99,7 +100,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
             Assert.Contains("{DeviceId}", error.Description, StringComparison.Ordinal);
 
             ErrorOr<AddTranslationCommandResponse> right = await dispatcher.SendAsync(
-                new AddTranslationCommand(new LanguageId(language), DeviceTexts.DeleteConfirm.Key.Value, "{DeviceId} slettes?"));
+                new AddTranslationCommand(new LanguageId(language), DeviceUiTexts.DeleteConfirm.Key.Value, "{DeviceId} slettes?"));
             Assert.False(right.IsError, right.IsError ? right.FirstError.Description : string.Empty);
         }
         finally
@@ -255,12 +256,12 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
 
         try
         {
-            await AddTranslationAsync(dispatcher, language, TranslationTexts.Title.Key.Value, "Fordítások");
+            await AddTranslationAsync(dispatcher, language, TranslationUiTexts.Title.Key.Value, "Fordítások");
             await AddTranslationAsync(dispatcher, language, CommonTexts.Save.Key.Value, "Mentés");
 
             ListQueryResponse<GetTranslationListItem> translated =
                 await ListAsync(dispatcher, language, module: "settings", status: TranslationStatus.Translated);
-            Assert.Equal([TranslationTexts.Title.Key.Value], translated.Data.Select(item => item.Key));
+            Assert.Equal([TranslationUiTexts.Title.Key.Value], translated.Data.Select(item => item.Key));
             Assert.Equal(1, translated.Total);
 
             int settingsKeys = catalog.Entries.Count(entry => entry.Module == "settings");
@@ -325,7 +326,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
             Assert.Equal(new LanguageProgressQueryResponse(0, catalog.Entries.Count), await ProgressAsync(dispatcher, language));
 
             await AddTranslationAsync(dispatcher, language, CommonTexts.Save.Key.Value, "Salvează");
-            TranslationId review = await AddTranslationAsync(dispatcher, language, TranslationTexts.Title.Key.Value, "Traduceri");
+            TranslationId review = await AddTranslationAsync(dispatcher, language, TranslationUiTexts.Title.Key.Value, "Traduceri");
             await ExecuteAsync("UPDATE st.translation SET source_text = 'Old' WHERE id = @Id;", ("Id", review.Value));
             await ExecuteAsync(
                 """
@@ -420,7 +421,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
             ISerginDispatcher viewer = Dispatcher(scope);
 
             ErrorOr<AddTranslationCommandResponse> added = await viewer.SendAsync(
-                new AddTranslationCommand(new LanguageId(language), TranslationTexts.Title.Key.Value, "Preklady"));
+                new AddTranslationCommand(new LanguageId(language), TranslationUiTexts.Title.Key.Value, "Preklady"));
             ErrorOr<Versioned<ChangeTranslationCommandResponse>> changed =
                 await viewer.SendVersionedAsync(new ChangeTranslationCommand(id, "Uložte"), RowVersion.Create());
             ErrorOr<Versioned<DeleteTranslationCommandResponse>> deleted =

@@ -95,7 +95,7 @@ public sealed partial class DeviceModelDetailView
     private async Task RemoveAsync()
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                Localizer, DeviceModelTexts.RemoveTitle, DeviceModelTexts.RemoveConfirm, new { deviceModel?.Name },
+                Localizer, DeviceModelUiTexts.RemoveTitle, DeviceModelUiTexts.RemoveConfirm, new { deviceModel?.Name },
                 CommonTexts.Remove))
         {
             return;

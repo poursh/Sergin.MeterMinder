@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Remove;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
@@ -62,7 +61,7 @@ public sealed partial class DeviceModelListView
     // the catalog belongs to no scope.
     private IReadOnlyList<SerginPageAction> Actions =>
     [
-        new(DeviceModelTexts.Add, Icons.Material.Filled.Add, SerginActionKind.Primary,
+        new(DeviceModelUiTexts.Add, Icons.Material.Filled.Add, SerginActionKind.Primary,
             Href: $"/dm/manufacturers/{ManufacturerId}/models/new",
             Permission: ManufacturerPermissions.Update, AnyScope: true),
     ];
@@ -87,7 +86,7 @@ public sealed partial class DeviceModelListView
     private async Task RemoveAsync(GetDeviceModelListItem model)
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                Localizer, DeviceModelTexts.RemoveTitle, DeviceModelTexts.RemoveConfirm, new { model.Name }, CommonTexts.Remove))
+                Localizer, DeviceModelUiTexts.RemoveTitle, DeviceModelUiTexts.RemoveConfirm, new { model.Name }, CommonTexts.Remove))
         {
             return;
         }
@@ -116,8 +115,8 @@ public sealed partial class DeviceModelListView
     {
         if (!await DialogService.ConfirmDeleteAsync(
                 Localizer,
-                DeviceModelTexts.RemoveManyTitle,
-                DeviceModelTexts.RemoveManyConfirm,
+                DeviceModelUiTexts.RemoveManyTitle,
+                DeviceModelUiTexts.RemoveManyConfirm,
                 new { Count = Formatter.Number(models.Count) },
                 CommonTexts.Remove))
         {
