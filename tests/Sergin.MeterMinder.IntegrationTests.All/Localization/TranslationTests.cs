@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
+using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.IntegrationTests.All.Lists;
 using Sergin.Administration.Settings.Application.Configurations.Languages;
@@ -88,10 +88,10 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
 
         try
         {
-            Assert.Contains("{DeviceId}", DeviceTexts.DeleteConfirm.Default, StringComparison.Ordinal);
+            Assert.Contains("{DeviceId}", DeviceUiTexts.DeleteConfirm.Default, StringComparison.Ordinal);
 
             ErrorOr<AddTranslationCommandResponse> added = await dispatcher.SendAsync(
-                new AddTranslationCommand(new LanguageId(language), DeviceTexts.DeleteConfirm.Key.Value, "Gerät {DeviceID} löschen?"));
+                new AddTranslationCommand(new LanguageId(language), DeviceUiTexts.DeleteConfirm.Key.Value, "Gerät {DeviceID} löschen?"));
 
             Assert.True(added.IsError);
             Error error = Assert.Single(added.Errors);
@@ -100,7 +100,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
             Assert.Contains("{DeviceId}", error.Description, StringComparison.Ordinal);
 
             ErrorOr<AddTranslationCommandResponse> right = await dispatcher.SendAsync(
-                new AddTranslationCommand(new LanguageId(language), DeviceTexts.DeleteConfirm.Key.Value, "{DeviceId} slettes?"));
+                new AddTranslationCommand(new LanguageId(language), DeviceUiTexts.DeleteConfirm.Key.Value, "{DeviceId} slettes?"));
             Assert.False(right.IsError, right.IsError ? right.FirstError.Description : string.Empty);
         }
         finally

@@ -6,6 +6,10 @@ using Sergin.Administration.UserAccess.Presentation.Blazor.Roles;
 using Sergin.Administration.UserAccess.Presentation.Blazor.Scopes;
 using Sergin.Administration.UserAccess.Presentation.Blazor.Users;
 using Sergin.Administration.UserAccess.Presentation.Blazor.Users.Assignments;
+using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor;
+using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices;
+using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.IntegrationTests;
@@ -35,6 +39,10 @@ public sealed class UiTextPlacementTests(SerginWebApiFactory<Program> factory)
         { "user-access.scopes.tree-root", typeof(ScopeUiTexts) },
         { "settings.languages.publish", typeof(LanguageUiTexts) },
         { "settings.translations.statuses.orphaned", typeof(TranslationUiTexts) },
+        { "device-management.menu-title", typeof(DeviceManagementUiTexts) },
+        { "device-management.devices.delete-confirm", typeof(DeviceUiTexts) },
+        { "device-management.manufacturers.overview.models", typeof(ManufacturerUiTexts) },
+        { "device-management.manufacturers.device-models.remove-confirm", typeof(DeviceModelUiTexts) },
     };
 
     [Fact]

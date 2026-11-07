@@ -20,7 +20,7 @@ public sealed partial class ManufacturerListView
     // The manufacturer is not Scoped(), so the permission is checked on any scope, as the pipeline checks it.
     private IReadOnlyList<SerginPageAction> Actions { get; } =
     [
-        new(ManufacturerTexts.New, Icons.Material.Filled.Add, SerginActionKind.Primary, Href: "/dm/manufacturers/new",
+        new(ManufacturerUiTexts.New, Icons.Material.Filled.Add, SerginActionKind.Primary, Href: "/dm/manufacturers/new",
             Permission: ManufacturerPermissions.Update, AnyScope: true),
     ];
 
@@ -58,7 +58,7 @@ public sealed partial class ManufacturerListView
     private async Task DeleteAsync(GetManufacturerListItem item)
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                Localizer, ManufacturerTexts.DeleteTitle, ManufacturerTexts.DeleteConfirm, new { item.Name }))
+                Localizer, ManufacturerUiTexts.DeleteTitle, ManufacturerUiTexts.DeleteConfirm, new { item.Name }))
         {
             return;
         }
@@ -77,7 +77,7 @@ public sealed partial class ManufacturerListView
     private async Task DeleteSelectedAsync(IReadOnlyList<GetManufacturerListItem> items)
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                Localizer, ManufacturerTexts.DeleteManyTitle, ManufacturerTexts.DeleteManyConfirm, new { Count = Formatter.Number(items.Count) }))
+                Localizer, ManufacturerUiTexts.DeleteManyTitle, ManufacturerUiTexts.DeleteManyConfirm, new { Count = Formatter.Number(items.Count) }))
         {
             return;
         }

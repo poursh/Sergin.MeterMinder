@@ -27,7 +27,7 @@ public sealed partial class DeviceCreateView
     private IReadOnlyList<SerginBreadcrumb> Trail { get; } =
     [
         SerginBreadcrumb.Of(DeviceManagementNavigation.Devices),
-        new(DeviceTexts.New),
+        new(DeviceUiTexts.New),
     ];
 
     [Inject]
@@ -49,7 +49,7 @@ public sealed partial class DeviceCreateView
 
     // Until a manufacturer is picked the model picker is disabled and says why.
     private string ModelPlaceholder => Localizer.Text(
-        selectedManufacturerId == Guid.Empty ? DeviceTexts.SelectManufacturerFirst : DeviceTexts.DeviceModelId.Placeholder!);
+        selectedManufacturerId == Guid.Empty ? DeviceUiTexts.SelectManufacturerFirst : DeviceTexts.DeviceModelId.Placeholder!);
 
     // Created on this view, so it re-renders after SubmitAsync; SerginFormView invokes it once every field is valid.
     private EventCallback OnSubmit => EventCallback.Factory.Create(this, SubmitAsync);

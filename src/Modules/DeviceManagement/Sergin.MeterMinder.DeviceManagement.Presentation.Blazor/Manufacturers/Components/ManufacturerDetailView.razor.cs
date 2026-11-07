@@ -107,7 +107,7 @@ public sealed partial class ManufacturerDetailView
     private async Task DeleteAsync()
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                Localizer, ManufacturerTexts.DeleteTitle, ManufacturerTexts.DeleteConfirm, new { manufacturer?.Name }))
+                Localizer, ManufacturerUiTexts.DeleteTitle, ManufacturerUiTexts.DeleteConfirm, new { manufacturer?.Name }))
         {
             return;
         }

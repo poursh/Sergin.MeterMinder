@@ -1,9 +1,9 @@
-<SerginAggregateListView TitleText="ManufacturerTexts.Title" Trail="Trail" Actions="Actions">
+<SerginAggregateListView TitleText="ManufacturerUiTexts.Title" Trail="Trail" Actions="Actions">
     <HeaderActions>
         <SerginReloadButton OnReload="ReloadAsync" />
     </HeaderActions>
     <ChildContent>
-        <SerginAggregateList @ref="list" TItem="GetManufacturerListItem" Load="LoadAsync" SearchPlaceholderText="ManufacturerTexts.SearchPlaceholder"
+        <SerginAggregateList @ref="list" TItem="GetManufacturerListItem" Load="LoadAsync" SearchPlaceholderText="ManufacturerUiTexts.SearchPlaceholder"
                              BulkActions="BulkActions">
             <HeaderContent>
                 <MudTh><MudTableSortLabel T="GetManufacturerListItem" SortLabel="@ManufacturerListFields.Name">@Localizer.Text(ManufacturerTexts.Name.Label)</MudTableSortLabel></MudTh>

@@ -34,7 +34,7 @@ public sealed partial class DeviceListView
     // A new device lands on the current scope, which is where CreateDevice checks Update.
     private IReadOnlyList<SerginPageAction> Actions { get; } =
     [
-        new(DeviceTexts.New, Icons.Material.Filled.Add, SerginActionKind.Primary, Href: "/dm/devices/new", Permission: DevicePermissions.Update),
+        new(DeviceUiTexts.New, Icons.Material.Filled.Add, SerginActionKind.Primary, Href: "/dm/devices/new", Permission: DevicePermissions.Update),
     ];
 
     // The selection bar's Delete: one confirm for every selected device, each then sent as the row command sends it.
@@ -45,13 +45,13 @@ public sealed partial class DeviceListView
 
     private IEnumerable<(TextDefinition Label, string Value, string Sub)> OverviewCards =>
     [
-        (DeviceTexts.OverviewDevices, Count(overview?.Devices), Localizer.Text(DeviceTexts.OverviewInScope)),
-        (DeviceTexts.OverviewModelsInUse, Count(overview?.ModelsInUse),
-            overview is null ? string.Empty : Localizer.Text(DeviceTexts.OverviewOfTotal, new { Total = Formatter.Number(overview.ModelsTotal) })),
-        (DeviceTexts.OverviewManufacturers, Count(overview?.Manufacturers), Localizer.Text(DeviceTexts.OverviewInCatalog)),
-        (DeviceTexts.OverviewAdded,
-            overview is null ? "–" : Localizer.Text(DeviceTexts.OverviewAddedCount, new { Count = Formatter.Number(overview.AddedLast30Days) }),
-            Localizer.Text(DeviceTexts.OverviewLastMonth)),
+        (DeviceUiTexts.OverviewDevices, Count(overview?.Devices), Localizer.Text(DeviceUiTexts.OverviewInScope)),
+        (DeviceUiTexts.OverviewModelsInUse, Count(overview?.ModelsInUse),
+            overview is null ? string.Empty : Localizer.Text(DeviceUiTexts.OverviewOfTotal, new { Total = Formatter.Number(overview.ModelsTotal) })),
+        (DeviceUiTexts.OverviewManufacturers, Count(overview?.Manufacturers), Localizer.Text(DeviceUiTexts.OverviewInCatalog)),
+        (DeviceUiTexts.OverviewAdded,
+            overview is null ? "–" : Localizer.Text(DeviceUiTexts.OverviewAddedCount, new { Count = Formatter.Number(overview.AddedLast30Days) }),
+            Localizer.Text(DeviceUiTexts.OverviewLastMonth)),
     ];
 
     [Inject]
@@ -176,7 +176,7 @@ public sealed partial class DeviceListView
             string? from = created.Start is { } start ? ToUtcIso(start.Date) : null;
             string? to = created.End is { } end ? ToUtcIso(end.Date.AddDays(1)) : null;
 
-            string range = Localizer.Text(DeviceTexts.DateRange, new { From = DayLabel(created.Start), To = DayLabel(created.End) });
+            string range = Localizer.Text(DeviceUiTexts.DateRange, new { From = DayLabel(created.Start), To = DayLabel(created.End) });
 
             filters.Add(new(DeviceListFields.CreatedAtUtc, FilteringType.between, new[] { from, to }, Chip(DeviceTexts.CreatedAtUtc, range)));
         }
@@ -186,7 +186,7 @@ public sealed partial class DeviceListView
 
     // A chip names its filter by the label of the list field's own field text (spec decision 7), then the value.
     private string Chip(FieldText field, string value) =>
-        Localizer.Text(DeviceTexts.FilterChip, new { Field = Localizer.Text(field.Label), Value = value });
+        Localizer.Text(DeviceUiTexts.FilterChip, new { Field = Localizer.Text(field.Label), Value = value });
 
     private string ToUtcIso(DateTime localDay) =>
         TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(localDay, DateTimeKind.Unspecified), timeZone).ToString("O", CultureInfo.InvariantCulture);
@@ -230,7 +230,7 @@ public sealed partial class DeviceListView
     // version read just before it, and a stale answer reloads the list. The bulk delete sends each device the same way.
     private async Task DeleteAsync(GetDeviceListItem item)
     {
-        if (!await DialogService.ConfirmDeleteAsync(Localizer, DeviceTexts.DeleteTitle, DeviceTexts.DeleteConfirm, new { item.DeviceId }))
+        if (!await DialogService.ConfirmDeleteAsync(Localizer, DeviceUiTexts.DeleteTitle, DeviceUiTexts.DeleteConfirm, new { item.DeviceId }))
         {
             return;
         }
@@ -248,7 +248,7 @@ public sealed partial class DeviceListView
     private async Task DeleteSelectedAsync(IReadOnlyList<GetDeviceListItem> items)
     {
         if (!await DialogService.ConfirmDeleteAsync(
-                Localizer, DeviceTexts.DeleteManyTitle, DeviceTexts.DeleteManyConfirm, new { Count = Formatter.Number(items.Count) }))
+                Localizer, DeviceUiTexts.DeleteManyTitle, DeviceUiTexts.DeleteManyConfirm, new { Count = Formatter.Number(items.Count) }))
         {
             return;
         }

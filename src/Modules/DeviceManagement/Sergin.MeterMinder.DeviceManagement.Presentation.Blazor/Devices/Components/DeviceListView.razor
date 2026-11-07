@@ -1,4 +1,4 @@
-<SerginAggregateListView TitleText="DeviceTexts.Title" Trail="Trail" Actions="Actions">
+<SerginAggregateListView TitleText="DeviceUiTexts.Title" Trail="Trail" Actions="Actions">
     <HeaderActions>
         <SerginReloadButton OnReload="ReloadAsync" />
     </HeaderActions>
@@ -11,12 +11,12 @@
         </SerginOverviewCards>
     </Overview>
     <OverviewSummary>
-        <MudText Typo="Typo.body2"><b>@(Count(overview?.Devices))</b> @Localizer.Text(DeviceTexts.SummaryDevices)</MudText>
-        <MudText Typo="Typo.body2"><b>@(Count(overview?.ModelsInUse))</b> @Localizer.Text(DeviceTexts.SummaryModelsInUse)</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.Devices))</b> @Localizer.Text(DeviceUiTexts.SummaryDevices)</MudText>
+        <MudText Typo="Typo.body2"><b>@(Count(overview?.ModelsInUse))</b> @Localizer.Text(DeviceUiTexts.SummaryModelsInUse)</MudText>
     </OverviewSummary>
     <ChildContent>
         <SerginAggregateList @ref="list" TItem="GetDeviceListItem" Load="LoadAsync"
-                             SearchPlaceholderText="DeviceTexts.SearchPlaceholder"
+                             SearchPlaceholderText="DeviceUiTexts.SearchPlaceholder"
                              BuildFilters="BuildFilters" OnFilterRemoved="OnFilterRemoved" OnFiltersReset="ResetFilterFields"
                              OnFilterPanelOpened="LoadFilterOptionsAsync" BulkActions="BulkActions">
             <HeaderContent>
@@ -67,7 +67,7 @@
                         </MudSelect>
                     </MudItem>
                     <MudItem xs="12" sm="6" md="3">
-                        <MudDateRangePicker Label="@Localizer.Text(DeviceTexts.CreatedBetween)" Culture="@Formatter.Culture" @bind-DateRange="filterCreated" Clearable="true"
+                        <MudDateRangePicker Label="@Localizer.Text(DeviceUiTexts.CreatedBetween)" Culture="@Formatter.Culture" @bind-DateRange="filterCreated" Clearable="true"
                                             Variant="Variant.Outlined" Margin="Margin.Dense" />
                     </MudItem>
                 </MudGrid>

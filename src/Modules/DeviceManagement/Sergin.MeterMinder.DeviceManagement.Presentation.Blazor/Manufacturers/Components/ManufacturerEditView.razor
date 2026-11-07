@@ -1,4 +1,4 @@
-<SerginFormView TitleText="ManufacturerTexts.EditTitle" Trail="Trail" Problem="problem" Ready="@(version is not null)"
+<SerginFormView TitleText="ManufacturerUiTexts.EditTitle" Trail="Trail" Problem="problem" Ready="@(version is not null)"
                 Model="model" Validation="validation" OnSubmit="OnSubmit" Submitting="submitting" SubmitLabelText="CommonTexts.Save" CancelHref="@($"/dm/manufacturers/{Id}")">
     <MudTextField Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="model.Name" Label="@Localizer.Text(ManufacturerTexts.Name.Label)" For="@(() => model.Name)" Immediate="true" />
     <MudTextField Variant="Variant.Outlined" Margin="Margin.Dense" @bind-Value="model.Address" Label="@Localizer.Text(ManufacturerTexts.Address.Label)" For="@(() => model.Address)" Immediate="true" />
