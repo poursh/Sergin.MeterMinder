@@ -94,10 +94,10 @@ public sealed partial class TreePageRenderingTests(SerginWebApiFactory<Program> 
         Assert.Contains("mud-alert", html, StringComparison.Ordinal);
     }
 
-    // From the page header to the tree below it.
+    // From the page header to the tree below it. Matched on the class attribute's start, not its spacing utility.
     private static string PageHeader(string html)
     {
-        int start = html.IndexOf("sergin-page-header mb-4", StringComparison.Ordinal);
+        int start = html.IndexOf("class=\"sergin-page-header ", StringComparison.Ordinal);
         int end = html.IndexOf("sergin-tree-page", start, StringComparison.Ordinal);
 
         return html[start..end];

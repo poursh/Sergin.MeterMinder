@@ -90,10 +90,11 @@ dotnet run --project src/Hosts/Sergin.MeterMinder.Hosts.All
 
 Compose builds the app image and starts PostgreSQL, Keycloak and the Aspire dashboard next to it. This stack runs in `Keycloak` mode, so you sign in for real — the realm export seeds a user **`dev`** with password **`dev`**. Submodules must be initialized first; the build context copies the whole working tree.
 
-**After pulling the migration reset** (every module now has a single `InitialCreate`; the old named migrations are gone), see [Upgrading an existing clone](#upgrading-an-existing-clone); the dev database must be dropped once, so drop the volume so the schemas are rebuilt from scratch:
+**After pulling the migration reset** (every module now has a single `InitialCreate`; the old named migrations are gone), see [Upgrading an existing clone](#upgrading-an-existing-clone); the dev database must be dropped once, so stop the stack and delete the database's bind-mounted data folder so the schemas are rebuilt from scratch:
 
 ```bash
-docker compose -f docker-compose/docker-compose.yml down -v
+docker compose -f docker-compose/docker-compose.yml down
+rm -rf docker-compose/.containers/database   # Postgres data is a bind mount, so down -v leaves it
 ```
 
 ```bash
@@ -135,7 +136,8 @@ Then reset the dev database, because every module's migrations were replaced by 
 
 ```bash
 # Compose database
-docker compose -f docker-compose/docker-compose.yml down -v
+docker compose -f docker-compose/docker-compose.yml down
+rm -rf docker-compose/.containers/database   # Postgres data is a bind mount, so down -v leaves it
 # a database used with `dotnet run`
 psql -U postgres -c 'DROP DATABASE "Sergin_DB";' -c 'CREATE DATABASE "Sergin_DB";'
 ```

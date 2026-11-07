@@ -111,3 +111,31 @@ JOIN ua.users u ON u.user_name=x.usr
 JOIN ua.roles r ON r.name=x.role AND r.deleted_at_utc IS NULL;
 COMMIT;
 \endif
+
+-- Grants for the Administration > Settings pages and the module-neutral viewer role. Runs on every pass and only
+-- adds what is missing, so an already-seeded database picks it up:
+--  * viewer gets the device and manufacturer reads: its seeded grant (UserAccess InitialCreate) holds only
+--    UserAccess's own permission, and south.viewer / multi.auditor should still see their devices.
+--  * region-manager may read languages; a root-owned translator role reads languages and edits translations,
+--    and multi.auditor holds it at the root (languages belong to no scope).
+BEGIN;
+INSERT INTO ua.roles(id,name,owner_scope_id,is_inheritable,row_version,created_at_utc,created_by)
+SELECT gen_random_uuid(),'translator','01920000-0000-7000-8000-0000000000b1',true,gen_random_uuid(),now(),'01920000-0000-7000-8000-00000000000f'
+WHERE NOT EXISTS (SELECT 1 FROM ua.roles WHERE name='translator' AND deleted_at_utc IS NULL);
+INSERT INTO ua.role_permissions(role_id,permission,created_at_utc,created_by)
+SELECT r.id, g.permission, now(), '01920000-0000-7000-8000-00000000000f'
+FROM (VALUES
+ ('viewer',         'permission.dm.devices.read'),
+ ('viewer',         'permission.dm.manufacturers.read'),
+ ('region-manager', 'permission.st.languages.read'),
+ ('translator',     'permission.st.languages.read'),
+ ('translator',     'permission.st.translations.edit')
+) g(role,permission)
+JOIN ua.roles r ON r.name=g.role AND r.deleted_at_utc IS NULL
+ON CONFLICT (role_id,permission) DO NOTHING;
+INSERT INTO ua.role_assignments(id,role_id,scope_id,include_subtree,user_id)
+SELECT gen_random_uuid(), r.id, '01920000-0000-7000-8000-0000000000b1', true, u.id
+FROM ua.users u JOIN ua.roles r ON r.name='translator' AND r.deleted_at_utc IS NULL
+WHERE u.user_name='multi.auditor'
+  AND NOT EXISTS (SELECT 1 FROM ua.role_assignments a WHERE a.role_id=r.id AND a.user_id=u.id AND a.revoked_at_utc IS NULL);
+COMMIT;

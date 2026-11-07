@@ -2,7 +2,7 @@ using System.Net;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.Administration.UserAccess.Domain.Scopes;
-using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
+using Sergin.Administration.UserAccess.Application.Configurations.Users;
 using Sergin.Administration.UserAccess.Application.Configurations.Scopes;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
@@ -61,7 +61,8 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
     {
         string html = await GetAsync($"/ua/roles/{ViewerRoleId}");
 
-        Assert.Contains(DevicePermissions.Read.Label, html, StringComparison.Ordinal);
+        // The seeded viewer holds only UserAccess's own read; the migration names no other module's permission.
+        Assert.Contains(UserPermissions.Read.Label, html, StringComparison.Ordinal);
         Assert.Contains($"href=\"/ua/scopes/{Scope.RootId.Value}\"", html, StringComparison.Ordinal);
     }
 

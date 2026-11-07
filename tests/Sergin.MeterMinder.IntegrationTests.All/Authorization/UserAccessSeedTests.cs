@@ -55,8 +55,6 @@ public sealed class UserAccessSeedTests(SerginWebApiFactory<Program> factory)
         Assert.Equal(
             [
                 "01920000-0000-7000-8000-0000000000a1|permission.sys.platform-all",
-                "01920000-0000-7000-8000-0000000000a2|permission.dm.devices.read",
-                "01920000-0000-7000-8000-0000000000a2|permission.dm.manufacturers.read",
                 "01920000-0000-7000-8000-0000000000a2|permission.ua.users.read",
             ],
             permissions);
