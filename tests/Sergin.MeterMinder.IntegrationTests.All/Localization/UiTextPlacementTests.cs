@@ -1,5 +1,7 @@
 using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.Administration.Settings.Presentation.Blazor.Languages;
+using Sergin.Administration.Settings.Presentation.Blazor.Translations;
 using Sergin.Administration.UserAccess.Presentation.Blazor.Roles;
 using Sergin.Administration.UserAccess.Presentation.Blazor.Scopes;
 using Sergin.Administration.UserAccess.Presentation.Blazor.Users;
@@ -31,6 +33,8 @@ public sealed class UiTextPlacementTests(SerginWebApiFactory<Program> factory)
         { "user-access.users.assignments.revoke", typeof(AssignmentUiTexts) },
         { "user-access.roles.delete-confirm", typeof(RoleUiTexts) },
         { "user-access.scopes.tree-root", typeof(ScopeUiTexts) },
+        { "settings.languages.publish", typeof(LanguageUiTexts) },
+        { "settings.translations.statuses.orphaned", typeof(TranslationUiTexts) },
     };
 
     [Fact]
