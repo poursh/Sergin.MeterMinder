@@ -42,30 +42,6 @@ public sealed class RightToLeftRenderingTests(SerginWebApiFactory<Program> facto
         Assert.Equal(current, response.Headers.Location?.OriginalString);
     }
 
-    [Fact]
-    public async Task SwitcherStyles_AreLinkedAndServed()
-    {
-        string html = await RenderAsync(null, [Language("de", "Deutsch", rtl: false, published: true)]);
-
-        Match link = Regex.Match(html, @"href=""(?<href>Sergin\.MeterMinder\.Hosts\.All\.[^""]*styles\.css)""");
-        Assert.True(link.Success, "The page links no scoped-CSS bundle.");
-
-        using HttpClient client = factory.CreateClient();
-        using HttpResponseMessage response = await client.GetAsync(new Uri("/" + link.Groups["href"].Value, UriKind.Relative));
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        // The host's bundle imports each referenced RCL's own scoped bundle; the switcher's rule is in the RCL's.
-        string css = await response.Content.ReadAsStringAsync();
-
-        foreach (Match import in Regex.Matches(css, @"@import\s+'(?<path>[^']+)'"))
-        {
-            using HttpResponseMessage imported = await client.GetAsync(new Uri("/" + import.Groups["path"].Value, UriKind.Relative));
-            css += await imported.Content.ReadAsStringAsync();
-        }
-
-        Assert.Contains(".sergin-language-select", css, StringComparison.Ordinal);
-    }
-
     // The right-to-left face is served by the host itself, so an air-gapped deployment still gets it.
     [Fact]
     public async Task RtlCulture_LinksTheSelfHostedFont_AndItIsServed()
@@ -122,11 +98,13 @@ public sealed class RightToLeftRenderingTests(SerginWebApiFactory<Program> facto
         Assert.DoesNotContain("sergin-language-switcher", html, StringComparison.Ordinal);
     }
 
+    // The menu's items render only while it is open, so the prerender shows the current language on its button;
+    // LanguageChoicesTests covers the whole list.
     [Fact]
-    public async Task Switcher_ListsPublished_NotDrafts()
+    public async Task Switcher_NamesThePublishedLanguageInUse()
     {
         string html = await RenderAsync(
-            null,
+            "de",
             [Language("de", "Deutsch", rtl: false, published: true), Language("fr", "Francais", rtl: false, published: false)]);
 
         Assert.Contains("sergin-language-switcher", html, StringComparison.Ordinal);
@@ -135,9 +113,9 @@ public sealed class RightToLeftRenderingTests(SerginWebApiFactory<Program> facto
     }
 
     [Fact]
-    public async Task Switcher_ListsDrafts_WhenPreviewAllowed_MarkedAsDraft()
+    public async Task Switcher_NamesAPreviewedDraft_MarkedAsDraft()
     {
-        string html = await RenderAsync(null, [Language("fr", "Francais", rtl: false, published: false)], previewAllowed: true);
+        string html = await RenderAsync("fr", [Language("fr", "Francais", rtl: false, published: false)], previewAllowed: true);
 
         Assert.Contains("Francais (draft)", html, StringComparison.Ordinal);
     }

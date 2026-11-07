@@ -156,19 +156,18 @@ public sealed class CultureSelectionTests(SerginWebApiFactory<Program> factory) 
         Assert.Contains(logLevels, entry => entry == LogLevel.Warning);
     }
 
-    // The switch works from first paint: the prerendered switcher is a plain GET form, not a circuit event.
+    // The switcher is a menu: the prerender carries its button, naming the current language. The items render only
+    // while the menu is open; LanguageChoicesTests covers what they list.
     [Fact]
-    public async Task Switcher_PrerendersAGetFormToTheSwitch()
+    public async Task Switcher_PrerendersAMenuButtonNamingTheCurrentLanguage()
     {
         using HttpClient client = Client();
         string html = await client.GetStringAsync(new Uri("/dm/devices", UriKind.Relative));
 
-        Match form = Regex.Match(html, "<form[^>]*class=\"sergin-language-switcher[^>]*>", RegexOptions.CultureInvariant);
-        Assert.True(form.Success, "No language switcher form in the prerender.");
-        Assert.Contains("method=\"get\"", form.Value, StringComparison.Ordinal);
-        Assert.Contains("action=\"/culture/set\"", form.Value, StringComparison.Ordinal);
-        Assert.Matches(@"<select[^>]*name=""culture""[^>]*onchange=""this\.form\.submit\(\)""", html);
-        Assert.Matches("<input[^>]*type=\"hidden\"[^>]*name=\"redirectUri\"[^>]*value=\"/dm/devices\"", html);
+        Match menu = Regex.Match(html, "<div[^>]*class=\"[^\"]*sergin-language-switcher[^\"]*\"[^>]*>", RegexOptions.CultureInvariant);
+        Assert.True(menu.Success, "No language switcher menu in the prerender.");
+        Assert.DoesNotContain("<select", html, StringComparison.Ordinal);
+        Assert.Contains(CultureInfo.GetCultureInfo("en").NativeName, html, StringComparison.Ordinal);
     }
 
     [Fact]

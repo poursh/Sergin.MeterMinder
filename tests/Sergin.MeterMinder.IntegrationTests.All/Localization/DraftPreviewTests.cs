@@ -43,7 +43,7 @@ public sealed class DraftPreviewTests(SerginWebApiFactory<Program> factory)
 
             string html = await GetHomeAsync(client, "pt-BR");
 
-            Assert.Contains("<option value=\"pt-BR\" selected", html, StringComparison.Ordinal);
+            // The language menu's button names the language in use; its items render only while it is open.
             Assert.Contains("Portugues (draft)", html, StringComparison.Ordinal);
         }
         finally
@@ -94,7 +94,7 @@ public sealed class DraftPreviewTests(SerginWebApiFactory<Program> factory)
             await using WebApplicationFactory<Program> host = AsCaller(caller);
             using HttpClient client = host.CreateClient();
 
-            Assert.Contains("<option value=\"sv-SE\" selected", await GetHomeAsync(client, "sv-SE"), StringComparison.Ordinal);
+            Assert.Contains("Svenska (draft)", await GetHomeAsync(client, "sv-SE"), StringComparison.Ordinal);
 
             // The grant cache is per host, so the revocation is sent through this host, as a system identity.
             caller.Current = new TestSystemCaller();
