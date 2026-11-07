@@ -81,6 +81,26 @@ public sealed class UiTextPlacementTests(SerginWebApiFactory<Program> factory)
         Assert.Empty(missing);
     }
 
+    // TextSource reads public static classes only, so a non-public class holding texts is skipped without a word and its
+    // texts render as raw keys. The two tests above scan public classes only too, so this one looks at every class.
+    [Fact]
+    public void UiTextClasses_ArePublic()
+    {
+        const BindingFlags anyStatic = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.DeclaredOnly;
+
+        string[] hidden =
+        [
+            .. UiAssemblies()
+                .SelectMany(assembly => assembly.GetTypes())
+                .Where(type => type is { IsAbstract: true, IsSealed: true } && !IsVisible(type))
+                .Where(type => type.GetFields(anyStatic).Any(field => field.FieldType == typeof(TextDefinition))
+                    || type.GetProperties(anyStatic).Any(property => property.PropertyType == typeof(TextDefinition)))
+                .Select(type => type.FullName!),
+        ];
+
+        Assert.Empty(hidden);
+    }
+
     [Theory]
     [MemberData(nameof(MovedKeys))]
     public void UiText_KeepsItsKey(string key, Type declaringType)
@@ -94,12 +114,19 @@ public sealed class UiTextPlacementTests(SerginWebApiFactory<Program> factory)
 
     // Every public static class (nested ones included) of each module's UI assembly and SharedKernel's Blazor kit.
     private IEnumerable<Type> DeclaringTypes() =>
+        UiAssemblies()
+            .SelectMany(assembly => assembly.GetTypes())
+            .Where(type => type is { IsAbstract: true, IsSealed: true } && (type.IsPublic || type.IsNestedPublic) && !type.IsGenericTypeDefinition);
+
+    private IEnumerable<Assembly> UiAssemblies() =>
         factory.Services.GetRequiredService<SerginUiModuleCatalog>().Modules
             .Select(module => module.UiAssembly)
             .Append(typeof(SerginMainLayout).Assembly)
-            .Distinct()
-            .SelectMany(assembly => assembly.GetTypes())
-            .Where(type => type is { IsAbstract: true, IsSealed: true } && (type.IsPublic || type.IsNestedPublic) && !type.IsGenericTypeDefinition);
+            .Distinct();
+
+    // Public all the way out: a public class nested in an internal one is still invisible to the scan.
+    private static bool IsVisible(Type type) =>
+        type.IsNested ? type.IsNestedPublic && IsVisible(type.DeclaringType!) : type.IsPublic;
 
     private static IEnumerable<(string Name, Type Type, Func<object?> Value)> Members(Type type) =>
         type.GetFields(StaticMembers).Select(field => (field.Name, field.FieldType, (Func<object?>)(() => field.GetValue(null))))

@@ -4,7 +4,7 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufac
 
 /// <summary>
 /// The Manufacturer aggregate's texts: its fields (a list column reads the field of its <c>ManufacturerListFields</c>
-/// id), the manufacturer pages' titles, confirms and overview, and its validators' own messages. Its device models
+/// id), its name, and its validators' own messages; the pages' texts are <c>ManufacturerUiTexts</c>, in the Blazor RCL. Its device models
 /// declare theirs in <c>DeviceModelTexts</c>, a child category.
 /// </summary>
 public static class ManufacturerTexts

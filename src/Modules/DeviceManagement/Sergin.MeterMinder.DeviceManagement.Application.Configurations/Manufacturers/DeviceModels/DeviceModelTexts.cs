@@ -4,8 +4,8 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufac
 
 /// <summary>
 /// The texts of a manufacturer's device models, a category nested under <see cref="ManufacturerTexts"/>: the model
-/// fields (a list column reads the field of its <c>DeviceModelListFields</c> id), the model pages and list, and the
-/// errors raised about a model. <see cref="NameInUse"/> is the text <c>Manufacturer.AddModel</c> and
+/// fields (a list column reads the field of its <c>DeviceModelListFields</c> id), its name, and the errors raised about a
+/// model; the pages' and the list's texts are <c>DeviceModelUiTexts</c>, in the Blazor RCL. <see cref="NameInUse"/> is the text <c>Manufacturer.AddModel</c> and
 /// <c>RenameModel</c> name through <c>ManufacturerErrorKeys.ModelNameInUse</c>.
 /// </summary>
 public static class DeviceModelTexts

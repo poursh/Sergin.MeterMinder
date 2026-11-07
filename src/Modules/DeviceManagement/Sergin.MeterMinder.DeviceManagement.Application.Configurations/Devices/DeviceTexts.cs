@@ -4,8 +4,8 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices
 
 /// <summary>
 /// The Device aggregate's texts: one field per command property and list field a person sees (a list column and a
-/// filter chip read the field of their <c>DeviceListFields</c> id), and the device pages' titles, confirms and
-/// overview.
+/// filter chip read the field of their <c>DeviceListFields</c> id), and its name. The texts only the pages show are
+/// <c>DeviceUiTexts</c>, in the Blazor RCL, on this category.
 /// </summary>
 public static class DeviceTexts
 {
