@@ -26,7 +26,7 @@ public sealed class LookupTests(SerginWebApiFactory<Program> factory) : IAsyncLi
         lookupFactory = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
         {
             services.AddSingleton<ITranslationStore>(store);
-            services.AddSingleton(TextSource.FromTypes("DeviceManagement", typeof(LookupTexts)));
+            services.AddSingleton(TextSource.FromTypes("DeviceManagement", TextOrigin.Application, typeof(LookupTexts)));
         }));
 
         return Task.CompletedTask;

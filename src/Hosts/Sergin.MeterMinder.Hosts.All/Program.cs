@@ -14,7 +14,7 @@ IReadOnlyCollection<ISerginModule> modules = [new DeviceManagementModule(), new 
 builder.AddSerginBlazorApp(modules, configureHome: home => home.UseComponent<MeterMinderHome>());
 
 // The host's own texts (its home slot's product copy), beside the modules' and SharedKernel's in the catalog.
-builder.Services.AddSingleton(TextSource.FromTypes("MeterMinder", typeof(MeterMinderTexts)));
+builder.Services.AddSingleton(TextSource.FromTypes("MeterMinder", TextOrigin.Ui, typeof(MeterMinderTexts)));
 
 WebApplication app = builder.Build();
 
