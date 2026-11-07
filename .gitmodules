@@ -2,8 +2,8 @@
 	path = src/SharedKernel
 	url = https://github.com/poursh/Sergin.SharedKernel.git
 [submodule "src/Modules/UserAccess"]
-	path = src/Modules/UserAccess
-	url = https://github.com/poursh/Sergin.UserAccess.git
+	path = src/Modules/Administration/UserAccess
+	url = https://github.com/poursh/Sergin.Administration.UserAccess.git
 [submodule "src/Modules/Platform"]
-	path = src/Modules/Platform
-	url = https://github.com/poursh/Sergin.Platform.git
+	path = src/Modules/Administration/Settings
+	url = https://github.com/poursh/Sergin.Administration.Settings.git

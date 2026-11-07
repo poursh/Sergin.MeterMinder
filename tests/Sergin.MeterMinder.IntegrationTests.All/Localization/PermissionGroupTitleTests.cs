@@ -9,7 +9,7 @@ using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.IntegrationTests;
-using Sergin.UserAccess.Application.Configurations.Roles;
+using Sergin.Administration.UserAccess.Application.Configurations.Roles;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 

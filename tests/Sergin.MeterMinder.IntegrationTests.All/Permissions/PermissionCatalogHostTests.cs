@@ -12,7 +12,7 @@ using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
-using Sergin.UserAccess;
+using Sergin.Administration.UserAccess;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Permissions;
 

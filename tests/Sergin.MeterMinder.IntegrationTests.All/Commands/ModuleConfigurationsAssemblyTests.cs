@@ -1,12 +1,12 @@
 using System.Reflection;
 using Sergin.MeterMinder.DeviceManagement;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
-using Sergin.Platform;
-using Sergin.Platform.Application.Configurations;
+using Sergin.Administration.Settings;
+using Sergin.Administration.Settings.Application.Configurations;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Domain.Securities;
-using Sergin.UserAccess;
-using Sergin.UserAccess.Application.Configurations;
+using Sergin.Administration.UserAccess;
+using Sergin.Administration.UserAccess.Application.Configurations;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Commands;
 
@@ -37,11 +37,11 @@ public sealed class ModuleConfigurationsAssemblyTests
     }
 
     [Fact]
-    public void Platform_NamesItsConfigurationsAssembly()
+    public void Settings_NamesItsConfigurationsAssembly()
     {
-        PlatformModule module = new();
+        SettingsModule module = new();
 
-        Assert.Same(PlatformApplicationConfigurationsAssemblyReference.Assembly, module.ConfigurationsAssembly);
+        Assert.Same(SettingsApplicationConfigurationsAssemblyReference.Assembly, module.ConfigurationsAssembly);
         Assert.NotSame(module.ContractsAssembly, module.ConfigurationsAssembly);
         Assert.NotSame(module.ApplicationAssembly, module.ConfigurationsAssembly);
     }
@@ -59,7 +59,7 @@ public sealed class ModuleConfigurationsAssemblyTests
         [
             typeof(DeviceManagementApplicationConfigurationsAssemblyReference),
             typeof(UserAccessApplicationConfigurationsAssemblyReference),
-            typeof(PlatformApplicationConfigurationsAssemblyReference),
+            typeof(SettingsApplicationConfigurationsAssemblyReference),
         ];
 
         string[] offenders =

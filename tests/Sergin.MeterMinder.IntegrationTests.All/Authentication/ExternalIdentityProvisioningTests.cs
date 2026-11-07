@@ -4,7 +4,7 @@ using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
-using Sergin.UserAccess.Application.Configurations.Users;
+using Sergin.Administration.UserAccess.Application.Configurations.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authentication;
 

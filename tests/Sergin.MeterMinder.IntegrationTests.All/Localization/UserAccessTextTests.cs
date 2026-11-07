@@ -9,8 +9,8 @@ using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Errors;
-using Sergin.UserAccess.Application.Contracts.Scopes.Commands.Move;
-using Sergin.UserAccess.Domain.Scopes;
+using Sergin.Administration.UserAccess.Application.Contracts.Scopes.Commands.Move;
+using Sergin.Administration.UserAccess.Domain.Scopes;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 

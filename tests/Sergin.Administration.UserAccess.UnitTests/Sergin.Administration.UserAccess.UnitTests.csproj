@@ -20,8 +20,8 @@
 
   <ItemGroup>
     <!-- Domain rules only, no database: the scoped-RBAC business rules each get a unit test here (NFR-7). -->
-    <ProjectReference Include="..\..\src\Modules\UserAccess\Sergin.UserAccess.Domain\Sergin.UserAccess.Domain.csproj" />
-    <ProjectReference Include="..\..\src\Modules\UserAccess\Sergin.UserAccess.Application\Sergin.UserAccess.Application.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Administration\UserAccess\Sergin.Administration.UserAccess.Domain\Sergin.Administration.UserAccess.Domain.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Administration\UserAccess\Sergin.Administration.UserAccess.Application\Sergin.Administration.UserAccess.Application.csproj" />
   </ItemGroup>
 
 </Project>

@@ -6,8 +6,8 @@ using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.IntegrationTests;
-using Sergin.UserAccess.Domain.Users;
-using Sergin.UserAccess.Infrastructure.Data;
+using Sergin.Administration.UserAccess.Domain.Users;
+using Sergin.Administration.UserAccess.Infrastructure.Data;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 

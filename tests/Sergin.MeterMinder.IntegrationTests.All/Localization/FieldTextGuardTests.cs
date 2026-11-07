@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement;
-using Sergin.Platform;
+using Sergin.Administration.Settings;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Queries;
@@ -9,7 +9,7 @@ using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Hosts.Localizations;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Modules;
-using Sergin.UserAccess;
+using Sergin.Administration.UserAccess;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 
@@ -38,7 +38,7 @@ public sealed class FieldTextGuardTests(SerginWebApiFactory<Program> factory)
     public void Guard_ReadsEveryModulesContractsAssembly()
     {
         FieldTextGuard guard = factory.Services.GetRequiredService<FieldTextGuard>();
-        ISerginModule[] modules = [new DeviceManagementModule(), new UserAccessModule(), new PlatformModule()];
+        ISerginModule[] modules = [new DeviceManagementModule(), new UserAccessModule(), new SettingsModule()];
 
         Assert.Equivalent(modules.Select(module => module.ContractsAssembly), guard.Assemblies);
     }

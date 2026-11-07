@@ -4,7 +4,7 @@ using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.UserAccess.Domain.Users;
+using Sergin.Administration.UserAccess.Domain.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 
@@ -50,8 +50,8 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
     [InlineData("/dm/devices", "Device Management", "Devices")]
     [InlineData("/dm/manufacturers/new", "Device Management", "Manufacturers")]
     [InlineData("/dm/manufacturers/" + UnseededId + "/models/new", "Device Management", "Manufacturers")]
-    [InlineData("/ua/users", "User Access", "Users")]
-    [InlineData("/ua/users/" + UnseededId, "User Access", "Users")]
+    [InlineData("/ua/users", "Administration", "Users")]
+    [InlineData("/ua/users/" + UnseededId, "Administration", "Users")]
     public async Task ModulePage_NamesItsModule_BetweenHomeAndSection(string path, string module, string section)
     {
         string strip = await GetBreadcrumbStripAsync(path);
@@ -64,6 +64,35 @@ public sealed partial class BreadcrumbRenderingTests(SerginWebApiFactory<Program
         int sectionAt = strip.IndexOf($">{section}</a>", StringComparison.Ordinal);
 
         Assert.True(home >= 0 && moduleAt > home && sectionAt > moduleAt, $"{path}: expected Home > {module} > {section} in {strip}");
+    }
+
+    /// <summary>
+    /// The Settings module joins the shared Administration drawer group, so its pages name that group as their
+    /// module step rather than a group of their own.
+    /// </summary>
+    [Fact]
+    public async Task LanguagesPage_TrailNamesTheAdministrationGroup()
+    {
+        string strip = await GetBreadcrumbStripAsync("/st/languages");
+
+        string moduleStep = "<li class=\"mud-breadcrumb-item mud-disabled\"><a href=\"#\" aria-label=\"Administration\" title=\"Administration\"";
+
+        int home = strip.IndexOf(HomeLink, StringComparison.Ordinal);
+        int moduleAt = strip.IndexOf(moduleStep, StringComparison.Ordinal);
+        int sectionAt = strip.IndexOf(Current("Languages"), StringComparison.Ordinal);
+
+        Assert.True(home >= 0 && moduleAt > home && sectionAt > moduleAt, $"expected Home > Administration > Languages in {strip}");
+    }
+
+    /// <summary>The module's old <c>/pf/</c> routes went with its old schema; nothing answers them any more.</summary>
+    [Fact]
+    public async Task OldPlatformRoute_IsNotFound()
+    {
+        using HttpClient client = factory.CreateClient();
+
+        using HttpResponseMessage response = await client.GetAsync(new Uri("/pf/languages", UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Theory]

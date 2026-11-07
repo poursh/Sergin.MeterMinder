@@ -4,7 +4,7 @@ using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.UserAccess.Domain.Users;
+using Sergin.Administration.UserAccess.Domain.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Users;
 

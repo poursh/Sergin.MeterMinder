@@ -1,15 +1,15 @@
+using Sergin.Administration.Settings;
+using Sergin.Administration.UserAccess;
 using Sergin.MeterMinder.DeviceManagement;
 using Sergin.MeterMinder.Hosts.All.Components;
-using Sergin.Platform;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Modules;
-using Sergin.UserAccess;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults("sergin-all");
 
-IReadOnlyCollection<ISerginModule> modules = [new DeviceManagementModule(), new UserAccessModule(), new PlatformModule()];
+IReadOnlyCollection<ISerginModule> modules = [new DeviceManagementModule(), new UserAccessModule(), new SettingsModule()];
 
 builder.AddSerginBlazorApp(modules, configureHome: home => home.UseComponent<MeterMinderHome>());
 

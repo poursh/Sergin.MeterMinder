@@ -1,11 +1,15 @@
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
+using Microsoft.Extensions.Configuration;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.IntegrationTests;
-using Sergin.UserAccess.Application.Configurations.Scopes;
-using Sergin.UserAccess.Application.Configurations.Users;
+using Sergin.SharedKernel.Modules;
+using Sergin.SharedKernel.Presentation.Blazor.Modules;
+using Sergin.Administration.UserAccess.Application.Configurations.Scopes;
+using Sergin.Administration.UserAccess.Application.Configurations.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 
@@ -41,12 +45,52 @@ public sealed class NavVisibilityTests(SerginWebApiFactory<Program> factory)
         Assert.DoesNotContain("href=\"/ua/scopes\"", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task SharedGroup_ShowsOnlyTheEntriesTheUserMaySee()
+    {
+        string html = await GetHomeAsync(new TestCaller(), withSharedGroupModules: true);
+
+        Assert.Contains("href=\"/open/page\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("href=\"/gated/page\"", html, StringComparison.Ordinal);
+        Assert.Equal(1, CountOccurrences(html, ">Administration<"));
+    }
+
+    private static int CountOccurrences(string text, string value)
+    {
+        int count = 0;
+
+        for (int at = text.IndexOf(value, StringComparison.Ordinal); at >= 0; at = text.IndexOf(value, at + value.Length, StringComparison.Ordinal))
+        {
+            count++;
+        }
+
+        return count;
+    }
+
     /// <summary>The home page, rendered for <paramref name="caller"/>: it has no breadcrumbs, so every link is the drawer's.</summary>
-    private async Task<string> GetHomeAsync(IUserContext caller)
+    private async Task<string> GetHomeAsync(IUserContext caller, bool withSharedGroupModules = false)
     {
         await using WebApplicationFactory<Program> host = factory.WithWebHostBuilder(builder =>
             builder.ConfigureTestServices(services =>
-                services.AddSingleton<IUserContextFactory>(new FixedUserContextFactory(caller))));
+            {
+                services.AddSingleton<IUserContextFactory>(new FixedUserContextFactory(caller));
+
+                if (withSharedGroupModules)
+                {
+                    SerginUiModuleCatalog real = factory.Services.GetRequiredService<SerginUiModuleCatalog>();
+                    services.AddSingleton(new SerginUiModuleCatalog(
+                    [
+                        .. real.Modules,
+                        // Each fake module needs a distinct UiAssembly, or endpoint mapping throws "Assembly already defined";
+                        // these SharedKernel assemblies are borrowed because they hold no [Route] components.
+                        new SharedGroupModule("open", typeof(SerginNavItem).Assembly, new SerginNavItem(TestText.Of("Open entry"), "/open/page", string.Empty)),
+                        new SharedGroupModule(
+                            "gated",
+                            typeof(IUserContext).Assembly,
+                            new SerginNavItem(TestText.Of("Gated entry"), "/gated/page", string.Empty, RequiredPermission: ScopePermissions.Read)),
+                    ]));
+                }
+            }));
 
         using HttpClient client = host.CreateClient();
 
@@ -56,5 +100,32 @@ public sealed class NavVisibilityTests(SerginWebApiFactory<Program> factory)
     private sealed class FixedUserContextFactory(IUserContext caller) : IUserContextFactory
     {
         public IUserContext CreateUserContext() => caller;
+    }
+
+    private sealed class SharedGroupModule(string schema, Assembly uiAssembly, SerginNavItem item) : ISerginWebUiModule
+    {
+        private static Assembly NoComponents => typeof(SerginNavItem).Assembly;
+
+        public string Name => schema;
+
+        public string Schema => schema;
+
+        public Assembly ApplicationAssembly => NoComponents;
+
+        public Assembly ContractsAssembly => NoComponents;
+
+        public Assembly ConfigurationsAssembly => NoComponents;
+
+        public Assembly UiAssembly => uiAssembly;
+
+        public SerginNavGroup NavGroup => SerginNavGroups.Administration;
+
+        public IReadOnlyCollection<SerginNavItem> NavItems => [item];
+
+        public void AddServices(IServiceCollection services, IConfigurationSection configuration)
+        {
+        }
+
+        public Task MigrateAsync(IServiceProvider services) => Task.CompletedTask;
     }
 }

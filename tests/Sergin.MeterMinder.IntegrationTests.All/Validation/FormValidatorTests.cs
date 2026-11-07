@@ -5,7 +5,7 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
-using Sergin.UserAccess.Domain.Users;
+using Sergin.Administration.UserAccess.Domain.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Validation;
 
