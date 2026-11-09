@@ -126,3 +126,6 @@ internal sealed record TestExportQuery(Term? Term, Filtering? Filtering)
 
 internal sealed record TestTwoRootsCommand(TestTypedRootId Id)
     : IDeleteCommand<TestTypedRoot, TestTypedRootId>, IDeleteCommand<TestOtherRoot, TestTypedRootId>, ICommand;
+
+internal sealed record TestTwoKindsCommand(TestTypedRootId Id)
+    : IDeleteCommand<TestTypedRoot, TestTypedRootId>, ICreateCommand<TestTypedRoot, TestTypedRootId>, ICommand;

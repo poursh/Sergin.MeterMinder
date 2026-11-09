@@ -45,6 +45,14 @@ public sealed class CommandTargetTests
     }
 
     [Fact]
+    public void TargetOf_TwoKindsOnOneRoot_ThrowsNamingTheType()
+    {
+        InvalidOperationException ex = Assert.Throws<InvalidOperationException>(
+            () => CommandTypes.TargetOf(typeof(TestTwoKindsCommand)));
+        Assert.Contains(nameof(TestTwoKindsCommand), ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void EffectsOf_ReturnsOpenGenericDefinitions() =>
         Assert.Equal([typeof(IDeleteCommand<,>)], CommandTypes.EffectsOf(typeof(TestDeleteCommand)));
 
