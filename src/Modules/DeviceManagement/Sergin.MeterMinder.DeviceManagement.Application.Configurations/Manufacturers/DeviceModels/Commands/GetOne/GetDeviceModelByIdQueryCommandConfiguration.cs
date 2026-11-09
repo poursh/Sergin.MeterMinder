@@ -1,14 +1,11 @@
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetOne;
-using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels.Commands.GetOne;
 
-internal sealed class GetDeviceModelByIdQueryCommandConfiguration : ICommandConfiguration<GetDeviceModelByIdQueryCommand, Manufacturer>
+internal sealed class GetDeviceModelByIdQueryCommandConfiguration : ICommandConfiguration<GetDeviceModelByIdQueryCommand>
 {
     public void Configure(CommandConfigurationBuilder<GetDeviceModelByIdQueryCommand> builder) =>
         builder.RequirePermissions(ManufacturerPermissions.Read)
-            .Texts(DeviceModelTexts.Category)
-            .NotShown(command => command.ManufacturerId)
-            .NotShown(command => command.Id);
+            .Texts(DeviceModelTexts.Category);
 }

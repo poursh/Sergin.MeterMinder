@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Presentation.WebApi.Endpoints.Results;
 
@@ -14,7 +15,7 @@ internal class RemoveDeviceModelEndpoint : IEndpoint
             [FromRoute] Guid manufacturerId, [FromRoute] Guid modelId, ISender sender) =>
         {
             ErrorOr<RemoveDeviceModelCommandResponse> res =
-                await sender.Send(new RemoveDeviceModelCommand(new ManufacturerId(manufacturerId), modelId));
+                await sender.Send(new RemoveDeviceModelCommand(new ManufacturerId(manufacturerId), new DeviceModelInternalId(modelId)));
 
             return res.ToApiResult();
         });

@@ -47,7 +47,7 @@ public sealed class DeviceScopeTests(SerginWebApiFactory<Program> factory)
         Assert.Equal((AuthorizationScope.RootId, AuthorizationScope.RootPath), await StoredScopeAsync(atRoot));
 
         ErrorOr<UpdateDeviceCommandResponse> updated = await SendAtVersionAsync(
-            device, new UpdateDeviceCommand(device, new DeviceId($"renamed-{Guid.CreateVersion7()}"), model), tree.North);
+            device, new UpdateDeviceCommand(new DeviceIntenralId(device), new DeviceId($"renamed-{Guid.CreateVersion7()}"), model), tree.North);
 
         Assert.False(updated.IsError, updated.IsError ? updated.FirstError.Description : string.Empty);
         Assert.Equal(tree.Feeder1, (await StoredScopeAsync(device)).ScopeId);
@@ -133,7 +133,7 @@ public sealed class DeviceScopeTests(SerginWebApiFactory<Program> factory)
         TestCaller northUpdater = await tree.CreateGrantedCallerAsync(tree.North, RbacScenario.Read, RbacScenario.Update);
 
         ErrorOr<UpdateDeviceCommandResponse> updated = await SendAsync(
-            new UpdateDeviceCommand(south, new DeviceId($"hijacked-{Guid.CreateVersion7()}"), model), tree.North, northUpdater, RowVersion.Create());
+            new UpdateDeviceCommand(new DeviceIntenralId(south), new DeviceId($"hijacked-{Guid.CreateVersion7()}"), model), tree.North, northUpdater, RowVersion.Create());
 
         Assert.True(updated.IsError);
         Assert.Equal(tree.South, (await StoredScopeAsync(south)).ScopeId);
@@ -211,7 +211,7 @@ public sealed class DeviceScopeTests(SerginWebApiFactory<Program> factory)
     }
 
     private Task<ErrorOr<DeviceQueryResponse>> GetAsync(IUserContext caller, Guid deviceId, Guid scopeId) =>
-        SendAsync(new GetDeviceByIdQueryCommand(deviceId), scopeId, caller);
+        SendAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(deviceId)), scopeId, caller);
 
     private async Task<DeviceModelInternalId> CreateModelAsync()
     {
@@ -223,7 +223,7 @@ public sealed class DeviceScopeTests(SerginWebApiFactory<Program> factory)
         Assert.False(manufacturer.IsError, manufacturer.IsError ? manufacturer.FirstError.Description : string.Empty);
 
         ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
-            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturer.Value.Id));
+            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(new ManufacturerId(manufacturer.Value.Id)));
         ErrorOr<Versioned<AddDeviceModelCommandResponse>> added = await dispatcher.SendVersionedAsync(
             new AddDeviceModelCommand(new ManufacturerId(manufacturer.Value.Id), new DeviceModelName($"model-{Guid.CreateVersion7()}")),
             loaded.Value.Version);
@@ -250,7 +250,7 @@ public sealed class DeviceScopeTests(SerginWebApiFactory<Program> factory)
         using (IServiceScope circuit = Circuit(scopeId, caller: null))
         {
             loaded = await circuit.ServiceProvider.GetRequiredService<ISerginDispatcher>()
-                .SendVersionedAsync(new GetDeviceByIdQueryCommand(deviceId));
+                .SendVersionedAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(deviceId)));
         }
 
         Assert.False(loaded.IsError, loaded.IsError ? loaded.FirstError.Description : string.Empty);

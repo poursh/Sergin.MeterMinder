@@ -62,7 +62,7 @@ public sealed class OverviewAndAuditTests(SerginWebApiFactory<Program> factory)
         await CatalogSeed.DeviceAsync(dispatcher, $"{marker}-1", used);
         await CatalogSeed.DeviceAsync(dispatcher, $"{marker}-2", used);
 
-        ManufacturerOverview overview = await SendAsync(dispatcher, new GetManufacturerOverviewQueryCommand(manufacturer.Value));
+        ManufacturerOverview overview = await SendAsync(dispatcher, new GetManufacturerOverviewQueryCommand(new ManufacturerId(manufacturer.Value)));
         ListQueryResponse<GetDeviceModelListItem> models =
             await SendAsync(dispatcher, new GetDeviceModelListQueryCommand(manufacturer, Paggination.Create(10, 1)));
 
@@ -109,7 +109,7 @@ public sealed class OverviewAndAuditTests(SerginWebApiFactory<Program> factory)
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
-        ErrorOr<ManufacturerOverview> result = await dispatcher.SendAsync(new GetManufacturerOverviewQueryCommand(Guid.CreateVersion7()));
+        ErrorOr<ManufacturerOverview> result = await dispatcher.SendAsync(new GetManufacturerOverviewQueryCommand(new ManufacturerId(Guid.CreateVersion7())));
 
         Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
     }
@@ -126,17 +126,17 @@ public sealed class OverviewAndAuditTests(SerginWebApiFactory<Program> factory)
             dispatcher, await CatalogSeed.ManufacturerAsync(dispatcher, $"maker-{marker}"), $"model-{marker}");
         Guid device = await CatalogSeed.DeviceAsync(dispatcher, $"dev-{marker}", model);
 
-        AuditInfo created = await SendAsync(dispatcher, new GetDeviceAuditQueryCommand(device));
+        AuditInfo created = await SendAsync(dispatcher, new GetDeviceAuditQueryCommand(new DeviceIntenralId(device)));
 
         Assert.Equal(devUser, created.CreatedBy);
         Assert.Null(created.ModifiedAtUtc);
         Assert.Null(created.ModifiedBy);
 
         ErrorOr<UpdateDeviceCommandResponse> updated = await dispatcher.SendAtDeviceVersionAsync(
-            device, new UpdateDeviceCommand(device, new DeviceId($"renamed-{marker}"), model));
+            device, new UpdateDeviceCommand(new DeviceIntenralId(device), new DeviceId($"renamed-{marker}"), model));
         Assert.False(updated.IsError, updated.IsError ? updated.FirstError.Description : string.Empty);
 
-        AuditInfo modified = await SendAsync(dispatcher, new GetDeviceAuditQueryCommand(device));
+        AuditInfo modified = await SendAsync(dispatcher, new GetDeviceAuditQueryCommand(new DeviceIntenralId(device)));
 
         Assert.Equal(created.CreatedAtUtc, modified.CreatedAtUtc);
         Assert.Equal(devUser, modified.ModifiedBy);
@@ -154,8 +154,8 @@ public sealed class OverviewAndAuditTests(SerginWebApiFactory<Program> factory)
         DeviceModelInternalId model = await CatalogSeed.ModelAsync(dispatcher, manufacturer, $"model-{marker}");
         Guid device = await CatalogSeed.DeviceAsync(dispatcher, $"dev-{marker}", model);
 
-        AuditInfo deviceAudit = await SendAsync(dispatcher, new GetDeviceAuditQueryCommand(device));
-        AuditInfo manufacturerAudit = await SendAsync(dispatcher, new GetManufacturerAuditQueryCommand(manufacturer.Value));
+        AuditInfo deviceAudit = await SendAsync(dispatcher, new GetDeviceAuditQueryCommand(new DeviceIntenralId(device)));
+        AuditInfo manufacturerAudit = await SendAsync(dispatcher, new GetManufacturerAuditQueryCommand(new ManufacturerId(manufacturer.Value)));
 
         // The dispatcher works in the root scope unless told otherwise, so that is where the device landed.
         Assert.Equal(AuthorizationScope.RootId, deviceAudit.ScopeId);
@@ -168,8 +168,8 @@ public sealed class OverviewAndAuditTests(SerginWebApiFactory<Program> factory)
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
-        ErrorOr<AuditInfo> device = await dispatcher.SendAsync(new GetDeviceAuditQueryCommand(Guid.CreateVersion7()));
-        ErrorOr<AuditInfo> manufacturer = await dispatcher.SendAsync(new GetManufacturerAuditQueryCommand(Guid.CreateVersion7()));
+        ErrorOr<AuditInfo> device = await dispatcher.SendAsync(new GetDeviceAuditQueryCommand(new DeviceIntenralId(Guid.CreateVersion7())));
+        ErrorOr<AuditInfo> manufacturer = await dispatcher.SendAsync(new GetManufacturerAuditQueryCommand(new ManufacturerId(Guid.CreateVersion7())));
 
         Assert.Equal(ErrorType.NotFound, device.FirstError.Type);
         Assert.Equal(ErrorType.NotFound, manufacturer.FirstError.Type);

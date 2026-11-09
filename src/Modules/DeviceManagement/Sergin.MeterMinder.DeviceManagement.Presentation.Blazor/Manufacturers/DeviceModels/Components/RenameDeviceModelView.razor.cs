@@ -72,9 +72,9 @@ public sealed partial class RenameDeviceModelView
     private async Task LoadAsync()
     {
         ErrorOr<Versioned<ManufacturerQueryResponse>> loadedManufacturer =
-            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(ManufacturerId));
+            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(new ManufacturerId(ManufacturerId)));
         ErrorOr<DeviceModelQueryResponse> loadedModel =
-            await Dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(ManufacturerId, Id));
+            await Dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(new ManufacturerId(ManufacturerId), new DeviceModelInternalId(Id)));
 
         if (loadedModel.IsError || loadedManufacturer.IsError)
         {
@@ -95,7 +95,7 @@ public sealed partial class RenameDeviceModelView
 
     // One mapping for both the field-by-field validation and the submit, so the two cannot drift.
     private RenameDeviceModelCommand ToCommand() =>
-        new(new ManufacturerId(ManufacturerId), Id, new DeviceModelName(model.Name));
+        new(new ManufacturerId(ManufacturerId), new DeviceModelInternalId(Id), new DeviceModelName(model.Name));
 
     private async Task SubmitAsync()
     {

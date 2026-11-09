@@ -4,4 +4,5 @@ using Sergin.SharedKernel.Application.Commands;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Add;
 
-public sealed record AddDeviceModelCommand(ManufacturerId ManufacturerId, DeviceModelName Name) : ICommand<AddDeviceModelCommandResponse>;
+public sealed record AddDeviceModelCommand(ManufacturerId RootId, DeviceModelName Name)
+    : ICommand<AddDeviceModelCommandResponse>, IAddChildCommand<Manufacturer, ManufacturerId, DeviceModel, DeviceModelInternalId>;

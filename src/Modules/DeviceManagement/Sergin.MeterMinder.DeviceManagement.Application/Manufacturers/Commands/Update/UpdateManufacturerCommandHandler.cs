@@ -10,7 +10,7 @@ internal sealed class UpdateManufacturerCommandHandler(
     public async Task<ErrorOr<UpdateManufacturerCommandResponse>> Handle(
         UpdateManufacturerCommand request, CancellationToken cancellationToken)
     {
-        Manufacturer? manufacturer = await repository.GetAsync(new ManufacturerId(request.Id), cancellationToken);
+        Manufacturer? manufacturer = await repository.GetAsync(request.Id, cancellationToken);
 
         if (manufacturer is null)
         {

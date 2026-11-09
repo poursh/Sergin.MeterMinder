@@ -22,15 +22,15 @@ public sealed partial class DeviceManagementUpdateTests
         Guid id = await CreateDeviceAsync(dispatcher, first);
         string newDeviceId = NewName("device");
 
-        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(id));
+        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(id)));
         ErrorOr<Versioned<UpdateDeviceCommandResponse>> updated = await dispatcher.SendVersionedAsync(
-            new UpdateDeviceCommand(id, new DeviceId(newDeviceId), second), loaded.Value.Version);
+            new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId(newDeviceId), second), loaded.Value.Version);
 
         Assert.False(updated.IsError, updated.IsError ? updated.FirstError.Description : string.Empty);
         Assert.Equal(id, updated.Value.Value.Id);
         Assert.NotEqual(loaded.Value.Version, updated.Value.Version);
 
-        ErrorOr<DeviceQueryResponse> read = await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(id));
+        ErrorOr<DeviceQueryResponse> read = await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(id)));
         Assert.Equal(newDeviceId, read.Value.DeviceId);
         Assert.Equal(second.Value, read.Value.DeviceModelId);
 
@@ -49,7 +49,7 @@ public sealed partial class DeviceManagementUpdateTests
         Guid id = await CreateDeviceAsync(dispatcher, model, deviceId);
 
         ErrorOr<UpdateDeviceCommandResponse> updated = await dispatcher.SendAtDeviceVersionAsync(
-            id, new UpdateDeviceCommand(id, new DeviceId(deviceId), model));
+            id, new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId(deviceId), model));
 
         Assert.False(updated.IsError, updated.IsError ? updated.FirstError.Description : string.Empty);
     }
@@ -65,7 +65,7 @@ public sealed partial class DeviceManagementUpdateTests
         Guid id = await CreateDeviceAsync(dispatcher, model);
 
         ErrorOr<UpdateDeviceCommandResponse> updated = await dispatcher.SendAtDeviceVersionAsync(
-            id, new UpdateDeviceCommand(id, new DeviceId(taken), model));
+            id, new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId(taken), model));
 
         Error error = Assert.Single(updated.Errors);
         Assert.Equal(ErrorType.Validation, error.Type);
@@ -83,7 +83,7 @@ public sealed partial class DeviceManagementUpdateTests
         Guid id = await CreateDeviceAsync(dispatcher, model);
 
         ErrorOr<UpdateDeviceCommandResponse> updated = await dispatcher.SendAtDeviceVersionAsync(
-            id, new UpdateDeviceCommand(id, new DeviceId(freed), model));
+            id, new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId(freed), model));
 
         Assert.False(updated.IsError, updated.IsError ? updated.FirstError.Description : string.Empty);
     }
@@ -97,7 +97,7 @@ public sealed partial class DeviceManagementUpdateTests
         Guid id = await CreateDeviceAsync(dispatcher, model);
 
         ErrorOr<UpdateDeviceCommandResponse> updated = await dispatcher.SendAtDeviceVersionAsync(
-            id, new UpdateDeviceCommand(id, new DeviceId(NewName("device")), new DeviceModelInternalId(Guid.CreateVersion7())));
+            id, new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId(NewName("device")), new DeviceModelInternalId(Guid.CreateVersion7())));
 
         Error error = Assert.Single(updated.Errors);
         Assert.Equal(nameof(UpdateDeviceCommand.DeviceModelId), error.Code);
@@ -112,7 +112,7 @@ public sealed partial class DeviceManagementUpdateTests
         var unknown = Guid.CreateVersion7();
 
         ErrorOr<UpdateDeviceCommandResponse> updated = await dispatcher.SendAtDeviceVersionAsync(
-            unknown, new UpdateDeviceCommand(unknown, new DeviceId(NewName("device")), model));
+            unknown, new UpdateDeviceCommand(new DeviceIntenralId(unknown), new DeviceId(NewName("device")), model));
 
         Assert.Equal(ErrorType.NotFound, updated.FirstError.Type);
     }
@@ -129,10 +129,10 @@ public sealed partial class DeviceManagementUpdateTests
         Guid id = await CreateDeviceAsync(dispatcher, oldModel, deviceId);
 
         Assert.False((await dispatcher.SendAtDeviceVersionAsync(
-            id, new UpdateDeviceCommand(id, new DeviceId(deviceId), newModel))).IsError);
+            id, new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId(deviceId), newModel))).IsError);
 
         ErrorOr<DeleteManufacturerCommandResponse> deleted =
-            await dispatcher.SendAtManufacturerVersionAsync(old.Value, new DeleteManufacturerCommand(old.Value));
+            await dispatcher.SendAtManufacturerVersionAsync(old.Value, new DeleteManufacturerCommand(old));
 
         Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
     }
@@ -145,7 +145,7 @@ public sealed partial class DeviceManagementUpdateTests
         var id = Guid.CreateVersion7();
 
         ErrorOr<UpdateDeviceCommandResponse> updated = await dispatcher.SendAsync(
-            new UpdateDeviceCommand(id, new DeviceId(NewName("device")), new DeviceModelInternalId(Guid.CreateVersion7())));
+            new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId(NewName("device")), new DeviceModelInternalId(Guid.CreateVersion7())));
 
         Assert.Equal(ErrorType.Forbidden, updated.FirstError.Type);
     }

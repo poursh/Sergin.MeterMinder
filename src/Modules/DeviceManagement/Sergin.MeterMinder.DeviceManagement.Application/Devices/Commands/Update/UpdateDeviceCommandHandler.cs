@@ -12,7 +12,7 @@ internal sealed class UpdateDeviceCommandHandler(
     public async Task<ErrorOr<UpdateDeviceCommandResponse>> Handle(
         UpdateDeviceCommand request, CancellationToken cancellationToken)
     {
-        Device? device = await repository.GetAsync(new DeviceIntenralId(request.Id), cancellationToken);
+        Device? device = await repository.GetAsync(request.Id, cancellationToken);
 
         if (device is null)
         {

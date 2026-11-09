@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Presentation.WebApi.Endpoints.Results;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.Endpoints.Delete;
@@ -12,7 +13,7 @@ internal class DeleteManufacturerEndpoint : IEndpoint
     {
         routeBuilder.MapDelete("/manufacturers/{manufacturerId:guid}", async ([FromRoute] Guid manufacturerId, ISender sender) =>
         {
-            ErrorOr<DeleteManufacturerCommandResponse> res = await sender.Send(new DeleteManufacturerCommand(manufacturerId));
+            ErrorOr<DeleteManufacturerCommandResponse> res = await sender.Send(new DeleteManufacturerCommand(new ManufacturerId(manufacturerId)));
 
             return res.ToApiResult();
         });

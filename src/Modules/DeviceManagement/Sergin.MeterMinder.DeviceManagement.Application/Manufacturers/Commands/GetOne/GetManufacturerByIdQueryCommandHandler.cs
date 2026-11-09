@@ -1,4 +1,3 @@
-using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Concurrency;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.Commands.GetOne;
@@ -9,7 +8,7 @@ internal sealed class GetManufacturerByIdQueryCommandHandler(IGetManufacturerQue
 {
     public override async Task<ErrorOr<Versioned<ManufacturerQueryResponse>>> HandleVersioned(GetManufacturerByIdQueryCommand request, CancellationToken cancellationToken)
     {
-        Versioned<ManufacturerQueryResponse>? res = await repository.GetManufacturerById(new ManufacturerId(request.Id), cancellationToken);
+        Versioned<ManufacturerQueryResponse>? res = await repository.GetManufacturerById(request.Id, cancellationToken);
 
         if (res is null)
         {

@@ -6,6 +6,6 @@ internal sealed class DeleteDeviceCommandValidator : AbstractValidator<DeleteDev
 {
     public DeleteDeviceCommandValidator()
     {
-        RuleFor(x => x.Id).NotEmpty();
+        RuleFor(x => x.Id.Value).NotEmpty().OverridePropertyName(nameof(DeleteDeviceCommand.Id));
     }
 }

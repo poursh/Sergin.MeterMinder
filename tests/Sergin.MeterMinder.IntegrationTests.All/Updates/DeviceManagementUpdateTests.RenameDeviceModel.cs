@@ -20,12 +20,12 @@ public sealed partial class DeviceManagementUpdateTests
         string name = NewName("model");
 
         ErrorOr<RenameDeviceModelCommandResponse> renamed = await dispatcher.SendAtManufacturerVersionAsync(
-            manufacturerId.Value, new RenameDeviceModelCommand(manufacturerId, model.Value, new DeviceModelName(name)));
+            manufacturerId.Value, new RenameDeviceModelCommand(manufacturerId, model, new DeviceModelName(name)));
 
         Assert.False(renamed.IsError, renamed.IsError ? renamed.FirstError.Description : string.Empty);
         Assert.Equal(model.Value, renamed.Value.Id);
         DeviceModelQueryResponse read =
-            (await dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(manufacturerId.Value, model.Value))).Value;
+            (await dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(manufacturerId, model))).Value;
         Assert.Equal(name, read.Name);
     }
 
@@ -39,7 +39,7 @@ public sealed partial class DeviceManagementUpdateTests
         DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId, name);
 
         ErrorOr<RenameDeviceModelCommandResponse> renamed = await dispatcher.SendAtManufacturerVersionAsync(
-            manufacturerId.Value, new RenameDeviceModelCommand(manufacturerId, model.Value, new DeviceModelName(name)));
+            manufacturerId.Value, new RenameDeviceModelCommand(manufacturerId, model, new DeviceModelName(name)));
 
         Assert.False(renamed.IsError, renamed.IsError ? renamed.FirstError.Description : string.Empty);
     }
@@ -55,7 +55,7 @@ public sealed partial class DeviceManagementUpdateTests
         DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId);
 
         ErrorOr<RenameDeviceModelCommandResponse> renamed = await dispatcher.SendAtManufacturerVersionAsync(
-            manufacturerId.Value, new RenameDeviceModelCommand(manufacturerId, model.Value, new DeviceModelName(sibling)));
+            manufacturerId.Value, new RenameDeviceModelCommand(manufacturerId, model, new DeviceModelName(sibling)));
 
         Error error = Assert.Single(renamed.Errors);
         Assert.Equal(ErrorType.Validation, error.Type);
@@ -72,7 +72,7 @@ public sealed partial class DeviceManagementUpdateTests
         string oldName = NewName("model");
         DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId, oldName);
         Assert.False((await dispatcher.SendAtManufacturerVersionAsync(
-            manufacturerId.Value, new RenameDeviceModelCommand(manufacturerId, model.Value, new DeviceModelName(NewName("model"))))).IsError);
+            manufacturerId.Value, new RenameDeviceModelCommand(manufacturerId, model, new DeviceModelName(NewName("model"))))).IsError);
 
         ErrorOr<AddDeviceModelCommandResponse> readded = await dispatcher.SendAtManufacturerVersionAsync(
             manufacturerId.Value, new AddDeviceModelCommand(manufacturerId, new DeviceModelName(oldName)));
@@ -88,7 +88,7 @@ public sealed partial class DeviceManagementUpdateTests
         ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
 
         ErrorOr<RenameDeviceModelCommandResponse> renamed = await dispatcher.SendAtManufacturerVersionAsync(
-            manufacturerId.Value, new RenameDeviceModelCommand(manufacturerId, Guid.CreateVersion7(), new DeviceModelName(NewName("model"))));
+            manufacturerId.Value, new RenameDeviceModelCommand(manufacturerId, new DeviceModelInternalId(Guid.CreateVersion7()), new DeviceModelName(NewName("model"))));
 
         Assert.Equal(ErrorType.NotFound, renamed.FirstError.Type);
     }
@@ -101,7 +101,7 @@ public sealed partial class DeviceManagementUpdateTests
         ManufacturerId unknown = new(Guid.CreateVersion7());
 
         ErrorOr<RenameDeviceModelCommandResponse> renamed = await dispatcher.SendAtManufacturerVersionAsync(
-            unknown.Value, new RenameDeviceModelCommand(unknown, Guid.CreateVersion7(), new DeviceModelName(NewName("model"))));
+            unknown.Value, new RenameDeviceModelCommand(unknown, new DeviceModelInternalId(Guid.CreateVersion7()), new DeviceModelName(NewName("model"))));
 
         Assert.Equal(ErrorType.NotFound, renamed.FirstError.Type);
     }
@@ -113,7 +113,7 @@ public sealed partial class DeviceManagementUpdateTests
         ISerginDispatcher dispatcher = AnonymousDispatcher(scope);
 
         ErrorOr<RenameDeviceModelCommandResponse> renamed = await dispatcher.SendAsync(new RenameDeviceModelCommand(
-            new ManufacturerId(Guid.CreateVersion7()), Guid.CreateVersion7(), new DeviceModelName(NewName("model"))));
+            new ManufacturerId(Guid.CreateVersion7()), new DeviceModelInternalId(Guid.CreateVersion7()), new DeviceModelName(NewName("model"))));
 
         Assert.Equal(ErrorType.Forbidden, renamed.FirstError.Type);
     }

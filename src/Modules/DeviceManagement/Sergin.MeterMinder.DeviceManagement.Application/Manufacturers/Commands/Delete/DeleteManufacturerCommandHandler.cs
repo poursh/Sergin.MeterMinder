@@ -12,7 +12,7 @@ internal sealed class DeleteManufacturerCommandHandler(
     public async Task<ErrorOr<DeleteManufacturerCommandResponse>> Handle(
         DeleteManufacturerCommand request, CancellationToken cancellationToken)
     {
-        Manufacturer? manufacturer = await repository.GetWithModelsAsync(new ManufacturerId(request.Id), cancellationToken);
+        Manufacturer? manufacturer = await repository.GetWithModelsAsync(request.Id, cancellationToken);
 
         if (manufacturer is null)
         {

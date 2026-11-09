@@ -15,7 +15,7 @@ internal class UpdateDeviceEndpoint : IEndpoint
             [FromRoute] Guid deviceId, [FromBody] UpdateDeviceModel device, ISender sender) =>
         {
             ErrorOr<UpdateDeviceCommandResponse> res = await sender.Send(new UpdateDeviceCommand(
-                deviceId, new DeviceId(device.DeviceId), new DeviceModelInternalId(device.DeviceModelId)));
+                new DeviceIntenralId(deviceId), new DeviceId(device.DeviceId), new DeviceModelInternalId(device.DeviceModelId)));
 
             return res.ToApiResult();
         });

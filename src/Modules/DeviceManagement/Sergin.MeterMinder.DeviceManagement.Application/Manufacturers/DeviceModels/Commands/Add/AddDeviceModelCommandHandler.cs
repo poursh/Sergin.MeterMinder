@@ -14,7 +14,7 @@ internal sealed class AddDeviceModelCommandHandler(
         AddDeviceModelCommand request, CancellationToken cancellationToken)
     {
         // GetWithModelsAsync, not GetAsync: AddModel checks the name against the loaded collection.
-        Manufacturer? manufacturer = await repository.GetWithModelsAsync(request.ManufacturerId, cancellationToken);
+        Manufacturer? manufacturer = await repository.GetWithModelsAsync(request.RootId, cancellationToken);
 
         if (manufacturer is null)
         {

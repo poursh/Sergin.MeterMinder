@@ -1,5 +1,3 @@
-using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
-using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Application.Commands.Queries;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Manufacturers.DeviceModels.Commands.GetOne;
@@ -10,7 +8,7 @@ internal sealed class GetDeviceModelByIdQueryCommandHandler(IGetDeviceModelQuery
     public async Task<ErrorOr<DeviceModelQueryResponse>> Handle(GetDeviceModelByIdQueryCommand request, CancellationToken cancellationToken)
     {
         DeviceModelQueryResponse? res = await repository.GetDeviceModelById(
-            new ManufacturerId(request.ManufacturerId), new DeviceModelInternalId(request.Id), cancellationToken);
+            request.RootId, request.Id, cancellationToken);
 
         if (res is null)
         {

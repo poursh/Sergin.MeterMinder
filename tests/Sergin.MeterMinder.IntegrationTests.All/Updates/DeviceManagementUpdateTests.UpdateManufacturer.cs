@@ -17,10 +17,10 @@ public sealed partial class DeviceManagementUpdateTests
         string name = NewName("manufacturer");
 
         ErrorOr<UpdateManufacturerCommandResponse> updated = await dispatcher.SendAtManufacturerVersionAsync(
-            id.Value, new UpdateManufacturerCommand(id.Value, new ManufacturerName(name), new ManufacturerAddress("1 Meter Way")));
+            id.Value, new UpdateManufacturerCommand(id, new ManufacturerName(name), new ManufacturerAddress("1 Meter Way")));
 
         Assert.False(updated.IsError, updated.IsError ? updated.FirstError.Description : string.Empty);
-        ManufacturerQueryResponse read = (await dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(id.Value))).Value;
+        ManufacturerQueryResponse read = (await dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(id))).Value;
         Assert.Equal(name, read.Name);
         Assert.Equal("1 Meter Way", read.Address);
 
@@ -37,13 +37,13 @@ public sealed partial class DeviceManagementUpdateTests
         ManufacturerId id = await CreateManufacturerAsync(dispatcher);
         string name = NewName("manufacturer");
         Assert.False((await dispatcher.SendAtManufacturerVersionAsync(
-            id.Value, new UpdateManufacturerCommand(id.Value, new ManufacturerName(name), new ManufacturerAddress("1 Meter Way")))).IsError);
+            id.Value, new UpdateManufacturerCommand(id, new ManufacturerName(name), new ManufacturerAddress("1 Meter Way")))).IsError);
 
         ErrorOr<UpdateManufacturerCommandResponse> cleared = await dispatcher.SendAtManufacturerVersionAsync(
-            id.Value, new UpdateManufacturerCommand(id.Value, new ManufacturerName(name), Address: null));
+            id.Value, new UpdateManufacturerCommand(id, new ManufacturerName(name), Address: null));
 
         Assert.False(cleared.IsError, cleared.IsError ? cleared.FirstError.Description : string.Empty);
-        Assert.Null((await dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(id.Value))).Value.Address);
+        Assert.Null((await dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(id))).Value.Address);
     }
 
     [Fact]
@@ -54,7 +54,7 @@ public sealed partial class DeviceManagementUpdateTests
         ManufacturerId id = await CreateManufacturerAsync(dispatcher);
 
         ErrorOr<UpdateManufacturerCommandResponse> updated = await dispatcher.SendAtManufacturerVersionAsync(
-            id.Value, new UpdateManufacturerCommand(id.Value, new ManufacturerName(string.Empty), Address: null));
+            id.Value, new UpdateManufacturerCommand(id, new ManufacturerName(string.Empty), Address: null));
 
         Assert.Contains(updated.Errors, error => error.Code == nameof(UpdateManufacturerCommand.Name));
     }
@@ -67,7 +67,7 @@ public sealed partial class DeviceManagementUpdateTests
         var unknown = Guid.CreateVersion7();
 
         ErrorOr<UpdateManufacturerCommandResponse> updated = await dispatcher.SendAtManufacturerVersionAsync(
-            unknown, new UpdateManufacturerCommand(unknown, new ManufacturerName(NewName("manufacturer")), Address: null));
+            unknown, new UpdateManufacturerCommand(new ManufacturerId(unknown), new ManufacturerName(NewName("manufacturer")), Address: null));
 
         Assert.Equal(ErrorType.NotFound, updated.FirstError.Type);
     }
@@ -79,7 +79,7 @@ public sealed partial class DeviceManagementUpdateTests
         ISerginDispatcher dispatcher = AnonymousDispatcher(scope);
 
         ErrorOr<UpdateManufacturerCommandResponse> updated = await dispatcher.SendAsync(
-            new UpdateManufacturerCommand(Guid.CreateVersion7(), new ManufacturerName(NewName("manufacturer")), Address: null));
+            new UpdateManufacturerCommand(new ManufacturerId(Guid.CreateVersion7()), new ManufacturerName(NewName("manufacturer")), Address: null));
 
         Assert.Equal(ErrorType.Forbidden, updated.FirstError.Type);
     }

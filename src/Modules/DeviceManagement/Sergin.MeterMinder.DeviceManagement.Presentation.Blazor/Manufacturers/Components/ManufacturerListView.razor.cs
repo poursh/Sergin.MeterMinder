@@ -4,6 +4,7 @@ using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacture
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
@@ -91,7 +92,7 @@ public sealed partial class ManufacturerListView
     private async Task<ErrorOr<Success>> SendDeleteAsync(GetManufacturerListItem item)
     {
         ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
-            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(item.Id));
+            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(new ManufacturerId(item.Id)));
 
         if (loaded.IsError)
         {
@@ -99,7 +100,7 @@ public sealed partial class ManufacturerListView
         }
 
         ErrorOr<Versioned<DeleteManufacturerCommandResponse>> result =
-            await Dispatcher.SendVersionedAsync(new DeleteManufacturerCommand(item.Id), loaded.Value.Version);
+            await Dispatcher.SendVersionedAsync(new DeleteManufacturerCommand(new ManufacturerId(item.Id)), loaded.Value.Version);
 
         return result.IsError ? result.Errors : Result.Success;
     }

@@ -1,3 +1,3 @@
 namespace Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Create;
 
-public sealed record CreateManufacturerCommandResponse(Guid Id);
+public sealed record CreateManufacturerCommandResponse(Guid Id) : ICreatedResponse;

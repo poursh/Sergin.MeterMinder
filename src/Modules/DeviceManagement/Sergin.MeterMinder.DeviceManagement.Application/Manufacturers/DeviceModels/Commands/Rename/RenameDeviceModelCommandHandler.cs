@@ -14,14 +14,14 @@ internal sealed class RenameDeviceModelCommandHandler(
         RenameDeviceModelCommand request, CancellationToken cancellationToken)
     {
         // GetWithModelsAsync, not GetAsync: RenameModel checks the name against the loaded collection.
-        Manufacturer? manufacturer = await repository.GetWithModelsAsync(request.ManufacturerId, cancellationToken);
+        Manufacturer? manufacturer = await repository.GetWithModelsAsync(request.RootId, cancellationToken);
 
         if (manufacturer is null)
         {
             return Error.NotFound();
         }
 
-        ErrorOr<DeviceModel> renamed = manufacturer.RenameModel(new DeviceModelInternalId(request.Id), request.Name);
+        ErrorOr<DeviceModel> renamed = manufacturer.RenameModel(request.Id, request.Name);
 
         if (renamed.IsError)
         {

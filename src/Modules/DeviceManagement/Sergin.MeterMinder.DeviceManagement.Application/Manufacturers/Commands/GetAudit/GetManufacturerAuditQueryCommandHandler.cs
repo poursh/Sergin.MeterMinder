@@ -1,4 +1,3 @@
-using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Queries;
 
@@ -9,7 +8,7 @@ internal sealed class GetManufacturerAuditQueryCommandHandler(IGetManufacturerAu
 {
     public async Task<ErrorOr<AuditInfo>> Handle(GetManufacturerAuditQueryCommand request, CancellationToken cancellationToken)
     {
-        AuditInfo? audit = await repository.GetManufacturerAuditAsync(new ManufacturerId(request.Id), cancellationToken);
+        AuditInfo? audit = await repository.GetManufacturerAuditAsync(request.Id, cancellationToken);
 
         if (audit is null)
         {

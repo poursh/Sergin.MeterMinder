@@ -125,7 +125,7 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
         ErrorOr<CreateManufacturerCommandResponse> manufacturer = await dispatcher.SendAsync(
             new CreateManufacturerCommand(new ManufacturerName($"maker-{Guid.CreateVersion7()}"), Address: null));
         ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
-            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturer.Value.Id));
+            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(new ManufacturerId(manufacturer.Value.Id)));
         ErrorOr<Versioned<AddDeviceModelCommandResponse>> added = await dispatcher.SendVersionedAsync(
             new AddDeviceModelCommand(new ManufacturerId(manufacturer.Value.Id), new DeviceModelName($"model-{Guid.CreateVersion7()}")),
             loaded.Value.Version);

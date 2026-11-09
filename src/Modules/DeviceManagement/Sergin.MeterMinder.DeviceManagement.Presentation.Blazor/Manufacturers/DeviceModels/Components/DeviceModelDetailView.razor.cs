@@ -4,6 +4,7 @@ using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacture
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
@@ -72,9 +73,9 @@ public sealed partial class DeviceModelDetailView
     private async Task LoadAsync()
     {
         ErrorOr<Versioned<ManufacturerQueryResponse>> manufacturer =
-            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(ManufacturerId));
+            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(new ManufacturerId(ManufacturerId)));
         ErrorOr<DeviceModelQueryResponse> result =
-            await Dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(ManufacturerId, Id));
+            await Dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(new ManufacturerId(ManufacturerId), new DeviceModelInternalId(Id)));
 
         if (result.IsError)
         {
@@ -112,7 +113,7 @@ public sealed partial class DeviceModelDetailView
         removing = true;
 
         ErrorOr<Versioned<RemoveDeviceModelCommandResponse>> result = await Dispatcher.SendVersionedAsync(
-            new RemoveDeviceModelCommand(new ManufacturerId(ManufacturerId), Id), expectedVersion);
+            new RemoveDeviceModelCommand(new ManufacturerId(ManufacturerId), new DeviceModelInternalId(Id)), expectedVersion);
 
         removing = false;
 

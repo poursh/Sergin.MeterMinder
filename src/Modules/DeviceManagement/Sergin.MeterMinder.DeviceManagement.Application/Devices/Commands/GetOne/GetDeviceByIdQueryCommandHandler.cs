@@ -1,4 +1,3 @@
-using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.SharedKernel.Application.Concurrency;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
@@ -9,7 +8,7 @@ internal sealed class GetDeviceByIdQueryCommandHandler(IGetDeviceQueryRepository
 {
     public override async Task<ErrorOr<Versioned<DeviceQueryResponse>>> HandleVersioned(GetDeviceByIdQueryCommand request, CancellationToken cancellationToken)
     {
-        Versioned<DeviceQueryResponse>? res = await repository.GetDeviceById(new DeviceIntenralId(request.Id), cancellationToken);
+        Versioned<DeviceQueryResponse>? res = await repository.GetDeviceById(request.Id, cancellationToken);
 
         if (res is null)
         {

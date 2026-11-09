@@ -16,7 +16,7 @@ public sealed class GetDeviceByIdGrpcInvoker(DeviceService.DeviceServiceClient c
         GetDeviceByIdQueryCommand request, CancellationToken cancellationToken)
     {
         GetDeviceByIdReply reply = await client.GetDeviceByIdAsync(
-            new GetDeviceByIdRequest { Id = request.Id.ToString() },
+            new GetDeviceByIdRequest { Id = request.Id.Value.ToString() },
             cancellationToken: cancellationToken);
 
         return reply.ResultCase == GetDeviceByIdReply.ResultOneofCase.Error

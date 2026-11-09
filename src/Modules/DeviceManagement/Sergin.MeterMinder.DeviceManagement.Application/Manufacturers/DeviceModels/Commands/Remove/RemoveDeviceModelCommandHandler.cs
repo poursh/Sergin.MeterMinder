@@ -12,14 +12,14 @@ internal sealed class RemoveDeviceModelCommandHandler(
         RemoveDeviceModelCommand request, CancellationToken cancellationToken)
     {
         // GetWithModelsAsync, not GetAsync: RemoveModel finds the model in the loaded collection.
-        Manufacturer? manufacturer = await repository.GetWithModelsAsync(request.ManufacturerId, cancellationToken);
+        Manufacturer? manufacturer = await repository.GetWithModelsAsync(request.RootId, cancellationToken);
 
         if (manufacturer is null)
         {
             return Error.NotFound();
         }
 
-        ErrorOr<Deleted> removed = manufacturer.RemoveModel(new DeviceModelInternalId(request.Id));
+        ErrorOr<Deleted> removed = manufacturer.RemoveModel(request.Id);
 
         if (removed.IsError)
         {
@@ -28,6 +28,6 @@ internal sealed class RemoveDeviceModelCommandHandler(
 
         await unitOfWork.SaveChangesAsync(cancellationToken);
 
-        return new RemoveDeviceModelCommandResponse(request.Id);
+        return new RemoveDeviceModelCommandResponse(request.Id.Value);
     }
 }
