@@ -75,7 +75,7 @@ public sealed class UserAccessTextTests(SerginWebApiFactory<Program> factory)
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
         // Scope.MoveUnder refuses the root before it looks at the target, so the root under itself is enough.
-        ErrorOr<MoveScopeCommandResponse> moved = await dispatcher.SendAsync(new MoveScopeCommand(Scope.RootId.Value, Scope.RootId.Value));
+        ErrorOr<MoveScopeCommandResponse> moved = await dispatcher.SendAsync(new MoveScopeCommand(Scope.RootId, Scope.RootId));
 
         Assert.True(moved.IsError);
         Assert.Equal(ErrorType.Validation, moved.FirstError.Type);

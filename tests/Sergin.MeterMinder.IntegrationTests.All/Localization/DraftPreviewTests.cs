@@ -16,6 +16,8 @@ using Sergin.SharedKernel.Domain.Users;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.Administration.UserAccess.Application.Contracts.Users.Assignments.Commands.Revoke;
+using Sergin.Administration.UserAccess.Domain.Users;
+using Sergin.Administration.UserAccess.Domain.Users.Assignments;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 
@@ -101,7 +103,7 @@ public sealed class DraftPreviewTests(SerginWebApiFactory<Program> factory)
             using (IServiceScope hostScope = host.Services.CreateScope())
             {
                 ErrorOr<RevokeAssignmentCommandResponse> revoked = await hostScope.ServiceProvider
-                    .GetRequiredService<ISerginDispatcher>().SendAsync(new RevokeAssignmentCommand(user, assignment));
+                    .GetRequiredService<ISerginDispatcher>().SendAsync(new RevokeAssignmentCommand(new UserInternalId(user), new RoleAssignmentId(assignment)));
                 Assert.False(revoked.IsError, revoked.IsError ? revoked.FirstError.Description : string.Empty);
             }
 

@@ -6,6 +6,7 @@ using Sergin.Administration.UserAccess.Application.Contracts.Users.Assignments.C
 using Sergin.Administration.UserAccess.Application.Contracts.Users.Commands.DeactivateUser;
 using Sergin.Administration.UserAccess.Domain.Scopes;
 using Sergin.Administration.UserAccess.Application.Configurations.Users;
+using Sergin.Administration.UserAccess.Domain.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 
@@ -31,16 +32,16 @@ public sealed class UserReachTests(SerginWebApiFactory<Program> factory)
         Guid root = rootAdmin.Id.Value;
         Guid south = southUser.Id.Value;
 
-        Assert.Equal(ErrorType.Forbidden, (await tree.TrySendAsync(new DeactivateUserCommand(root), northAdmin)).FirstError.Type);
-        Assert.Equal(ErrorType.Forbidden, (await tree.TrySendAsync(new GetUserAssignmentsQueryCommand(root), northAdmin)).FirstError.Type);
-        Assert.Equal(ErrorType.Forbidden, (await tree.TrySendAsync(new GetUserEffectivePermissionsQueryCommand(root), northAdmin)).FirstError.Type);
+        Assert.Equal(ErrorType.Forbidden, (await tree.TrySendAsync(new DeactivateUserCommand(new UserInternalId(root)), northAdmin)).FirstError.Type);
+        Assert.Equal(ErrorType.Forbidden, (await tree.TrySendAsync(new GetUserAssignmentsQueryCommand(new UserInternalId(root)), northAdmin)).FirstError.Type);
+        Assert.Equal(ErrorType.Forbidden, (await tree.TrySendAsync(new GetUserEffectivePermissionsQueryCommand(new UserInternalId(root)), northAdmin)).FirstError.Type);
 
         // Beside the region is outside it too.
-        Assert.Equal(ErrorType.Forbidden, (await tree.TrySendAsync(new DeactivateUserCommand(south), northAdmin)).FirstError.Type);
+        Assert.Equal(ErrorType.Forbidden, (await tree.TrySendAsync(new DeactivateUserCommand(new UserInternalId(south)), northAdmin)).FirstError.Type);
 
         // The root administrator reaches everyone.
-        Assert.False((await tree.TrySendAsync(new GetUserAssignmentsQueryCommand(south), rootAdmin)).IsError);
-        Assert.False((await tree.TrySendAsync(new DeactivateUserCommand(south), rootAdmin)).IsError);
+        Assert.False((await tree.TrySendAsync(new GetUserAssignmentsQueryCommand(new UserInternalId(south)), rootAdmin)).IsError);
+        Assert.False((await tree.TrySendAsync(new DeactivateUserCommand(new UserInternalId(south)), rootAdmin)).IsError);
     }
 
     [Fact]
@@ -53,12 +54,12 @@ public sealed class UserReachTests(SerginWebApiFactory<Program> factory)
 
         Guid feeder = feederUser.Id.Value;
 
-        Assert.NotEmpty((await tree.TrySendAsync(new GetUserAssignmentsQueryCommand(feeder), northAdmin)).Value);
-        Assert.NotEmpty((await tree.TrySendAsync(new GetUserEffectivePermissionsQueryCommand(feeder), northAdmin)).Value);
-        Assert.False((await tree.TrySendAsync(new DeactivateUserCommand(feeder), northAdmin)).IsError);
-        Assert.False((await tree.TrySendAsync(new DeactivateUserCommand(unassigned), northAdmin)).IsError);
+        Assert.NotEmpty((await tree.TrySendAsync(new GetUserAssignmentsQueryCommand(new UserInternalId(feeder)), northAdmin)).Value);
+        Assert.NotEmpty((await tree.TrySendAsync(new GetUserEffectivePermissionsQueryCommand(new UserInternalId(feeder)), northAdmin)).Value);
+        Assert.False((await tree.TrySendAsync(new DeactivateUserCommand(new UserInternalId(feeder)), northAdmin)).IsError);
+        Assert.False((await tree.TrySendAsync(new DeactivateUserCommand(new UserInternalId(unassigned)), northAdmin)).IsError);
 
         // No user permission anywhere is refused by the pipeline, whoever the target is.
-        Assert.Equal(ErrorType.Forbidden, (await tree.TrySendAsync(new DeactivateUserCommand(unassigned), new TestCaller())).FirstError.Type);
+        Assert.Equal(ErrorType.Forbidden, (await tree.TrySendAsync(new DeactivateUserCommand(new UserInternalId(unassigned)), new TestCaller())).FirstError.Type);
     }
 }

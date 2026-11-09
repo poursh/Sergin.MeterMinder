@@ -20,6 +20,7 @@ using Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.Administration.UserAccess.Application.Contracts.Scopes.Commands.Move;
+using Sergin.Administration.UserAccess.Domain.Scopes;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Scoping;
 
@@ -173,7 +174,7 @@ public sealed class DeviceScopeTests(SerginWebApiFactory<Program> factory)
         DeviceModelInternalId model = await CreateModelAsync();
         Guid device = await CreateDeviceAsync(model, tree.Feeder1);
 
-        Assert.False((await SendAsync(new MoveScopeCommand(tree.Feeder1, tree.South), null)).IsError);
+        Assert.False((await SendAsync(new MoveScopeCommand(new ScopeId(tree.Feeder1), new ScopeId(tree.South)), null)).IsError);
         string moved = (await PathOfAsync(tree.Feeder1))!;
         Assert.StartsWith((await PathOfAsync(tree.South))!, moved, StringComparison.Ordinal);
 
