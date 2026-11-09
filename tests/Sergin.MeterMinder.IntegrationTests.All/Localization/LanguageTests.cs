@@ -47,7 +47,7 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
 
         try
         {
-            ErrorOr<LanguageQueryResponse> language = await dispatcher.SendAsync(new GetLanguageByIdQueryCommand(id));
+            ErrorOr<LanguageQueryResponse> language = await dispatcher.SendAsync(new GetLanguageByIdQueryCommand(new LanguageId(id)));
 
             Assert.False(language.IsError);
             Assert.Equal("fa-IR", language.Value.Culture);
@@ -156,7 +156,7 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
             Assert.True(derived.IsRightToLeft);
 
             ErrorOr<SetLanguageDirectionCommandResponse> set =
-                await SendAtVersionAsync(dispatcher, id, new SetLanguageDirectionCommand(id, LanguageDirection.LeftToRight));
+                await SendAtVersionAsync(dispatcher, id, new SetLanguageDirectionCommand(new LanguageId(id), LanguageDirection.LeftToRight));
             Assert.False(set.IsError, set.IsError ? set.FirstError.Description : string.Empty);
 
             LanguageQueryResponse overridden = await GetAsync(dispatcher, id);
@@ -187,17 +187,17 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
             LanguageInfo draft = Assert.Single(cache.Languages, language => language.Culture == "de-DE");
             Assert.False(draft.IsPublished);
 
-            Assert.False((await SendAtVersionAsync(dispatcher, id, new PublishLanguageCommand(id))).IsError);
+            Assert.False((await SendAtVersionAsync(dispatcher, id, new PublishLanguageCommand(new LanguageId(id)))).IsError);
             Assert.False((await SendAtVersionAsync(
-                dispatcher, id, new SetLanguageDirectionCommand(id, LanguageDirection.RightToLeft))).IsError);
-            Assert.False((await SendAtVersionAsync(dispatcher, id, new RenameLanguageCommand(id, new LanguageDisplayName("Deutsch (DE)")))).IsError);
+                dispatcher, id, new SetLanguageDirectionCommand(new LanguageId(id), LanguageDirection.RightToLeft))).IsError);
+            Assert.False((await SendAtVersionAsync(dispatcher, id, new RenameLanguageCommand(new LanguageId(id), new LanguageDisplayName("Deutsch (DE)")))).IsError);
 
             LanguageInfo published = Assert.Single(cache.Languages, language => language.Culture == "de-DE");
             Assert.True(published.IsPublished);
             Assert.True(published.IsRightToLeft);
             Assert.Equal("Deutsch (DE)", published.DisplayName);
 
-            Assert.False((await SendAtVersionAsync(dispatcher, id, new UnpublishLanguageCommand(id))).IsError);
+            Assert.False((await SendAtVersionAsync(dispatcher, id, new UnpublishLanguageCommand(new LanguageId(id)))).IsError);
             Assert.False(Assert.Single(cache.Languages, language => language.Culture == "de-DE").IsPublished);
         }
         finally
@@ -216,10 +216,10 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
 
         Guid id = await AddAsync(dispatcher, "tr-TR", "Türkçe");
 
-        ErrorOr<DeleteLanguageCommandResponse> deleted = await SendAtVersionAsync(dispatcher, id, new DeleteLanguageCommand(id));
+        ErrorOr<DeleteLanguageCommandResponse> deleted = await SendAtVersionAsync(dispatcher, id, new DeleteLanguageCommand(new LanguageId(id)));
         Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
 
-        ErrorOr<LanguageQueryResponse> gone = await dispatcher.SendAsync(new GetLanguageByIdQueryCommand(id));
+        ErrorOr<LanguageQueryResponse> gone = await dispatcher.SendAsync(new GetLanguageByIdQueryCommand(new LanguageId(id)));
         Assert.Equal(ErrorType.NotFound, gone.FirstError.Type);
 
         // Not soft-deletable: the culture is free again at once.
@@ -307,7 +307,7 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
         ErrorOr<AddLanguageCommandResponse> added = await dispatcher.SendAsync(
             new AddLanguageCommand(new CultureName("pl-PL"), new LanguageDisplayName("Polski")));
         ErrorOr<Versioned<RenameLanguageCommandResponse>> renamed = await dispatcher.SendVersionedAsync(
-            new RenameLanguageCommand(Guid.CreateVersion7(), new LanguageDisplayName("Polski")), RowVersion.Create());
+            new RenameLanguageCommand(new LanguageId(Guid.CreateVersion7()), new LanguageDisplayName("Polski")), RowVersion.Create());
 
         Assert.Equal(ErrorType.Forbidden, added.FirstError.Type);
         Assert.Equal(ErrorType.Forbidden, renamed.FirstError.Type);
@@ -323,14 +323,14 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
 
         try
         {
-            RowVersion loaded = (await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(id))).Value.Version;
+            RowVersion loaded = (await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(new LanguageId(id)))).Value.Version;
 
             ErrorOr<Versioned<RenameLanguageCommandResponse>> first =
-                await dispatcher.SendVersionedAsync(new RenameLanguageCommand(id, new LanguageDisplayName("Nederlands (NL)")), loaded);
+                await dispatcher.SendVersionedAsync(new RenameLanguageCommand(new LanguageId(id), new LanguageDisplayName("Nederlands (NL)")), loaded);
             Assert.False(first.IsError, first.IsError ? first.FirstError.Description : string.Empty);
 
             ErrorOr<Versioned<RenameLanguageCommandResponse>> stale =
-                await dispatcher.SendVersionedAsync(new RenameLanguageCommand(id, new LanguageDisplayName("Vlaams")), loaded);
+                await dispatcher.SendVersionedAsync(new RenameLanguageCommand(new LanguageId(id), new LanguageDisplayName("Vlaams")), loaded);
 
             Assert.True(stale.IsError);
             Assert.True(VersionErrors.IsStale(stale.FirstError));
@@ -395,7 +395,7 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
 
     private static async Task<LanguageQueryResponse> GetAsync(ISerginDispatcher dispatcher, Guid id)
     {
-        ErrorOr<LanguageQueryResponse> language = await dispatcher.SendAsync(new GetLanguageByIdQueryCommand(id));
+        ErrorOr<LanguageQueryResponse> language = await dispatcher.SendAsync(new GetLanguageByIdQueryCommand(new LanguageId(id)));
 
         Assert.False(language.IsError, language.IsError ? language.FirstError.Description : string.Empty);
         return language.Value;
@@ -403,7 +403,7 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
 
     private static async Task DeleteAsync(ISerginDispatcher dispatcher, Guid id)
     {
-        ErrorOr<DeleteLanguageCommandResponse> deleted = await SendAtVersionAsync(dispatcher, id, new DeleteLanguageCommand(id));
+        ErrorOr<DeleteLanguageCommandResponse> deleted = await SendAtVersionAsync(dispatcher, id, new DeleteLanguageCommand(new LanguageId(id)));
 
         Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
     }
@@ -412,7 +412,7 @@ public sealed class LanguageTests(SerginWebApiFactory<Program> factory)
     private static async Task<ErrorOr<TResponse>> SendAtVersionAsync<TResponse>(
         ISerginDispatcher dispatcher, Guid id, IRequest<ErrorOr<TResponse>> command)
     {
-        ErrorOr<Versioned<LanguageQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(id));
+        ErrorOr<Versioned<LanguageQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(new LanguageId(id)));
 
         return (await dispatcher.SendVersionedAsync(command, loaded.IsError ? RowVersion.Create() : loaded.Value.Version))
             .Then(sent => sent.Value);

@@ -61,7 +61,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
 
         try
         {
-            Assert.False((await SendAtLanguageVersionAsync(dispatcher, language, new PublishLanguageCommand(language))).IsError);
+            Assert.False((await SendAtLanguageVersionAsync(dispatcher, language, new PublishLanguageCommand(new LanguageId(language)))).IsError);
             string path = $"/dm/manufacturers/{manufacturer.Value}/edit";
 
             string before = await RenderAsync(path, "de");
@@ -534,7 +534,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
 
     private static async Task DeleteLanguageAsync(ISerginDispatcher dispatcher, Guid id)
     {
-        ErrorOr<DeleteLanguageCommandResponse> deleted = await SendAtLanguageVersionAsync(dispatcher, id, new DeleteLanguageCommand(id));
+        ErrorOr<DeleteLanguageCommandResponse> deleted = await SendAtLanguageVersionAsync(dispatcher, id, new DeleteLanguageCommand(new LanguageId(id)));
 
         Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
     }
@@ -578,7 +578,7 @@ public sealed class TranslationTests(SerginWebApiFactory<Program> factory)
     private static async Task<ErrorOr<TResponse>> SendAtLanguageVersionAsync<TResponse>(
         ISerginDispatcher dispatcher, Guid id, IRequest<ErrorOr<TResponse>> command)
     {
-        ErrorOr<Versioned<LanguageQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(id));
+        ErrorOr<Versioned<LanguageQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(new LanguageId(id)));
 
         return (await dispatcher.SendVersionedAsync(command, loaded.IsError ? RowVersion.Create() : loaded.Value.Version))
             .Then(sent => sent.Value);

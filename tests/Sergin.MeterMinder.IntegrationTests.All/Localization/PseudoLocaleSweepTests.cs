@@ -352,9 +352,9 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
 
     private static async Task DeleteLanguageAsync(ISerginDispatcher dispatcher, Guid id)
     {
-        ErrorOr<Versioned<LanguageQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(id));
+        ErrorOr<Versioned<LanguageQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(new LanguageId(id)));
         ErrorOr<Versioned<DeleteLanguageCommandResponse>> deleted = await dispatcher.SendVersionedAsync(
-            new DeleteLanguageCommand(id), loaded.IsError ? RowVersion.Create() : loaded.Value.Version);
+            new DeleteLanguageCommand(new LanguageId(id)), loaded.IsError ? RowVersion.Create() : loaded.Value.Version);
 
         Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
     }
