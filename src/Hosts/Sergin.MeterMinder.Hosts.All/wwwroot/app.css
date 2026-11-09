@@ -7,6 +7,26 @@
 .mud-switch .mud-switch-base.mud-icon-button.mud-switch-base-medium { padding: 9px; }
 .mud-switch .mud-switch-base.mud-icon-button.mud-switch-base-large { padding: 13px; }
 
-/* Right-to-left languages use Vazirmatn (self-hosted under fonts/vazirmatn; App.razor loads it only for dir=rtl); MudBlazor sets its own font on its
-   typography classes, so they are named too. */
-[dir=rtl] body, [dir=rtl] .mud-typography, [dir=rtl] .mud-input, [dir=rtl] .mud-button-root { font-family: "Vazirmatn", "Roboto", "Helvetica", "Arial", sans-serif; }
+/* Right-to-left languages use Vazirmatn (self-hosted under fonts/vazirmatn; App.razor loads it only for dir=rtl).
+   MudBlazor sets font-family on many classes (table cells, input labels, buttons, typography...), each through a
+   --mud-typography-*-family theme variable, so the variables are overridden rather than the classes named: naming
+   classes missed the table cells and labels, which fell back to a system font since Roboto has no Arabic glyphs.
+   html[dir=rtl] outranks the theme provider's :root, whatever the load order. */
+html[dir=rtl] {
+    --sergin-rtl-font: "Vazirmatn", "Roboto", "Helvetica", "Arial", sans-serif;
+    --mud-typography-default-family: var(--sergin-rtl-font);
+    --mud-typography-h1-family: var(--sergin-rtl-font);
+    --mud-typography-h2-family: var(--sergin-rtl-font);
+    --mud-typography-h3-family: var(--sergin-rtl-font);
+    --mud-typography-h4-family: var(--sergin-rtl-font);
+    --mud-typography-h5-family: var(--sergin-rtl-font);
+    --mud-typography-h6-family: var(--sergin-rtl-font);
+    --mud-typography-subtitle1-family: var(--sergin-rtl-font);
+    --mud-typography-subtitle2-family: var(--sergin-rtl-font);
+    --mud-typography-body1-family: var(--sergin-rtl-font);
+    --mud-typography-body2-family: var(--sergin-rtl-font);
+    --mud-typography-button-family: var(--sergin-rtl-font);
+    --mud-typography-caption-family: var(--sergin-rtl-font);
+    --mud-typography-overline-family: var(--sergin-rtl-font);
+}
+html[dir=rtl] body { font-family: var(--sergin-rtl-font); }
