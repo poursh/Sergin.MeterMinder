@@ -10,7 +10,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Commands;
 public sealed class CommandConfigurationRegistryTests
 {
     [Fact]
-    public void For_ConfiguredCommand_ReturnsDeclaredSettings_WithPermissionsAppended()
+    public void For_ConfiguredUntypedCommand_ReturnsDeclaredPermissionsAppended_AndNoVersion()
     {
         var registry = CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestCommandConfiguration), typeof(TestThingRootConfiguration)]);
 
@@ -18,7 +18,8 @@ public sealed class CommandConfigurationRegistryTests
 
         string[] expected = ["permission.test.things.read", "permission.test.things.update", "permission.test.things.delete"];
 
-        Assert.True(settings.RequiresExpectedVersion);
+        // An untyped command names no root, so no version can be required of it.
+        Assert.False(settings.RequiresExpectedVersion);
         Assert.Equal(expected, settings.RequiredPermissions.Select(permission => permission.Permission.Value));
         Assert.Equal(typeof(ConfiguredTestCommand), Assert.Single(registry.ConfiguredTypes));
     }
@@ -65,21 +66,11 @@ public sealed class CommandConfigurationRegistryTests
     }
 
     [Fact]
-    public void ExpectedVersionOnAQuery_Throws_NamingTheQueryAndConfiguration()
-    {
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            CommandConfigurationRegistry.FromConfigurationTypes([typeof(VersionedQueryConfiguration)]));
-
-        Assert.Contains(typeof(ConfiguredTestQuery).FullName!, error.Message, StringComparison.Ordinal);
-        Assert.Contains(nameof(VersionedQueryConfiguration), error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void BoundToAScopedRoot_IsCheckedInTheCurrentScope_AndCarriesTheRoot()
+    public void TypedOnAScopedRoot_IsCheckedInTheCurrentScope_AndCarriesTheRoot()
     {
         CommandSettings settings = CommandConfigurationRegistry.FromConfigurationTypes(
-            [typeof(ScopedBoundCommandConfiguration), typeof(ScopedTestRootFeatureConfiguration), typeof(TestThingRootConfiguration)])
-            .For(typeof(ConfiguredTestCommand));
+            [typeof(ScopedTestDeleteCommandConfiguration), typeof(ScopedTestRootFeatureConfiguration), typeof(TestThingRootConfiguration)])
+            .For(typeof(ScopedTestDeleteCommand));
 
         Assert.Equal(PermissionScope.Current, settings.PermissionScope);
         Assert.True(settings.RequiresExpectedVersion);
@@ -87,19 +78,19 @@ public sealed class CommandConfigurationRegistryTests
     }
 
     [Theory]
-    [InlineData(typeof(GlobalBoundQueryConfiguration))]
-    [InlineData(typeof(UnconfiguredRootBoundQueryConfiguration))]
-    public void BoundToAnUnscopedRoot_IsCheckedOnAnyScope(Type configuration)
+    [InlineData(typeof(GlobalTestGetOneQueryConfiguration), typeof(GlobalTestGetOneQuery))]
+    [InlineData(typeof(UnconfiguredRootGetOneQueryConfiguration), typeof(UnconfiguredRootGetOneQuery))]
+    public void TypedOnAnUnscopedRoot_IsCheckedOnAnyScope(Type configuration, Type query)
     {
         CommandSettings settings = CommandConfigurationRegistry.FromConfigurationTypes(
             [configuration, typeof(GlobalTestRootFeatureConfiguration), typeof(TestThingRootConfiguration)])
-            .For(typeof(ConfiguredTestQuery));
+            .For(query);
 
         Assert.Equal(PermissionScope.Any, settings.PermissionScope);
     }
 
     [Fact]
-    public void Unbound_IsCheckedInTheCurrentScope_WithNoRoot()
+    public void Untyped_IsCheckedInTheCurrentScope_WithNoRoot()
     {
         CommandSettings settings = CommandConfigurationRegistry.FromConfigurationTypes([typeof(ConfiguredTestQueryConfiguration), typeof(TestThingRootConfiguration)])
             .For(typeof(ConfiguredTestQuery));
@@ -113,32 +104,11 @@ public sealed class CommandConfigurationRegistryTests
     {
         CommandSettings settings = CommandConfigurationRegistry.FromSources(
         [
-            ModuleConfigurationSource.FromTypes(typeof(ScopedBoundCommandConfiguration)),
+            ModuleConfigurationSource.FromTypes(typeof(ScopedTestDeleteCommandConfiguration)),
             ModuleConfigurationSource.FromTypes(typeof(ScopedTestRootFeatureConfiguration), typeof(TestThingRootConfiguration)),
-        ]).For(typeof(ConfiguredTestCommand));
+        ]).For(typeof(ScopedTestDeleteCommand));
 
         Assert.Equal(PermissionScope.Current, settings.PermissionScope);
-    }
-
-    [Fact]
-    public void ExpectedVersionOnAnUnversionedRoot_Throws_NamingTheRootAndConfiguration()
-    {
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            CommandConfigurationRegistry.FromConfigurationTypes(
-                [typeof(VersionOnUnversionedRootConfiguration), typeof(GlobalTestRootFeatureConfiguration), typeof(TestThingRootConfiguration)]));
-
-        Assert.Contains(typeof(GlobalTestRoot).FullName!, error.Message, StringComparison.Ordinal);
-        Assert.Contains(nameof(VersionOnUnversionedRootConfiguration), error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void BothShapesForOneRequest_Throw_AsADuplicate()
-    {
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            CommandConfigurationRegistry.FromConfigurationTypes([typeof(BothShapesConfiguration), typeof(TestThingRootConfiguration)]));
-
-        Assert.Contains(typeof(ConfiguredTestQuery).FullName!, error.Message, StringComparison.Ordinal);
-        Assert.Contains(nameof(BothShapesConfiguration), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -197,9 +167,10 @@ public sealed class CommandConfigurationRegistryTests
     }
 
     [Fact]
-    public void FromAssembly_FindsConfigurationsInTheAssembly()
+    public void FromAssemblies_FindsConfigurationsInTheConfigurationsAssembly()
     {
-        var source = ModuleConfigurationSource.FromAssembly(typeof(CommandConfigurationRegistryTests).Assembly, "test");
+        var source = ModuleConfigurationSource.FromAssemblies(
+            typeof(CommandConfigurationRegistryTests).Assembly, typeof(CommandConfigurationRegistryTests).Assembly, "test");
 
         Assert.Contains(typeof(ConfiguredTestCommandConfiguration), source.ConfigurationTypes);
         Assert.Contains(typeof(TestThingRootConfiguration), source.AggregateConfigurationTypes);

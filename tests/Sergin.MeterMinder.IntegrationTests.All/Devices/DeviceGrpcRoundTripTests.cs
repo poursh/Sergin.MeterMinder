@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Application;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
@@ -217,8 +218,10 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         // What AddSerginCore registers for a remote module: its ConfigurationsAssembly's declarations, so the
         // gateway's permission check refuses before the gRPC hop.
         // Its permission catalogue too, from the same source: ScopeAuthorization denies a definition missing from it.
-        var configurations =
-            ModuleConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly, "dm");
+        var configurations = ModuleConfigurationSource.FromAssemblies(
+            DeviceManagementApplicationConfigurationsAssemblyReference.Assembly,
+            DeviceManagementApplicationContractsAssemblyReference.Assembly,
+            "dm");
         services.AddSingleton(CommandConfigurationRegistry.FromSources([configurations]));
         services.AddSingleton(PermissionCatalog.FromSources([configurations]));
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());

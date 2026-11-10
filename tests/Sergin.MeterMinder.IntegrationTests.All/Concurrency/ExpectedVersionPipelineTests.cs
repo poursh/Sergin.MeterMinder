@@ -1,16 +1,18 @@
 using ErrorOr;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Concurrency;
 
 /// <summary>
-/// ExpectedVersionPipelineBehavior on its own, over a bare MediatR container with test-only commands: a configured
-/// command without a version is refused before its handler runs, a conflict thrown by the save becomes the
+/// ExpectedVersionPipelineBehavior on its own, over a bare MediatR container with test-only commands: a command typed
+/// on an existing entity of a Versioned() root, sent without a version, is refused before its handler runs, a conflict thrown by the save becomes the
 /// stale-version error, and a version sent with an unconfigured command is still honoured. No database.
 /// </summary>
 public sealed class ExpectedVersionPipelineTests
@@ -23,7 +25,7 @@ public sealed class ExpectedVersionPipelineTests
         HandlerCalls calls = scope.ServiceProvider.GetRequiredService<HandlerCalls>();
 
         ErrorOr<Success> result = await scope.ServiceProvider.GetRequiredService<ISender>()
-            .Send(new GuardedCommand(Conflict: false));
+            .Send(new GuardedCommand(Guid.CreateVersion7(), Conflict: false));
 
         Assert.Equal(VersionErrors.RequiredType, (int)result.FirstError.Type);
         Assert.Equal("General.VersionRequired", result.FirstError.Code);
@@ -38,7 +40,7 @@ public sealed class ExpectedVersionPipelineTests
         scope.ServiceProvider.GetRequiredService<ConcurrencyContext>().Expected = RowVersion.Create();
 
         ErrorOr<Success> result = await scope.ServiceProvider.GetRequiredService<ISender>()
-            .Send(new GuardedCommand(Conflict: false));
+            .Send(new GuardedCommand(Guid.CreateVersion7(), Conflict: false));
 
         Assert.False(result.IsError);
         Assert.Equal(1, scope.ServiceProvider.GetRequiredService<HandlerCalls>().Count);
@@ -52,7 +54,7 @@ public sealed class ExpectedVersionPipelineTests
         scope.ServiceProvider.GetRequiredService<ConcurrencyContext>().Expected = RowVersion.Create();
 
         ErrorOr<Success> result = await scope.ServiceProvider.GetRequiredService<ISender>()
-            .Send(new GuardedCommand(Conflict: true));
+            .Send(new GuardedCommand(Guid.CreateVersion7(), Conflict: true));
 
         Assert.True(VersionErrors.IsStale(result.FirstError));
         Assert.Equal("General.VersionStale", result.FirstError.Code);
@@ -89,7 +91,7 @@ public sealed class ExpectedVersionPipelineTests
 
         services.AddScoped<ConcurrencyContext>();
         services.AddScoped<HandlerCalls>();
-        services.AddSingleton(CommandConfigurationRegistry.FromConfigurationTypes([typeof(GuardedCommandConfiguration)]));
+        services.AddSingleton(CommandConfigurationRegistry.FromConfigurationTypes([typeof(GuardedCommand), typeof(GuardedRootConfiguration)]));
 
         // Pointed at the DM contracts assembly only to give AddMediatR something to scan: it holds records,
         // no handlers, so the explicit registrations below are the only ones.
@@ -105,12 +107,16 @@ public sealed class ExpectedVersionPipelineTests
         return services.BuildServiceProvider();
     }
 
-    internal sealed record GuardedCommand(bool Conflict) : ICommand<Success>;
+    /// <summary>A root with no table; only its feature configuration, which makes it Versioned(), is read.</summary>
+    internal sealed class GuardedRoot : AggregateRoot<Guid>;
 
-    internal sealed class GuardedCommandConfiguration : ICommandConfiguration<GuardedCommand>
+    internal sealed class GuardedRootConfiguration : IAggregateFeatureConfiguration<GuardedRoot>
     {
-        public void Configure(CommandConfigurationBuilder<GuardedCommand> builder) => builder.RequireExpectedVersion();
+        public void Configure(AggregateFeatureBuilder<GuardedRoot> builder) => builder.Versioned();
     }
+
+    // Typed on an existing GuardedRoot, so its type requires an expected version; no configuration needed.
+    internal sealed record GuardedCommand(Guid Id, bool Conflict) : IUpdateCommand<GuardedRoot, Guid>, ICommand<Success>;
 
     internal sealed record UnguardedCommand(bool Conflict) : ICommand<Success>;
 

@@ -38,6 +38,19 @@ public sealed class CommandTypeGuardTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public void UntypedCommand_FailsStart_NamingIt()
+    {
+        // Start requires every command typed: the test assembly's untyped command reaches the guard as a Contracts
+        // request would, and the refusal names it.
+        using WebApplicationFactory<Program> broken = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+            services.AddSingleton(new CommandTypeGuard([typeof(TestUntypedCommand).Assembly]))));
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() => broken.CreateClient());
+
+        Assert.Contains($"{typeof(TestUntypedCommand).FullName} is a command with no effect interface", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void WellShapedRecords_Pass()
     {
         Exception? refused = Record.Exception(() => Check(

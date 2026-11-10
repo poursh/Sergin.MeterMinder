@@ -54,28 +54,3 @@ internal sealed class WaivedUntypedConfiguration : ICommandConfiguration<TestUnt
 {
     public void Configure(CommandConfigurationBuilder<TestUntypedCommand> builder) => builder.WithoutExpectedVersion();
 }
-
-internal sealed class BothVersionCallsConfiguration : ICommandConfiguration<TestDeleteCommand>
-{
-    public void Configure(CommandConfigurationBuilder<TestDeleteCommand> builder) =>
-        builder.RequireExpectedVersion().WithoutExpectedVersion();
-}
-
-internal sealed class OtherRootFeatureConfiguration : IAggregateFeatureConfiguration<TestOtherRoot>
-{
-    public void Configure(AggregateFeatureBuilder<TestOtherRoot> builder) => builder.Versioned();
-}
-
-/// <summary>Binds a record typed on <see cref="TestTypedRoot"/> to <see cref="TestOtherRoot"/>.</summary>
-internal sealed class MisboundDeleteConfiguration : ICommandConfiguration<TestDeleteCommand, TestOtherRoot>
-{
-    public void Configure(CommandConfigurationBuilder<TestDeleteCommand> builder) =>
-        builder.RequirePermissions(TestThingPermissions.Delete);
-}
-
-/// <summary>The old bound form, naming the same root as the type: still accepted until it is deleted.</summary>
-internal sealed class SameRootBoundDeleteConfiguration : ICommandConfiguration<TestDeleteCommand, TestTypedRoot>
-{
-    public void Configure(CommandConfigurationBuilder<TestDeleteCommand> builder) =>
-        builder.RequirePermissions(TestThingPermissions.Delete);
-}

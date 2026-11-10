@@ -158,39 +158,6 @@ public sealed class CommandTypeRegistryTests
     }
 
     [Fact]
-    public void RequireAndWithoutExpectedVersion_Together_Throw_NamingTheConfiguration()
-    {
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            Registry(typeof(BothVersionCallsConfiguration), typeof(VersionedTypedRootConfiguration)));
-
-        Assert.Contains(typeof(BothVersionCallsConfiguration).FullName!, error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void TypedRecord_BoundToAnotherRoot_Throws_NamingBoth()
-    {
-        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            Registry(
-                typeof(MisboundDeleteConfiguration), typeof(VersionedTypedRootConfiguration),
-                typeof(OtherRootFeatureConfiguration), typeof(TestThingRootConfiguration)));
-
-        Assert.Contains(typeof(MisboundDeleteConfiguration).FullName!, error.Message, StringComparison.Ordinal);
-        Assert.Contains(typeof(TestDeleteCommand).FullName!, error.Message, StringComparison.Ordinal);
-        Assert.Contains(typeof(TestTypedRoot).FullName!, error.Message, StringComparison.Ordinal);
-        Assert.Contains(typeof(TestOtherRoot).FullName!, error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    public void TypedRecord_BoundToItsOwnRoot_IsAccepted()
-    {
-        CommandSettings settings = Settings(
-            typeof(SameRootBoundDeleteConfiguration), typeof(VersionedTypedRootConfiguration), typeof(TestThingRootConfiguration));
-
-        Assert.True(settings.RequiresExpectedVersion);
-        Assert.Equal(typeof(TestTypedRoot), settings.AggregateRoot);
-    }
-
-    [Fact]
     public void TypedRecordOnUnscopedRoot_IsCheckedOnAnyScope() =>
         Assert.Equal(PermissionScope.Any, Settings(typeof(TestDeleteCommand), typeof(VersionedTypedRootConfiguration)).PermissionScope);
 
@@ -233,9 +200,7 @@ public sealed class CommandTypeRegistryTests
 
     private static Type RequestOf(Type type) =>
         type.GetInterfaces()
-            .FirstOrDefault(contract => contract.IsGenericType
-                && (contract.GetGenericTypeDefinition() == typeof(ICommandConfiguration<>)
-                    || contract.GetGenericTypeDefinition() == typeof(ICommandConfiguration<,>)))
+            .FirstOrDefault(contract => contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(ICommandConfiguration<>))
             ?.GetGenericArguments()[0]
         ?? type;
 

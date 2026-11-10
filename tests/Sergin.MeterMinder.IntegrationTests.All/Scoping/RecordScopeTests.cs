@@ -12,6 +12,7 @@ using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
@@ -25,7 +26,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Scoping;
 /// <summary>
 /// RecordScopeInterceptor: a save is checked again on the scope of every record it writes. A manufacturer belongs to
 /// no scope, so its save asks nothing the pipeline did not: a regional holder may change it. A new device is checked on
-/// the scope it is stamped with, even when the request was bound to an unscoped aggregate and never checked the
+/// the scope it is stamped with, even when the request was typed on an unscoped aggregate and never checked the
 /// current scope.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
@@ -68,7 +69,7 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
 
         await using WebApplicationFactory<Program> host = CreateHost();
 
-        // The request is bound to Manufacturer, so the pipeline passes North's holder in South; the device it creates
+        // The request is typed on Manufacturer, so the pipeline passes North's holder in South; the device it creates
         // is stamped South, where the holder has nothing, and the save refuses it.
         DeviceId inSouth = new($"device-{Guid.CreateVersion7()}");
         ErrorOr<Success> refused = await SendAsync(host, new CreateDeviceUnderManufacturerCommand(model, inSouth), northHolder, tree.South);
@@ -156,11 +157,13 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
         }
     }
 
-    internal sealed record CreateDeviceUnderManufacturerCommand(DeviceModelInternalId ModelId, DeviceId DeviceId) : ICommand<Success>;
+    // Typed on Manufacturer, which is not scoped, so the pipeline asks only that the permission is held somewhere. A
+    // creation on its collection, so the type names the root without an id and requires no version.
+    internal sealed record CreateDeviceUnderManufacturerCommand(DeviceModelInternalId ModelId, DeviceId DeviceId)
+        : ICreateCommand<Manufacturer, ManufacturerId>, ICommand<Success>;
 
-    // Bound to Manufacturer, which is not scoped, so the pipeline asks only that the permission is held somewhere.
     internal sealed class CreateDeviceUnderManufacturerCommandConfiguration
-        : ICommandConfiguration<CreateDeviceUnderManufacturerCommand, Manufacturer>
+        : ICommandConfiguration<CreateDeviceUnderManufacturerCommand>
     {
         public void Configure(CommandConfigurationBuilder<CreateDeviceUnderManufacturerCommand> builder) =>
             builder.RequirePermissions(ManufacturerPermissions.Update);

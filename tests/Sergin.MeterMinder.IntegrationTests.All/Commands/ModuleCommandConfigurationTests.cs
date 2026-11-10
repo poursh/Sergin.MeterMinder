@@ -47,8 +47,10 @@ public sealed class ModuleCommandConfigurationTests
 {
     private static CommandConfigurationRegistry Registry { get; } = CommandConfigurationRegistry.FromSources(
     [
-        ModuleConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly, "dm"),
-        ModuleConfigurationSource.FromAssembly(UserAccessApplicationConfigurationsAssemblyReference.Assembly, "ua"),
+        ModuleConfigurationSource.FromAssemblies(
+            DeviceManagementApplicationConfigurationsAssemblyReference.Assembly, typeof(DeleteDeviceCommand).Assembly, "dm"),
+        ModuleConfigurationSource.FromAssemblies(
+            UserAccessApplicationConfigurationsAssemblyReference.Assembly, typeof(GetUserByIdQueryCommand).Assembly, "ua"),
     ]);
 
     [Fact]
@@ -66,7 +68,7 @@ public sealed class ModuleCommandConfigurationTests
 
         foreach (Assembly assembly in assemblies)
         {
-            Assert.Empty(ModuleConfigurationSource.FromAssembly(assembly, "any").ConfigurationTypes);
+            Assert.Empty(ModuleConfigurationSource.FromAssemblies(assembly, assembly, "any").ConfigurationTypes);
             Assert.Empty(AggregateFeatureRegistry.ConfigurationTypesIn(assembly));
         }
 

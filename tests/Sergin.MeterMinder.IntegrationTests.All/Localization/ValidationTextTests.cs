@@ -12,6 +12,7 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Application.Validations;
@@ -223,7 +224,7 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
 
     internal sealed record ThingName(string Value);
 
-    internal sealed record UniqueThingCommand(ThingName Name) : ICommand<Guid>;
+    internal sealed record UniqueThingCommand(ThingName Name) : ICreateCommand<ThingRoot, Guid>, ICommand<Guid>;
 
     internal sealed record NamedReferenceThingCommand(Guid ThingId) : ICommand<Guid>;
 
@@ -241,11 +242,11 @@ public sealed class ValidationTextTests(SerginWebApiFactory<Program> factory) : 
             builder.Texts(ValidationTestTexts.Category).NotShown(command => command.Note);
     }
 
-    internal sealed class UniqueThingCommandConfiguration : ICommandConfiguration<UniqueThingCommand, ThingRoot>
+    internal sealed class UniqueThingCommandConfiguration : ICommandConfiguration<UniqueThingCommand>
     {
         public void Configure(CommandConfigurationBuilder<UniqueThingCommand> builder)
         {
-            // Bound to ThingRoot only: the category comes from the root's feature configuration.
+            // Typed on ThingRoot only: the category comes from the root's feature configuration.
         }
     }
 
