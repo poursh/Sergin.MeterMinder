@@ -9,7 +9,7 @@ internal sealed class GetDeviceModelListQueryCommandHandler(IGetDeviceModelListQ
         GetDeviceModelListQueryCommand request, CancellationToken cancellationToken)
     {
         ListQueryResponse<GetDeviceModelListItem> res =
-            await queryRepository.GetListAsync(request.ManufacturerId, request, cancellationToken);
+            await queryRepository.GetListAsync(request.RootId, request, cancellationToken);
 
         return res;
     }

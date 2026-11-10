@@ -65,7 +65,7 @@ public sealed partial class AddDeviceModelView
     private async Task LoadManufacturerAsync()
     {
         ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
-            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(ManufacturerId));
+            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(new ManufacturerId(ManufacturerId)));
 
         manufacturerName = loaded.IsError ? null : loaded.Value.Value.Name;
         manufacturerVersion = loaded.IsError ? null : loaded.Value.Version;

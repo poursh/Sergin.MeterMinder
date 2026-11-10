@@ -73,7 +73,7 @@ public sealed partial class DeviceEditView
     // save, so the next submit is against what is there now.
     private async Task LoadAsync()
     {
-        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(Id));
+        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(Id)));
 
         if (loaded.IsError)
         {
@@ -144,7 +144,7 @@ public sealed partial class DeviceEditView
     // One mapping for both the field-by-field validation and the submit, so the two cannot drift. The id is in
     // it so the uniqueness rule can leave this device out.
     private UpdateDeviceCommand ToCommand() =>
-        new(Id, new DeviceId(model.DeviceId), new DeviceModelInternalId(model.DeviceModelId));
+        new(new DeviceIntenralId(Id), new DeviceId(model.DeviceId), new DeviceModelInternalId(model.DeviceModelId));
 
     private async Task SubmitAsync()
     {

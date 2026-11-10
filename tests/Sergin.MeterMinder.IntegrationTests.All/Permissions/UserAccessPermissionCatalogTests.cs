@@ -50,7 +50,7 @@ public sealed class UserAccessPermissionCatalogTests(SerginWebApiFactory<Program
         Guid role = await tree.CreateRoleAsync(tree.North, "growing", inheritable: false, UserPermissions.Read.Permission);
 
         ErrorOr<GrantRolePermissionCommandResponse> result =
-            await tree.SendAtRoleVersionAsync(role, new GrantRolePermissionCommand(role, Permission.Create(Unknown)));
+            await tree.SendAtRoleVersionAsync(role, new GrantRolePermissionCommand(new RoleId(role), Permission.Create(Unknown)));
 
         Assert.Equal(ErrorType.Validation, result.FirstError.Type);
         Assert.Equal(nameof(GrantRolePermissionCommand.Permission), result.FirstError.Code);
@@ -75,7 +75,7 @@ public sealed class UserAccessPermissionCatalogTests(SerginWebApiFactory<Program
         Guid role = await tree.CreateRoleAsync(tree.North, "everything", inheritable: false, UserPermissions.Read.Permission);
 
         ErrorOr<GrantRolePermissionCommandResponse> result =
-            await tree.SendAtRoleVersionAsync(role, new GrantRolePermissionCommand(role, Permission.AllPlatform));
+            await tree.SendAtRoleVersionAsync(role, new GrantRolePermissionCommand(new RoleId(role), Permission.AllPlatform));
 
         Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
     }
@@ -87,7 +87,7 @@ public sealed class UserAccessPermissionCatalogTests(SerginWebApiFactory<Program
         Guid role = await SeedRoleWithUnknownPermissionAsync(tree);
 
         ErrorOr<RevokeRolePermissionCommandResponse> result =
-            await tree.SendAtRoleVersionAsync(role, new RevokeRolePermissionCommand(role, Permission.Create(Unknown)));
+            await tree.SendAtRoleVersionAsync(role, new RevokeRolePermissionCommand(new RoleId(role), Permission.Create(Unknown)));
 
         Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
     }

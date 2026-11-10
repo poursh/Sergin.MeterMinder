@@ -9,7 +9,7 @@ internal sealed class UpdateManufacturerCommandValidator : AbstractValidator<Upd
 {
     public UpdateManufacturerCommandValidator()
     {
-        RuleFor(x => x.Id).NotEmpty();
+        RuleFor(x => x.Id.Value).NotEmpty().OverridePropertyName(nameof(UpdateManufacturerCommand.Id));
 
         RuleFor(x => x.Name.Value)
             .NotEmpty()

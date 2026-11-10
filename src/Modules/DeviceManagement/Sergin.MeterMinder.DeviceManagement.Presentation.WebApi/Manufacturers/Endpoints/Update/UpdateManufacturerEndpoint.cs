@@ -14,7 +14,7 @@ internal class UpdateManufacturerEndpoint : IEndpoint
             [FromRoute] Guid manufacturerId, [FromBody] UpdateManufacturerModel manufacturer, ISender sender) =>
         {
             ErrorOr<UpdateManufacturerCommandResponse> res = await sender.Send(new UpdateManufacturerCommand(
-                manufacturerId,
+                new ManufacturerId(manufacturerId),
                 new ManufacturerName(manufacturer.Name),
                 manufacturer.Address is null ? null : new ManufacturerAddress(manufacturer.Address)));
 

@@ -1,4 +1,3 @@
-using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Queries;
 
@@ -9,7 +8,7 @@ internal sealed class GetDeviceAuditQueryCommandHandler(IGetDeviceAuditQueryRepo
 {
     public async Task<ErrorOr<AuditInfo>> Handle(GetDeviceAuditQueryCommand request, CancellationToken cancellationToken)
     {
-        AuditInfo? audit = await repository.GetDeviceAuditAsync(new DeviceIntenralId(request.Id), cancellationToken);
+        AuditInfo? audit = await repository.GetDeviceAuditAsync(request.Id, cancellationToken);
 
         if (audit is null)
         {

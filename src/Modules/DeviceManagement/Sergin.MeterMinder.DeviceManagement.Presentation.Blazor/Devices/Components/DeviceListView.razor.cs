@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
+using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -261,7 +262,7 @@ public sealed partial class DeviceListView
 
     private async Task<ErrorOr<Success>> SendDeleteAsync(GetDeviceListItem item)
     {
-        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(item.Id));
+        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(item.Id)));
 
         if (loaded.IsError)
         {
@@ -269,7 +270,7 @@ public sealed partial class DeviceListView
         }
 
         ErrorOr<Versioned<DeleteDeviceCommandResponse>> result =
-            await Dispatcher.SendVersionedAsync(new DeleteDeviceCommand(item.Id), loaded.Value.Version);
+            await Dispatcher.SendVersionedAsync(new DeleteDeviceCommand(new DeviceIntenralId(item.Id)), loaded.Value.Version);
 
         return result.IsError ? result.Errors : Result.Success;
     }

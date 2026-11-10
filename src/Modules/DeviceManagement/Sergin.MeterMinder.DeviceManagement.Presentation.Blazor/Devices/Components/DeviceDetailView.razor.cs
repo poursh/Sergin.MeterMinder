@@ -4,6 +4,7 @@ using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetAudit;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
@@ -56,12 +57,12 @@ public sealed partial class DeviceDetailView
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
-    private Task<ErrorOr<AuditInfo>> LoadAuditAsync() => Dispatcher.SendAsync(new GetDeviceAuditQueryCommand(Id));
+    private Task<ErrorOr<AuditInfo>> LoadAuditAsync() => Dispatcher.SendAsync(new GetDeviceAuditQueryCommand(new DeviceIntenralId(Id)));
 
     // Keeps the version the device was read at, so the delete can say which device it means.
     private async Task LoadAsync()
     {
-        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(Id));
+        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await Dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(Id)));
 
         if (loaded.IsError)
         {
@@ -88,7 +89,7 @@ public sealed partial class DeviceDetailView
         deleting = true;
 
         ErrorOr<Versioned<DeleteDeviceCommandResponse>> result =
-            await Dispatcher.SendVersionedAsync(new DeleteDeviceCommand(Id), version);
+            await Dispatcher.SendVersionedAsync(new DeleteDeviceCommand(new DeviceIntenralId(Id)), version);
 
         deleting = false;
 

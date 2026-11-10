@@ -9,11 +9,11 @@ internal sealed class RenameDeviceModelCommandValidator : AbstractValidator<Rena
 {
     public RenameDeviceModelCommandValidator()
     {
-        RuleFor(x => x.ManufacturerId.Value)
+        RuleFor(x => x.RootId.Value)
             .NotEmpty()
-            .OverridePropertyName(nameof(RenameDeviceModelCommand.ManufacturerId));
+            .OverridePropertyName(nameof(RenameDeviceModelCommand.RootId));
 
-        RuleFor(x => x.Id).NotEmpty();
+        RuleFor(x => x.Id.Value).NotEmpty().OverridePropertyName(nameof(RenameDeviceModelCommand.Id));
 
         RuleFor(x => x.Name.Value)
             .NotEmpty()

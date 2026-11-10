@@ -1,8 +1,9 @@
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Commands.Queries;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetList;
 
-public sealed record GetManufacturerListQueryCommand : ListQuery<GetManufacturerListItem>
+public sealed record GetManufacturerListQueryCommand : ListQuery<GetManufacturerListItem>, IListOf<Manufacturer>
 {
     public GetManufacturerListQueryCommand(
         Paggination paggination,

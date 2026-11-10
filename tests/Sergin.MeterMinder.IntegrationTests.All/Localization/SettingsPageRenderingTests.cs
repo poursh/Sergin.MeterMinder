@@ -154,14 +154,14 @@ public sealed class SettingsPageRenderingTests(SerginWebApiFactory<Program> fact
 
         try
         {
-            ErrorOr<AuditInfo> audit = await dispatcher.SendAsync(new GetLanguageAuditQueryCommand(language));
+            ErrorOr<AuditInfo> audit = await dispatcher.SendAsync(new GetLanguageAuditQueryCommand(new LanguageId(language)));
 
             Assert.False(audit.IsError, audit.IsError ? audit.FirstError.Description : string.Empty);
             Assert.NotEqual(Guid.Empty, audit.Value.CreatedBy);
             Assert.Null(audit.Value.ModifiedAtUtc);
             Assert.Null(audit.Value.ScopeId);
 
-            ErrorOr<AuditInfo> missing = await dispatcher.SendAsync(new GetLanguageAuditQueryCommand(Guid.CreateVersion7()));
+            ErrorOr<AuditInfo> missing = await dispatcher.SendAsync(new GetLanguageAuditQueryCommand(new LanguageId(Guid.CreateVersion7())));
             Assert.Equal(ErrorType.NotFound, missing.FirstError.Type);
         }
         finally
@@ -233,9 +233,9 @@ public sealed class SettingsPageRenderingTests(SerginWebApiFactory<Program> fact
 
     private static async Task DeleteLanguageAsync(ISerginDispatcher dispatcher, Guid id)
     {
-        ErrorOr<Versioned<LanguageQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(id));
+        ErrorOr<Versioned<LanguageQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(new LanguageId(id)));
         ErrorOr<Versioned<DeleteLanguageCommandResponse>> deleted = await dispatcher.SendVersionedAsync(
-            new DeleteLanguageCommand(id), loaded.IsError ? RowVersion.Create() : loaded.Value.Version);
+            new DeleteLanguageCommand(new LanguageId(id)), loaded.IsError ? RowVersion.Create() : loaded.Value.Version);
 
         Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
     }

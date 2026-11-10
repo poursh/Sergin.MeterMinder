@@ -13,12 +13,12 @@ internal sealed class DeleteManufacturerCommandValidator : AbstractValidator<Del
 {
     public DeleteManufacturerCommandValidator(IDeviceRepository devices)
     {
-        RuleFor(x => x.Id).NotEmpty();
+        RuleFor(x => x.Id.Value).NotEmpty().OverridePropertyName(nameof(DeleteManufacturerCommand.Id));
 
         RuleFor(x => x.Id)
             .MustAsync(async (id, cancellationToken) =>
-                !await devices.AnyUsingManufacturerAsync(new ManufacturerId(id), cancellationToken))
+                !await devices.AnyUsingManufacturerAsync(id, cancellationToken))
             .WithMessage(_ => ValidationTexts.Template(ManufacturerTexts.InUse))
-            .When(x => x.Id != Guid.Empty);
+            .When(x => x.Id.Value != Guid.Empty);
     }
 }

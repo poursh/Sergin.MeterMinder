@@ -41,7 +41,7 @@ public sealed class DeviceModelTests(SerginWebApiFactory<Program> factory)
         Assert.False(added.IsError, added.IsError ? added.FirstError.Description : string.Empty);
 
         ErrorOr<DeviceModelQueryResponse> one = await dispatcher.SendAsync(
-            new GetDeviceModelByIdQueryCommand(manufacturerId.Value, added.Value.Id));
+            new GetDeviceModelByIdQueryCommand(manufacturerId, new DeviceModelInternalId(added.Value.Id)));
 
         Assert.False(one.IsError, one.IsError ? one.FirstError.Description : string.Empty);
         Assert.Equal(added.Value.Id, one.Value.Id);
@@ -200,9 +200,9 @@ public sealed class DeviceModelTests(SerginWebApiFactory<Program> factory)
         Guid modelId = await AddModelAsync(dispatcher, owner, NewModelName());
 
         ErrorOr<DeviceModelQueryResponse> underOwner = await dispatcher.SendAsync(
-            new GetDeviceModelByIdQueryCommand(owner.Value, modelId));
+            new GetDeviceModelByIdQueryCommand(owner, new DeviceModelInternalId(modelId)));
         ErrorOr<DeviceModelQueryResponse> underOther = await dispatcher.SendAsync(
-            new GetDeviceModelByIdQueryCommand(other.Value, modelId));
+            new GetDeviceModelByIdQueryCommand(other, new DeviceModelInternalId(modelId)));
 
         Assert.False(underOwner.IsError, underOwner.IsError ? underOwner.FirstError.Description : string.Empty);
         Assert.True(underOther.IsError, "A real model addressed under another manufacturer must not be served.");

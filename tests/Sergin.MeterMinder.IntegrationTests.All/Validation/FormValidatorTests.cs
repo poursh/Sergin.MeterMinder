@@ -68,7 +68,7 @@ public sealed class FormValidatorTests(SerginWebApiFactory<Program> factory)
 
         // Queries have no validators — nothing to run, nothing thrown.
         IReadOnlyCollection<string> messages = await formValidator.ValidateAsync(
-            new GetUserByIdQueryCommand(Guid.CreateVersion7()), nameof(GetUserByIdQueryCommand.Id));
+            new GetUserByIdQueryCommand(new UserInternalId(Guid.CreateVersion7())), nameof(GetUserByIdQueryCommand.Id));
 
         Assert.Empty(messages);
     }

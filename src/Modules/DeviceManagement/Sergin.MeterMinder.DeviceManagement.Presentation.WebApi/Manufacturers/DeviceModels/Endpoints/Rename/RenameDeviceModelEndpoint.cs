@@ -15,7 +15,7 @@ internal class RenameDeviceModelEndpoint : IEndpoint
             [FromRoute] Guid manufacturerId, [FromRoute] Guid modelId, [FromBody] RenameDeviceModelModel deviceModel, ISender sender) =>
         {
             ErrorOr<RenameDeviceModelCommandResponse> res = await sender.Send(new RenameDeviceModelCommand(
-                new ManufacturerId(manufacturerId), modelId, new DeviceModelName(deviceModel.Name)));
+                new ManufacturerId(manufacturerId), new DeviceModelInternalId(modelId), new DeviceModelName(deviceModel.Name)));
 
             return res.ToApiResult();
         });

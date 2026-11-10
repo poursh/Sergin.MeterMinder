@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Application;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
@@ -118,7 +119,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         DeviceQueryResponse expected = new(deviceGuid, "DEV-42", Guid.CreateVersion7(), "XYZ-200", Guid.CreateVersion7(), "ACME");
         repository.Add(internalId, expected, RowVersion.Create());
 
-        GetDeviceByIdQueryCommand command = new(deviceGuid);
+        GetDeviceByIdQueryCommand command = new(new DeviceIntenralId(deviceGuid));
 
         ISender remoteSender = BuildRemoteProvider([DevicesReadPermission]).GetRequiredService<ISender>();
         ErrorOr<DeviceQueryResponse> remoteResult = await remoteSender.Send(command);
@@ -140,7 +141,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
     {
         ISender sender = BuildRemoteProvider([DevicesReadPermission]).GetRequiredService<ISender>();
 
-        ErrorOr<DeviceQueryResponse> result = await sender.Send(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
+        ErrorOr<DeviceQueryResponse> result = await sender.Send(new GetDeviceByIdQueryCommand(new DeviceIntenralId(Guid.NewGuid())));
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorType.NotFound, result.FirstError.Type);
@@ -157,7 +158,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         ISender sender = BuildRemoteProvider([]).GetRequiredService<ISender>();
 
         ErrorOr<DeviceQueryResponse> result =
-            await sender.Send(new GetDeviceByIdQueryCommand(Guid.NewGuid()));
+            await sender.Send(new GetDeviceByIdQueryCommand(new DeviceIntenralId(Guid.NewGuid())));
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorType.Forbidden, result.FirstError.Type);
@@ -177,7 +178,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         concurrency.Expected = sent;
 
         ErrorOr<DeviceQueryResponse> result = await scope.ServiceProvider.GetRequiredService<ISender>()
-            .Send(new GetDeviceByIdQueryCommand(deviceGuid));
+            .Send(new GetDeviceByIdQueryCommand(new DeviceIntenralId(deviceGuid)));
 
         Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
         Assert.Equal(sent, seenExpected.Value);
@@ -202,7 +203,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         }
 
         ErrorOr<DeviceQueryResponse> result = await scope.ServiceProvider.GetRequiredService<ISender>()
-            .Send(new GetDeviceByIdQueryCommand(deviceGuid));
+            .Send(new GetDeviceByIdQueryCommand(new DeviceIntenralId(deviceGuid)));
 
         Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
         Assert.Equal(setScope ? picked : AuthorizationScope.RootId, seenExpected.Scope);
@@ -217,8 +218,10 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         // What AddSerginCore registers for a remote module: its ConfigurationsAssembly's declarations, so the
         // gateway's permission check refuses before the gRPC hop.
         // Its permission catalogue too, from the same source: ScopeAuthorization denies a definition missing from it.
-        var configurations =
-            ModuleConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly, "dm");
+        var configurations = ModuleConfigurationSource.FromAssemblies(
+            DeviceManagementApplicationConfigurationsAssemblyReference.Assembly,
+            DeviceManagementApplicationContractsAssemblyReference.Assembly,
+            "dm");
         services.AddSingleton(CommandConfigurationRegistry.FromSources([configurations]));
         services.AddSingleton(PermissionCatalog.FromSources([configurations]));
         services.AddScoped(p => p.GetRequiredService<IUserContextFactory>().CreateUserContext());

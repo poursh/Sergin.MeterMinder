@@ -17,7 +17,7 @@ internal sealed class UpdateDeviceCommandValidator : AbstractValidator<UpdateDev
 {
     public UpdateDeviceCommandValidator(IDeviceRepository devices, IManufacturerRepository manufacturers)
     {
-        RuleFor(x => x.Id).NotEmpty();
+        RuleFor(x => x.Id.Value).NotEmpty().OverridePropertyName(nameof(UpdateDeviceCommand.Id));
 
         RuleFor(x => x.DeviceId.Value)
             .NotEmpty()
@@ -30,9 +30,9 @@ internal sealed class UpdateDeviceCommandValidator : AbstractValidator<UpdateDev
 
         RuleFor(x => x.DeviceId)
             .MustAsync(async (command, deviceId, cancellationToken) =>
-                !await devices.IsTakenByOtherAsync(deviceId, new DeviceIntenralId(command.Id), cancellationToken))
+                !await devices.IsTakenByOtherAsync(deviceId, command.Id, cancellationToken))
             .WithMessage(_ => ValidationTexts.Template(CommonValidationTexts.MustBeUniqueIn))
-            .When(x => !string.IsNullOrWhiteSpace(x.DeviceId.Value) && x.Id != Guid.Empty);
+            .When(x => !string.IsNullOrWhiteSpace(x.DeviceId.Value) && x.Id.Value != Guid.Empty);
 
         RuleFor(x => x.DeviceModelId)
             .MustExistIn(manufacturers.ModelExistsAsync, DeviceModelTexts.Singular)

@@ -58,7 +58,7 @@ public sealed partial class ManufacturerEditView
     private async Task LoadAsync()
     {
         ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
-            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(Id));
+            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(new ManufacturerId(Id)));
 
         if (loaded.IsError)
         {
@@ -79,7 +79,7 @@ public sealed partial class ManufacturerEditView
     // One mapping for both the field-by-field validation and the submit, so the two cannot drift.
     // A blank address means "no address": the validator refuses an empty non-null Address.
     private UpdateManufacturerCommand ToCommand() => new(
-        Id,
+        new ManufacturerId(Id),
         new ManufacturerName(model.Name),
         string.IsNullOrWhiteSpace(model.Address) ? null : new ManufacturerAddress(model.Address));
 

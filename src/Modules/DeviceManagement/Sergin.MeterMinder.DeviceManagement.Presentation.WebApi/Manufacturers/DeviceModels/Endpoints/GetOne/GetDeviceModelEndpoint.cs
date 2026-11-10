@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Presentation.WebApi.Endpoints.Results;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.WebApi.Manufacturers.DeviceModels.Endpoints.GetOne;
@@ -14,7 +16,7 @@ internal class GetDeviceModelEndpoint : IEndpoint
             [FromRoute] Guid manufacturerId, [FromRoute] Guid modelId, ISender sender) =>
         {
             ErrorOr<DeviceModelQueryResponse> res = await sender.Send(
-                new GetDeviceModelByIdQueryCommand(manufacturerId, modelId));
+                new GetDeviceModelByIdQueryCommand(new ManufacturerId(manufacturerId), new DeviceModelInternalId(modelId)));
 
             return res.ToApiResult();
         });

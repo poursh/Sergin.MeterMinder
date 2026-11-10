@@ -13,16 +13,16 @@ internal sealed class RemoveDeviceModelCommandValidator : AbstractValidator<Remo
 {
     public RemoveDeviceModelCommandValidator(IDeviceRepository devices)
     {
-        RuleFor(x => x.ManufacturerId.Value)
+        RuleFor(x => x.RootId.Value)
             .NotEmpty()
-            .OverridePropertyName(nameof(RemoveDeviceModelCommand.ManufacturerId));
+            .OverridePropertyName(nameof(RemoveDeviceModelCommand.RootId));
 
-        RuleFor(x => x.Id).NotEmpty();
+        RuleFor(x => x.Id.Value).NotEmpty().OverridePropertyName(nameof(RemoveDeviceModelCommand.Id));
 
         RuleFor(x => x.Id)
             .MustAsync(async (id, cancellationToken) =>
-                !await devices.AnyUsingModelAsync(new DeviceModelInternalId(id), cancellationToken))
+                !await devices.AnyUsingModelAsync(id, cancellationToken))
             .WithMessage(_ => ValidationTexts.Template(DeviceModelTexts.InUse))
-            .When(x => x.Id != Guid.Empty);
+            .When(x => x.Id.Value != Guid.Empty);
     }
 }

@@ -78,7 +78,7 @@ internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
-        ErrorOr<Versioned<ScopeQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetScopeByIdQueryCommand(scopeId));
+        ErrorOr<Versioned<ScopeQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetScopeByIdQueryCommand(new ScopeId(scopeId)));
 
         return (await dispatcher.SendVersionedAsync(command, loaded.IsError ? RowVersion.Create() : loaded.Value.Version))
             .Then(sent => sent.Value);
@@ -96,14 +96,14 @@ internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
 
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
 
-        ErrorOr<Versioned<RoleQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetRoleByIdQueryCommand(roleId));
+        ErrorOr<Versioned<RoleQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetRoleByIdQueryCommand(new RoleId(roleId)));
 
         return (await dispatcher.SendVersionedAsync(command, loaded.IsError ? RowVersion.Create() : loaded.Value.Version))
             .Then(sent => sent.Value);
     }
 
     public async Task<Guid> CreateScopeAsync(Guid parentId, string name) =>
-        (await SendAsync(new CreateScopeCommand(parentId, new ScopeName(name)))).Id;
+        (await SendAsync(new CreateScopeCommand(new ScopeId(parentId), new ScopeName(name)))).Id;
 
     /// <summary>
     /// A role owned by <paramref name="ownerScopeId"/> holding <paramref name="permissions"/>, created through
@@ -135,7 +135,7 @@ internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
 
     public Task<ErrorOr<AssignRoleCommandResponse>> AssignAsync(
         Guid userId, Guid roleId, Guid scopeId, bool includeSubtree, DateTime? fromUtc = null, DateTime? untilUtc = null) =>
-        TrySendAsync(new AssignRoleCommand(userId, roleId, scopeId, includeSubtree, fromUtc, untilUtc));
+        TrySendAsync(new AssignRoleCommand(new UserInternalId(userId), roleId, scopeId, includeSubtree, fromUtc, untilUtc));
 
     public async Task<bool> HasAsync(Guid userId, Permission permission, Guid scopeId)
     {

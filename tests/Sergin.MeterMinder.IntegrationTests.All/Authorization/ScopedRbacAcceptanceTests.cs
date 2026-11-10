@@ -14,6 +14,9 @@ using Sergin.Administration.UserAccess.Domain.Roles;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.Administration.UserAccess.Application.Configurations.Roles;
 using Sergin.Administration.UserAccess.Application.Configurations.Users;
+using Sergin.Administration.UserAccess.Domain.Scopes;
+using Sergin.Administration.UserAccess.Domain.Users;
+using Sergin.Administration.UserAccess.Domain.Users.Assignments;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 
@@ -125,7 +128,7 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
         Assert.False((await tree.AssignAsync(ali, operatorRole, tree.North, includeSubtree: true)).IsError);
         Assert.True(await tree.HasAsync(ali, RbacScenario.Update, tree.Feeder1));
 
-        await tree.SendAsync(new DeactivateUserCommand(ali));
+        await tree.SendAsync(new DeactivateUserCommand(new UserInternalId(ali)));
 
         Assert.False(await tree.HasAsync(ali, RbacScenario.Update, tree.North));
         Assert.False(await tree.HasAsync(ali, RbacScenario.Update, tree.Feeder1));
@@ -140,14 +143,14 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
         Assert.False((await tree.AssignAsync(ali, operatorRole, tree.Feeder1, includeSubtree: false)).IsError);
 
         ErrorOr<MoveScopeCommandResponse> stranded =
-            await tree.TrySendAsync(new MoveScopeCommand(tree.Feeder1, tree.South));
+            await tree.TrySendAsync(new MoveScopeCommand(new ScopeId(tree.Feeder1), new ScopeId(tree.South)));
 
         Assert.True(stranded.IsError);
         Assert.Equal(ErrorType.Validation, stranded.FirstError.Type);
 
         // Feeder 2 holds no such assignment, so the same move is allowed, and its path follows it.
         ErrorOr<MoveScopeCommandResponse> moved =
-            await tree.TrySendAsync(new MoveScopeCommand(tree.Feeder2, tree.South));
+            await tree.TrySendAsync(new MoveScopeCommand(new ScopeId(tree.Feeder2), new ScopeId(tree.South)));
 
         Assert.False(moved.IsError, moved.IsError ? moved.FirstError.Description : string.Empty);
 
@@ -167,7 +170,7 @@ public sealed class ScopedRbacAcceptanceTests(SerginWebApiFactory<Program> facto
         // Warms the cache, so the denial below proves invalidation rather than a cold read.
         Assert.True(await tree.HasAsync(ali, RbacScenario.Update, tree.Feeder1));
 
-        await tree.SendAsync(new RevokeAssignmentCommand(ali, assignment));
+        await tree.SendAsync(new RevokeAssignmentCommand(new UserInternalId(ali), new RoleAssignmentId(assignment)));
 
         Assert.False(await tree.HasAsync(ali, RbacScenario.Update, tree.Feeder1));
     }

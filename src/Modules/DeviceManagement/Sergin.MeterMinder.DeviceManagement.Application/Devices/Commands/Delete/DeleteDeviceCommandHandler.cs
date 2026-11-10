@@ -13,7 +13,7 @@ internal sealed class DeleteDeviceCommandHandler(
     public async Task<ErrorOr<DeleteDeviceCommandResponse>> Handle(
         DeleteDeviceCommand request, CancellationToken cancellationToken)
     {
-        Device? device = await repository.GetAsync(new DeviceIntenralId(request.Id), cancellationToken);
+        Device? device = await repository.GetAsync(request.Id, cancellationToken);
 
         if (device is null)
         {

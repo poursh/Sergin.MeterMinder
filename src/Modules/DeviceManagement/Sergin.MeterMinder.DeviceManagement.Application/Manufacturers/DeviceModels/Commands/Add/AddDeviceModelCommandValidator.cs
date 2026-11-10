@@ -11,9 +11,9 @@ internal sealed class AddDeviceModelCommandValidator : AbstractValidator<AddDevi
 {
     public AddDeviceModelCommandValidator()
     {
-        RuleFor(x => x.ManufacturerId.Value)
+        RuleFor(x => x.RootId.Value)
             .NotEmpty()
-            .OverridePropertyName(nameof(AddDeviceModelCommand.ManufacturerId));
+            .OverridePropertyName(nameof(AddDeviceModelCommand.RootId));
 
         RuleFor(x => x.Name.Value)
             .NotEmpty()

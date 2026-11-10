@@ -31,6 +31,7 @@ using Sergin.Administration.UserAccess.Application.Contracts.Users.Assignments.C
 using Sergin.Administration.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
 using Sergin.Administration.UserAccess.Application.Contracts.Users.Commands.GetOne;
 using Sergin.Administration.UserAccess.Application.Contracts.Users.Commands.ProvisionExternalUser;
+using Sergin.Administration.UserAccess.Domain.Scopes;
 using Sergin.Administration.UserAccess.Domain.Users;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
@@ -46,8 +47,10 @@ public sealed class ModuleCommandConfigurationTests
 {
     private static CommandConfigurationRegistry Registry { get; } = CommandConfigurationRegistry.FromSources(
     [
-        ModuleConfigurationSource.FromAssembly(DeviceManagementApplicationConfigurationsAssemblyReference.Assembly, "dm"),
-        ModuleConfigurationSource.FromAssembly(UserAccessApplicationConfigurationsAssemblyReference.Assembly, "ua"),
+        ModuleConfigurationSource.FromAssemblies(
+            DeviceManagementApplicationConfigurationsAssemblyReference.Assembly, typeof(DeleteDeviceCommand).Assembly, "dm"),
+        ModuleConfigurationSource.FromAssemblies(
+            UserAccessApplicationConfigurationsAssemblyReference.Assembly, typeof(GetUserByIdQueryCommand).Assembly, "ua"),
     ]);
 
     [Fact]
@@ -65,7 +68,7 @@ public sealed class ModuleCommandConfigurationTests
 
         foreach (Assembly assembly in assemblies)
         {
-            Assert.Empty(ModuleConfigurationSource.FromAssembly(assembly, "any").ConfigurationTypes);
+            Assert.Empty(ModuleConfigurationSource.FromAssemblies(assembly, assembly, "any").ConfigurationTypes);
             Assert.Empty(AggregateFeatureRegistry.ConfigurationTypesIn(assembly));
         }
 
@@ -143,9 +146,21 @@ public sealed class ModuleCommandConfigurationTests
 
         Assert.Empty(renameRole.RequiredPermissions);
         Assert.True(renameRole.RequiresExpectedVersion);
-        Assert.Same(CommandSettings.None, Registry.For(typeof(CreateScopeCommand)));
-        Assert.Same(CommandSettings.None, Registry.For(typeof(MoveScopeCommand)));
-        Assert.Same(CommandSettings.None, Registry.For(typeof(AssignRoleCommand)));
+
+        // Their root now comes from the record's type, but they still add no permission and no version.
+        foreach ((Type request, Type root) in new[]
+        {
+            (typeof(CreateScopeCommand), typeof(Scope)),
+            (typeof(MoveScopeCommand), typeof(Scope)),
+            (typeof(AssignRoleCommand), typeof(User)),
+        })
+        {
+            CommandSettings settings = Registry.For(request);
+
+            Assert.Empty(settings.RequiredPermissions);
+            Assert.False(settings.RequiresExpectedVersion);
+            Assert.Equal(root, settings.AggregateRoot);
+        }
     }
 
     /// <summary>

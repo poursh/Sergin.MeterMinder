@@ -11,6 +11,8 @@ using Sergin.Administration.UserAccess.Application.Contracts.Users.Assignments.C
 using Sergin.Administration.UserAccess.Domain.Roles;
 using Sergin.Administration.UserAccess.Application.Configurations.Roles;
 using Sergin.Administration.UserAccess.Application.Configurations.Users;
+using Sergin.Administration.UserAccess.Domain.Scopes;
+using Sergin.Administration.UserAccess.Domain.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 
@@ -60,11 +62,11 @@ public sealed class ScopedRbacRuleTests(SerginWebApiFactory<Program> factory)
         RbacScenario tree = await RbacScenario.BuildAsync(factory);
         Guid role = await tree.CreateRoleAsync(tree.North, "growing", inheritable: false, RbacScenario.Read);
 
-        Assert.False((await tree.SendAtRoleVersionAsync(role, new GrantRolePermissionCommand(role, UserPermissions.Manage.Permission))).IsError);
+        Assert.False((await tree.SendAtRoleVersionAsync(role, new GrantRolePermissionCommand(new RoleId(role), UserPermissions.Manage.Permission))).IsError);
 
         TestCaller limited = await tree.CreateGrantedCallerAsync(tree.Company, RolePermissions.Manage.Permission, RbacScenario.Read);
         ErrorOr<GrantRolePermissionCommandResponse> refused = await tree.SendAtRoleVersionAsync(
-            role, new GrantRolePermissionCommand(role, UserPermissions.AssignmentsManage.Permission), limited);
+            role, new GrantRolePermissionCommand(new RoleId(role), UserPermissions.AssignmentsManage.Permission), limited);
 
         Assert.Equal(ErrorType.Validation, refused.FirstError.Type);
     }
@@ -77,11 +79,11 @@ public sealed class ScopedRbacRuleTests(SerginWebApiFactory<Program> factory)
         Guid ali = await tree.CreateUserAsync("ali");
         Assert.False((await tree.AssignAsync(ali, role, tree.Feeder1, includeSubtree: false)).IsError);
 
-        ErrorOr<Deleted> refused = await tree.SendAtRoleVersionAsync(role, new DeleteRoleCommand(role, Cascade: false));
+        ErrorOr<Deleted> refused = await tree.SendAtRoleVersionAsync(role, new DeleteRoleCommand(new RoleId(role), Cascade: false));
         Assert.Equal(ErrorType.Validation, refused.FirstError.Type);
         Assert.True(await tree.HasAsync(ali, RbacScenario.Update, tree.Feeder1));
 
-        ErrorOr<Deleted> deleted = await tree.SendAtRoleVersionAsync(role, new DeleteRoleCommand(role, Cascade: true));
+        ErrorOr<Deleted> deleted = await tree.SendAtRoleVersionAsync(role, new DeleteRoleCommand(new RoleId(role), Cascade: true));
         Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
         Assert.False(await tree.HasAsync(ali, RbacScenario.Update, tree.Feeder1));
     }
@@ -94,10 +96,10 @@ public sealed class ScopedRbacRuleTests(SerginWebApiFactory<Program> factory)
         Guid ali = await tree.CreateUserAsync("ali");
         Assert.False((await tree.AssignAsync(ali, role, tree.Feeder2, includeSubtree: false)).IsError);
 
-        Assert.Equal(ErrorType.Validation, (await tree.TrySendAsync(new DeleteScopeCommand(tree.North, Cascade: true))).FirstError.Type);
-        Assert.Equal(ErrorType.Validation, (await tree.TrySendAsync(new DeleteScopeCommand(tree.Feeder2, Cascade: false))).FirstError.Type);
+        Assert.Equal(ErrorType.Validation, (await tree.TrySendAsync(new DeleteScopeCommand(new ScopeId(tree.North), Cascade: true))).FirstError.Type);
+        Assert.Equal(ErrorType.Validation, (await tree.TrySendAsync(new DeleteScopeCommand(new ScopeId(tree.Feeder2), Cascade: false))).FirstError.Type);
 
-        ErrorOr<Deleted> deleted = await tree.TrySendAsync(new DeleteScopeCommand(tree.Feeder2, Cascade: true));
+        ErrorOr<Deleted> deleted = await tree.TrySendAsync(new DeleteScopeCommand(new ScopeId(tree.Feeder2), Cascade: true));
 
         Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
         Assert.False(await tree.HasAsync(ali, RbacScenario.Update, tree.Feeder2));
@@ -112,14 +114,14 @@ public sealed class ScopedRbacRuleTests(SerginWebApiFactory<Program> factory)
         Assert.False((await tree.AssignAsync(ali, southRole, tree.South, includeSubtree: true)).IsError);
         Assert.False(await tree.HasAsync(ali, RbacScenario.Update, tree.Feeder1));
 
-        ErrorOr<MoveScopeCommandResponse> moved = await tree.TrySendAsync(new MoveScopeCommand(tree.North, tree.South));
+        ErrorOr<MoveScopeCommandResponse> moved = await tree.TrySendAsync(new MoveScopeCommand(new ScopeId(tree.North), new ScopeId(tree.South)));
 
         Assert.False(moved.IsError, moved.IsError ? moved.FirstError.Description : string.Empty);
         Assert.True(await tree.HasAsync(ali, RbacScenario.Update, tree.North));
         Assert.True(await tree.HasAsync(ali, RbacScenario.Update, tree.Feeder1));
         Assert.True(await tree.HasAsync(ali, RbacScenario.Update, tree.Feeder2));
 
-        ErrorOr<MoveScopeCommandResponse> cycle = await tree.TrySendAsync(new MoveScopeCommand(tree.South, tree.Feeder1));
+        ErrorOr<MoveScopeCommandResponse> cycle = await tree.TrySendAsync(new MoveScopeCommand(new ScopeId(tree.South), new ScopeId(tree.Feeder1)));
         Assert.Equal(ErrorType.Validation, cycle.FirstError.Type);
     }
 
@@ -132,7 +134,7 @@ public sealed class ScopedRbacRuleTests(SerginWebApiFactory<Program> factory)
         Assert.False((await tree.AssignAsync(ali, role, tree.Feeder1, includeSubtree: false)).IsError);
 
         ErrorOr<SetRoleInheritableCommandResponse> result =
-            await tree.SendAtRoleVersionAsync(role, new SetRoleInheritableCommand(role, IsInheritable: false));
+            await tree.SendAtRoleVersionAsync(role, new SetRoleInheritableCommand(new RoleId(role), IsInheritable: false));
 
         Assert.Equal(ErrorType.Validation, result.FirstError.Type);
     }
@@ -148,7 +150,7 @@ public sealed class ScopedRbacRuleTests(SerginWebApiFactory<Program> factory)
         Assert.False((await tree.AssignAsync(ali, viewerRole, tree.South, includeSubtree: false)).IsError);
 
         IReadOnlyCollection<EffectivePermissionItem> effective =
-            await tree.SendAsync(new GetUserEffectivePermissionsQueryCommand(ali));
+            await tree.SendAsync(new GetUserEffectivePermissionsQueryCommand(new UserInternalId(ali)));
 
         EffectivePermissionItem north = Assert.Single(effective, item => item.ScopeId == tree.North);
         EffectivePermissionItem south = Assert.Single(effective, item => item.ScopeId == tree.South);

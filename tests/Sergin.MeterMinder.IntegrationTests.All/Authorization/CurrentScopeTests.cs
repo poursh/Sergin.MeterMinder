@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain;
@@ -18,7 +19,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 
 /// <summary>
 /// IAuthorizationScopeContext and the permission check on it, on the acceptance tree: every configured permission is
-/// checked on the current scope, and one bound to an aggregate that is not scoped on any scope. Each send goes through
+/// checked on the current scope, and one typed on an aggregate that is not scoped on any scope. Each send goes through
 /// ISerginDispatcher from a "circuit" scope whose context the test sets, so the dispatcher's copy into the send's
 /// own scope is exercised too. The test commands echo the scope their handler saw.
 /// </summary>
@@ -67,7 +68,7 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
         Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new ScopedCommand(), caller, tree.Company)).FirstError.Type);
         Assert.Equal(ErrorType.Forbidden, (await SendAsync(host, new ScopedCommand(), caller, tree.South)).FirstError.Type);
 
-        // Bound to an unscoped aggregate, the same permission held on North passes in any scope.
+        // Typed on an unscoped aggregate, the same permission held on North passes in any scope.
         Assert.Equal(tree.South, (await SendAsync(host, new GlobalCommand(), caller, tree.South)).Value);
         Assert.False((await SendAsync(host, new GlobalCommand(), caller, null)).IsError);
     }
@@ -133,9 +134,10 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
 
     internal sealed record ScopedCommand : ICommand<Guid>;
 
-    internal sealed record GlobalCommand : ICommand<Guid>;
+    // Typed on GlobalRoot, a creation, so it names the root without carrying an id or needing a version.
+    internal sealed record GlobalCommand : ICreateCommand<GlobalRoot, Guid>, ICommand<Guid>;
 
-    /// <summary>An aggregate with no feature configuration, so not scoped. No context maps it; only the binding reads it.</summary>
+    /// <summary>An aggregate with no feature configuration, so not scoped. No context maps it; only the type names it.</summary>
     internal sealed class GlobalRoot : AggregateRoot<Guid>;
 
     internal sealed class ScopedCommandConfiguration : ICommandConfiguration<ScopedCommand>
@@ -144,7 +146,7 @@ public sealed class CurrentScopeTests(SerginWebApiFactory<Program> factory)
             builder.RequirePermissions(DevicePermissions.Update);
     }
 
-    internal sealed class GlobalCommandConfiguration : ICommandConfiguration<GlobalCommand, GlobalRoot>
+    internal sealed class GlobalCommandConfiguration : ICommandConfiguration<GlobalCommand>
     {
         public void Configure(CommandConfigurationBuilder<GlobalCommand> builder) =>
             builder.RequirePermissions(DevicePermissions.Update);

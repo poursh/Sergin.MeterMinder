@@ -60,7 +60,7 @@ public sealed class DeviceReadModelTests(SerginWebApiFactory<Program> factory)
         DeviceModelInternalId modelId = await AddDeviceModelAsync(dispatcher, manufacturerId, modelName);
         Guid id = await CreateDeviceAsync(dispatcher, NewDeviceId(), modelId);
 
-        ErrorOr<DeviceQueryResponse> device = await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(id));
+        ErrorOr<DeviceQueryResponse> device = await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(id)));
 
         Assert.False(device.IsError, device.IsError ? device.FirstError.Description : string.Empty);
         Assert.Equal(modelId.Value, device.Value.DeviceModelId);

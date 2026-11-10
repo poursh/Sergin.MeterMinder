@@ -18,20 +18,46 @@ public sealed partial class DeviceManagementUpdateTests
         ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
         DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId);
         ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
-            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value));
+            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId));
 
         ErrorOr<Versioned<RemoveDeviceModelCommandResponse>> removed = await dispatcher.SendVersionedAsync(
-            new RemoveDeviceModelCommand(manufacturerId, model.Value), loaded.Value.Version);
+            new RemoveDeviceModelCommand(manufacturerId, model), loaded.Value.Version);
 
         Assert.False(removed.IsError, removed.IsError ? removed.FirstError.Description : string.Empty);
         Assert.Equal(model.Value, removed.Value.Value.Id);
         Assert.NotEqual(loaded.Value.Version, removed.Value.Version);
 
         ErrorOr<DeviceModelQueryResponse> read =
-            await dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(manufacturerId.Value, model.Value));
+            await dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(manufacturerId, model));
         Assert.Equal(ErrorType.NotFound, read.FirstError.Type);
         Assert.NotNull(await ReadDeletedAtAsync<DeviceModel>(m => m.Id == model));
-        Assert.False((await dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value))).IsError);
+        Assert.False((await dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(manufacturerId))).IsError);
+    }
+
+    // DeviceModelListView's bulk Remove: the child command carries the root's version, so each send must carry the
+    // version the one before it returned; the first version is stale by the second send.
+    [Fact]
+    public async Task RemoveDeviceModel_InARun_ChainsTheManufacturersVersion()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
+        DeviceModelInternalId first = await AddDeviceModelAsync(dispatcher, manufacturerId);
+        DeviceModelInternalId second = await AddDeviceModelAsync(dispatcher, manufacturerId);
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
+            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId));
+
+        ErrorOr<Versioned<RemoveDeviceModelCommandResponse>> removedFirst = await dispatcher.SendVersionedAsync(
+            new RemoveDeviceModelCommand(manufacturerId, first), loaded.Value.Version);
+        ErrorOr<Versioned<RemoveDeviceModelCommandResponse>> secondAtStale = await dispatcher.SendVersionedAsync(
+            new RemoveDeviceModelCommand(manufacturerId, second), loaded.Value.Version);
+        ErrorOr<Versioned<RemoveDeviceModelCommandResponse>> removedSecond = await dispatcher.SendVersionedAsync(
+            new RemoveDeviceModelCommand(manufacturerId, second), removedFirst.Value.Version);
+
+        Assert.False(removedFirst.IsError, removedFirst.IsError ? removedFirst.FirstError.Description : string.Empty);
+        Assert.True(secondAtStale.Errors.Exists(VersionErrors.IsStale));
+        Assert.False(removedSecond.IsError, removedSecond.IsError ? removedSecond.FirstError.Description : string.Empty);
+        Assert.NotEqual(removedFirst.Value.Version, removedSecond.Value.Version);
     }
 
     [Fact]
@@ -44,13 +70,13 @@ public sealed partial class DeviceManagementUpdateTests
         await CreateDeviceAsync(dispatcher, model);
 
         ErrorOr<RemoveDeviceModelCommandResponse> removed = await dispatcher.SendAtManufacturerVersionAsync(
-            manufacturerId.Value, new RemoveDeviceModelCommand(manufacturerId, model.Value));
+            manufacturerId.Value, new RemoveDeviceModelCommand(manufacturerId, model));
 
         Error error = Assert.Single(removed.Errors);
         Assert.Equal(ErrorType.Validation, error.Type);
         Assert.Equal(nameof(RemoveDeviceModelCommand.Id), error.Code);
         Assert.Equal("The model is still used by a device; delete those devices first.", error.Description);
-        Assert.False((await dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(manufacturerId.Value, model.Value))).IsError);
+        Assert.False((await dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(manufacturerId, model))).IsError);
     }
 
     [Fact]
@@ -63,7 +89,7 @@ public sealed partial class DeviceManagementUpdateTests
         await DeleteDeviceAsync(dispatcher, await CreateDeviceAsync(dispatcher, model));
 
         ErrorOr<RemoveDeviceModelCommandResponse> removed = await dispatcher.SendAtManufacturerVersionAsync(
-            manufacturerId.Value, new RemoveDeviceModelCommand(manufacturerId, model.Value));
+            manufacturerId.Value, new RemoveDeviceModelCommand(manufacturerId, model));
 
         Assert.False(removed.IsError, removed.IsError ? removed.FirstError.Description : string.Empty);
     }
@@ -77,7 +103,7 @@ public sealed partial class DeviceManagementUpdateTests
         string name = NewName("model");
         DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId, name);
         Assert.False((await dispatcher.SendAtManufacturerVersionAsync(
-            manufacturerId.Value, new RemoveDeviceModelCommand(manufacturerId, model.Value))).IsError);
+            manufacturerId.Value, new RemoveDeviceModelCommand(manufacturerId, model))).IsError);
 
         ErrorOr<AddDeviceModelCommandResponse> readded = await dispatcher.SendAtManufacturerVersionAsync(
             manufacturerId.Value, new AddDeviceModelCommand(manufacturerId, new DeviceModelName(name)));
@@ -93,7 +119,7 @@ public sealed partial class DeviceManagementUpdateTests
         ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
 
         ErrorOr<RemoveDeviceModelCommandResponse> removed = await dispatcher.SendAtManufacturerVersionAsync(
-            manufacturerId.Value, new RemoveDeviceModelCommand(manufacturerId, Guid.CreateVersion7()));
+            manufacturerId.Value, new RemoveDeviceModelCommand(manufacturerId, new DeviceModelInternalId(Guid.CreateVersion7())));
 
         Assert.Equal(ErrorType.NotFound, removed.FirstError.Type);
     }
@@ -105,7 +131,7 @@ public sealed partial class DeviceManagementUpdateTests
         ISerginDispatcher dispatcher = AnonymousDispatcher(scope);
 
         ErrorOr<RemoveDeviceModelCommandResponse> removed = await dispatcher.SendAsync(
-            new RemoveDeviceModelCommand(new ManufacturerId(Guid.CreateVersion7()), Guid.CreateVersion7()));
+            new RemoveDeviceModelCommand(new ManufacturerId(Guid.CreateVersion7()), new DeviceModelInternalId(Guid.CreateVersion7())));
 
         Assert.Equal(ErrorType.Forbidden, removed.FirstError.Type);
     }

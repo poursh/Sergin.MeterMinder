@@ -1,5 +1,6 @@
 using Grpc.Core;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.SharedKernel.Presentation.Grpc.Errors;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
@@ -30,7 +31,7 @@ public sealed class DeviceGrpcService(ISender sender) : DeviceService.DeviceServ
         GetDeviceByIdRequest request, ServerCallContext context)
     {
         ErrorOr<DeviceQueryResponse> result = await sender.Send(
-            new GetDeviceByIdQueryCommand(Guid.Parse(request.Id)), context.CancellationToken);
+            new GetDeviceByIdQueryCommand(new DeviceIntenralId(Guid.Parse(request.Id))), context.CancellationToken);
 
         return result.Match(
             response => new GetDeviceByIdReply

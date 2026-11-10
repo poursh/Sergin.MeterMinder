@@ -4,4 +4,5 @@ using Sergin.SharedKernel.Application.Commands;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Create;
 
-public sealed record CreateDeviceCommand(DeviceId DeviceId, DeviceModelInternalId DeviceModelId) : ICommand<CreateDeviceCommandResponse>;
+public sealed record CreateDeviceCommand(DeviceId DeviceId, DeviceModelInternalId DeviceModelId)
+    : ICommand<CreateDeviceCommandResponse>, ICreateCommand<Device, DeviceIntenralId>;

@@ -16,10 +16,10 @@ public sealed partial class DeviceManagementConcurrencyTests
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         Guid id = await CreateDeviceAsync(dispatcher);
-        DeviceQueryResponse device = (await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(id))).Value;
+        DeviceQueryResponse device = (await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(id)))).Value;
 
         ErrorOr<UpdateDeviceCommandResponse> updated = await dispatcher.SendAsync(
-            new UpdateDeviceCommand(id, new DeviceId($"device-{Guid.CreateVersion7()}"), new DeviceModelInternalId(device.DeviceModelId)));
+            new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId($"device-{Guid.CreateVersion7()}"), new DeviceModelInternalId(device.DeviceModelId)));
 
         Assert.Equal(VersionErrors.RequiredType, (int)updated.FirstError.Type);
     }
@@ -31,15 +31,15 @@ public sealed partial class DeviceManagementConcurrencyTests
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         Guid id = await CreateDeviceAsync(dispatcher);
         Guid other = await CreateDeviceAsync(dispatcher);
-        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(id));
-        ErrorOr<Versioned<DeviceQueryResponse>> otherLoaded = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(other));
+        ErrorOr<Versioned<DeviceQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(id)));
+        ErrorOr<Versioned<DeviceQueryResponse>> otherLoaded = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(other)));
 
         ErrorOr<Versioned<UpdateDeviceCommandResponse>> updated = await dispatcher.SendVersionedAsync(
-            new UpdateDeviceCommand(id, new DeviceId($"device-{Guid.CreateVersion7()}"), new DeviceModelInternalId(loaded.Value.Value.DeviceModelId)),
+            new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId($"device-{Guid.CreateVersion7()}"), new DeviceModelInternalId(loaded.Value.Value.DeviceModelId)),
             otherLoaded.Value.Version);
 
         Assert.True(VersionErrors.IsStale(updated.FirstError));
-        Assert.Equal(loaded.Value.Value.DeviceId, (await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(id))).Value.DeviceId);
+        Assert.Equal(loaded.Value.Value.DeviceId, (await dispatcher.SendAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(id)))).Value.DeviceId);
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public sealed partial class DeviceManagementConcurrencyTests
         ManufacturerId id = await CreateManufacturerAsync(dispatcher);
 
         ErrorOr<UpdateManufacturerCommandResponse> updated = await dispatcher.SendAsync(
-            new UpdateManufacturerCommand(id.Value, new ManufacturerName($"manufacturer-{Guid.CreateVersion7()}"), Address: null));
+            new UpdateManufacturerCommand(new ManufacturerId(id.Value), new ManufacturerName($"manufacturer-{Guid.CreateVersion7()}"), Address: null));
 
         Assert.Equal(VersionErrors.RequiredType, (int)updated.FirstError.Type);
     }
@@ -62,15 +62,15 @@ public sealed partial class DeviceManagementConcurrencyTests
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         ManufacturerId id = await CreateManufacturerAsync(dispatcher);
         ManufacturerId other = await CreateManufacturerAsync(dispatcher);
-        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(id.Value));
-        ErrorOr<Versioned<ManufacturerQueryResponse>> otherLoaded = await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(other.Value));
+        ErrorOr<Versioned<ManufacturerQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(new ManufacturerId(id.Value)));
+        ErrorOr<Versioned<ManufacturerQueryResponse>> otherLoaded = await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(new ManufacturerId(other.Value)));
 
         ErrorOr<Versioned<UpdateManufacturerCommandResponse>> updated = await dispatcher.SendVersionedAsync(
-            new UpdateManufacturerCommand(id.Value, new ManufacturerName($"manufacturer-{Guid.CreateVersion7()}"), Address: null),
+            new UpdateManufacturerCommand(new ManufacturerId(id.Value), new ManufacturerName($"manufacturer-{Guid.CreateVersion7()}"), Address: null),
             otherLoaded.Value.Version);
 
         Assert.True(VersionErrors.IsStale(updated.FirstError));
-        Assert.Equal(loaded.Value.Value.Name, (await dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(id.Value))).Value.Name);
+        Assert.Equal(loaded.Value.Value.Name, (await dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(new ManufacturerId(id.Value)))).Value.Name);
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public sealed partial class DeviceManagementConcurrencyTests
         DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId);
 
         ErrorOr<RenameDeviceModelCommandResponse> renamed = await dispatcher.SendAsync(
-            new RenameDeviceModelCommand(manufacturerId, model.Value, new DeviceModelName($"model-{Guid.CreateVersion7()}")));
+            new RenameDeviceModelCommand(manufacturerId, model, new DeviceModelName($"model-{Guid.CreateVersion7()}")));
 
         Assert.Equal(VersionErrors.RequiredType, (int)renamed.FirstError.Type);
     }
@@ -94,12 +94,12 @@ public sealed partial class DeviceManagementConcurrencyTests
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
         ErrorOr<Versioned<ManufacturerQueryResponse>> before =
-            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value));
+            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId));
         // Adding the model moves the manufacturer's version, so `before` is now stale.
         DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId);
 
         ErrorOr<Versioned<RenameDeviceModelCommandResponse>> renamed = await dispatcher.SendVersionedAsync(
-            new RenameDeviceModelCommand(manufacturerId, model.Value, new DeviceModelName($"model-{Guid.CreateVersion7()}")),
+            new RenameDeviceModelCommand(manufacturerId, model, new DeviceModelName($"model-{Guid.CreateVersion7()}")),
             before.Value.Version);
 
         Assert.True(VersionErrors.IsStale(renamed.FirstError));
@@ -114,7 +114,7 @@ public sealed partial class DeviceManagementConcurrencyTests
         DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId);
 
         ErrorOr<RemoveDeviceModelCommandResponse> removed =
-            await dispatcher.SendAsync(new RemoveDeviceModelCommand(manufacturerId, model.Value));
+            await dispatcher.SendAsync(new RemoveDeviceModelCommand(manufacturerId, model));
 
         Assert.Equal(VersionErrors.RequiredType, (int)removed.FirstError.Type);
     }
@@ -126,13 +126,13 @@ public sealed partial class DeviceManagementConcurrencyTests
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         ManufacturerId manufacturerId = await CreateManufacturerAsync(dispatcher);
         ErrorOr<Versioned<ManufacturerQueryResponse>> before =
-            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value));
+            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId));
         DeviceModelInternalId model = await AddDeviceModelAsync(dispatcher, manufacturerId);
 
         ErrorOr<Versioned<RemoveDeviceModelCommandResponse>> removed = await dispatcher.SendVersionedAsync(
-            new RemoveDeviceModelCommand(manufacturerId, model.Value), before.Value.Version);
+            new RemoveDeviceModelCommand(manufacturerId, model), before.Value.Version);
 
         Assert.True(VersionErrors.IsStale(removed.FirstError));
-        Assert.False((await dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(manufacturerId.Value, model.Value))).IsError);
+        Assert.False((await dispatcher.SendAsync(new GetDeviceModelByIdQueryCommand(manufacturerId, model))).IsError);
     }
 }

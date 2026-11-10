@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetAudit;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Presentation.WebApi.Endpoints.Results;
 
@@ -13,7 +14,7 @@ internal class GetManufacturerAuditEndpoint : IEndpoint
     {
         routeBuilder.MapGet("/manufacturers/{manufacturerId:guid}/audit", async ([FromRoute] Guid manufacturerId, ISender sender) =>
         {
-            ErrorOr<AuditInfo> res = await sender.Send(new GetManufacturerAuditQueryCommand(manufacturerId));
+            ErrorOr<AuditInfo> res = await sender.Send(new GetManufacturerAuditQueryCommand(new ManufacturerId(manufacturerId)));
 
             return res.ToApiResult();
         });

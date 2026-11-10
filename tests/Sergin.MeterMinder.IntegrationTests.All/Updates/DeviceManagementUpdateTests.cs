@@ -66,7 +66,7 @@ public sealed partial class DeviceManagementUpdateTests(SerginWebApiFactory<Prog
 
     private static async Task DeleteDeviceAsync(ISerginDispatcher dispatcher, Guid id)
     {
-        ErrorOr<DeleteDeviceCommandResponse> deleted = await dispatcher.SendAtDeviceVersionAsync(id, new DeleteDeviceCommand(id));
+        ErrorOr<DeleteDeviceCommandResponse> deleted = await dispatcher.SendAtDeviceVersionAsync(id, new DeleteDeviceCommand(new DeviceIntenralId(id)));
 
         Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
     }

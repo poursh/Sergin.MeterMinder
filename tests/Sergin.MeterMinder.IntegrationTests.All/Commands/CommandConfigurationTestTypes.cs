@@ -3,6 +3,7 @@ using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Queries;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Securities;
 
@@ -45,8 +46,7 @@ internal sealed class ConfiguredTestCommandConfiguration : ICommandConfiguration
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestCommand> builder) =>
         builder.RequirePermissions(TestThingPermissions.Read)
-            .RequirePermissions(TestThingPermissions.Update, TestThingPermissions.Delete)
-            .RequireExpectedVersion();
+            .RequirePermissions(TestThingPermissions.Update, TestThingPermissions.Delete);
 }
 
 internal sealed class ConfiguredTestQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery>
@@ -58,7 +58,7 @@ internal sealed class ConfiguredTestQueryConfiguration : ICommandConfiguration<C
 internal sealed class DuplicateConfiguredTestCommandConfiguration : ICommandConfiguration<ConfiguredTestCommand>
 {
     public void Configure(CommandConfigurationBuilder<ConfiguredTestCommand> builder) =>
-        builder.RequireExpectedVersion();
+        builder.RequirePermissions(TestThingPermissions.Read);
 }
 
 internal sealed class NeedsServiceCommandConfiguration(IServiceProvider services) : ICommandConfiguration<ConfiguredTestCommand>
@@ -66,14 +66,8 @@ internal sealed class NeedsServiceCommandConfiguration(IServiceProvider services
     public void Configure(CommandConfigurationBuilder<ConfiguredTestCommand> builder)
     {
         ArgumentNullException.ThrowIfNull(services);
-        builder.RequireExpectedVersion();
+        builder.RequirePermissions(PermissionDefinition.AllPlatform);
     }
-}
-
-internal sealed class VersionedQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery>
-{
-    public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.RequireExpectedVersion();
 }
 
 internal sealed class AllPlatformTestQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery>
@@ -90,8 +84,8 @@ internal sealed class AbstractRequestConfiguration : ICommandConfiguration<Abstr
         builder.RequirePermissions(TestThingPermissions.Delete);
 }
 
-// Aggregate-bound configurations. No context maps these roots: the registry reads only their feature
-// configurations, passed alongside in the same FromConfigurationTypes list.
+// Typed requests on test roots: the registry reads their root from the type and the root's features from the feature
+// configurations passed alongside in the same FromConfigurationTypes list. No context maps these roots.
 internal sealed class ScopedTestRoot : AggregateRoot<Guid>;
 
 internal sealed class GlobalTestRoot : AggregateRoot<Guid>;
@@ -108,34 +102,26 @@ internal sealed class GlobalTestRootFeatureConfiguration : IAggregateFeatureConf
     public void Configure(AggregateFeatureBuilder<GlobalTestRoot> builder) => builder.Audited();
 }
 
-internal sealed class ScopedBoundCommandConfiguration : ICommandConfiguration<ConfiguredTestCommand, ScopedTestRoot>
+internal sealed record ScopedTestDeleteCommand(Guid Id) : IDeleteCommand<ScopedTestRoot, Guid>, ICommand<Deleted>;
+
+internal sealed record GlobalTestGetOneQuery(Guid Id) : IGetOneQuery<GlobalTestRoot, Guid>, IQuery<Success>;
+
+internal sealed record UnconfiguredRootGetOneQuery(Guid Id) : IGetOneQuery<UnconfiguredTestRoot, Guid>, IQuery<Success>;
+
+internal sealed class ScopedTestDeleteCommandConfiguration : ICommandConfiguration<ScopedTestDeleteCommand>
 {
-    public void Configure(CommandConfigurationBuilder<ConfiguredTestCommand> builder) =>
-        builder.RequirePermissions(TestThingPermissions.Update).RequireExpectedVersion();
+    public void Configure(CommandConfigurationBuilder<ScopedTestDeleteCommand> builder) =>
+        builder.RequirePermissions(TestThingPermissions.Update);
 }
 
-internal sealed class GlobalBoundQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery, GlobalTestRoot>
+internal sealed class GlobalTestGetOneQueryConfiguration : ICommandConfiguration<GlobalTestGetOneQuery>
 {
-    public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
+    public void Configure(CommandConfigurationBuilder<GlobalTestGetOneQuery> builder) =>
         builder.RequirePermissions(TestThingPermissions.Read);
 }
 
-internal sealed class UnconfiguredRootBoundQueryConfiguration : ICommandConfiguration<ConfiguredTestQuery, UnconfiguredTestRoot>
+internal sealed class UnconfiguredRootGetOneQueryConfiguration : ICommandConfiguration<UnconfiguredRootGetOneQuery>
 {
-    public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
-        builder.RequirePermissions(TestThingPermissions.Read);
-}
-
-internal sealed class VersionOnUnversionedRootConfiguration : ICommandConfiguration<ConfiguredTestCommand, GlobalTestRoot>
-{
-    public void Configure(CommandConfigurationBuilder<ConfiguredTestCommand> builder) =>
-        builder.RequirePermissions(TestThingPermissions.Update).RequireExpectedVersion();
-}
-
-// Both shapes for one request: the duplicate rule refuses it like two classes.
-internal sealed class BothShapesConfiguration
-    : ICommandConfiguration<ConfiguredTestQuery>, ICommandConfiguration<ConfiguredTestQuery, GlobalTestRoot>
-{
-    public void Configure(CommandConfigurationBuilder<ConfiguredTestQuery> builder) =>
+    public void Configure(CommandConfigurationBuilder<UnconfiguredRootGetOneQuery> builder) =>
         builder.RequirePermissions(TestThingPermissions.Read);
 }

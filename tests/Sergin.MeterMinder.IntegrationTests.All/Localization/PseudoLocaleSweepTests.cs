@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
+using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.IntegrationTests.All.Concurrency;
@@ -308,12 +309,12 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
     private static async Task DeleteCatalogRowsAsync(ISerginDispatcher dispatcher, Guid device, ManufacturerId manufacturer)
     {
         ErrorOr<DeleteDeviceCommandResponse> deviceDeleted =
-            await dispatcher.SendAtDeviceVersionAsync(device, new DeleteDeviceCommand(device));
+            await dispatcher.SendAtDeviceVersionAsync(device, new DeleteDeviceCommand(new DeviceIntenralId(device)));
         Assert.False(deviceDeleted.IsError, deviceDeleted.IsError ? deviceDeleted.FirstError.Description : string.Empty);
 
         // Soft-deletes the manufacturer and, with it, the seeded model.
         ErrorOr<DeleteManufacturerCommandResponse> manufacturerDeleted =
-            await dispatcher.SendAtManufacturerVersionAsync(manufacturer.Value, new DeleteManufacturerCommand(manufacturer.Value));
+            await dispatcher.SendAtManufacturerVersionAsync(manufacturer.Value, new DeleteManufacturerCommand(manufacturer));
         Assert.False(
             manufacturerDeleted.IsError, manufacturerDeleted.IsError ? manufacturerDeleted.FirstError.Description : string.Empty);
     }
@@ -352,9 +353,9 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
 
     private static async Task DeleteLanguageAsync(ISerginDispatcher dispatcher, Guid id)
     {
-        ErrorOr<Versioned<LanguageQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(id));
+        ErrorOr<Versioned<LanguageQueryResponse>> loaded = await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(new LanguageId(id)));
         ErrorOr<Versioned<DeleteLanguageCommandResponse>> deleted = await dispatcher.SendVersionedAsync(
-            new DeleteLanguageCommand(id), loaded.IsError ? RowVersion.Create() : loaded.Value.Version);
+            new DeleteLanguageCommand(new LanguageId(id)), loaded.IsError ? RowVersion.Create() : loaded.Value.Version);
 
         Assert.False(deleted.IsError, deleted.IsError ? deleted.FirstError.Description : string.Empty);
     }

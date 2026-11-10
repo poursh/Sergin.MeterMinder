@@ -122,7 +122,7 @@ public sealed class DeviceManagementTextTests(SerginWebApiFactory<Program> facto
         ISerginDispatcher dispatcher, ManufacturerId manufacturerId, DeviceModelName name)
     {
         ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
-            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId.Value));
+            await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturerId));
 
         return (await dispatcher.SendVersionedAsync(new AddDeviceModelCommand(manufacturerId, name), loaded.Value.Version))
             .Then(sent => sent.Value);

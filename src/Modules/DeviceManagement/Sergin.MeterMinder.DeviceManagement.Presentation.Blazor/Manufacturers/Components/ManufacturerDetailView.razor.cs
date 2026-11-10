@@ -4,6 +4,7 @@ using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacture
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetAudit;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
@@ -66,7 +67,7 @@ public sealed partial class ManufacturerDetailView
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
-    private Task<ErrorOr<AuditInfo>> LoadAuditAsync() => Dispatcher.SendAsync(new GetManufacturerAuditQueryCommand(Id));
+    private Task<ErrorOr<AuditInfo>> LoadAuditAsync() => Dispatcher.SendAsync(new GetManufacturerAuditQueryCommand(new ManufacturerId(Id)));
 
     private async Task ReloadAsync()
     {
@@ -85,7 +86,7 @@ public sealed partial class ManufacturerDetailView
     private async Task LoadAsync()
     {
         ErrorOr<Versioned<ManufacturerQueryResponse>> loaded =
-            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(Id));
+            await Dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(new ManufacturerId(Id)));
 
         if (loaded.IsError)
         {
@@ -100,7 +101,7 @@ public sealed partial class ManufacturerDetailView
         manufacturer = loaded.Value.Value;
         version = loaded.Value.Version;
 
-        ErrorOr<ManufacturerOverview> figures = await Dispatcher.SendAsync(new GetManufacturerOverviewQueryCommand(Id));
+        ErrorOr<ManufacturerOverview> figures = await Dispatcher.SendAsync(new GetManufacturerOverviewQueryCommand(new ManufacturerId(Id)));
         overview = figures.IsError ? null : figures.Value;
     }
 
@@ -115,7 +116,7 @@ public sealed partial class ManufacturerDetailView
         deleting = true;
 
         ErrorOr<Versioned<DeleteManufacturerCommandResponse>> result =
-            await Dispatcher.SendVersionedAsync(new DeleteManufacturerCommand(Id), version);
+            await Dispatcher.SendVersionedAsync(new DeleteManufacturerCommand(new ManufacturerId(Id)), version);
 
         deleting = false;
 
