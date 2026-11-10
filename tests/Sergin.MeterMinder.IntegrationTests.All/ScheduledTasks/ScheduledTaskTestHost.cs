@@ -4,8 +4,10 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Hosts.ScheduledTasks;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
 using Sergin.SharedKernel.IntegrationTests;
 
@@ -30,12 +32,26 @@ internal static class ScheduledTaskTestHost
         typeof(TouchOneProbeCommandConfiguration),
     ];
 
-    public static WebApplicationFactory<Program> Create(SerginWebApiFactory<Program> factory, Action<IWebHostBuilder>? configure = null)
+    /// <param name="factory">The shared factory.</param>
+    /// <param name="configure">The test's own services.</param>
+    /// <param name="hostedServices">
+    /// Keep the trigger rebuild and the purge loop. Off by default: they run at host start, against whatever an earlier
+    /// test class left in the shared tst schema, racing the reset and filling the test's engine with stale triggers. Only
+    /// the tests of those two services keep them; without them, a host with no engine (a model test) still starts.
+    /// </param>
+    public static WebApplicationFactory<Program> Create(
+        SerginWebApiFactory<Program> factory, Action<IWebHostBuilder>? configure = null, bool hostedServices = false)
     {
         return factory.WithWebHostBuilder(builder =>
         {
             builder.ConfigureServices((context, services) =>
             {
+                if (!hostedServices)
+                {
+                    RemoveHostedService<ScheduledTaskTriggerRebuildService>(services);
+                    RemoveHostedService<ScheduledTaskPurgeService>(services);
+                }
+
                 services.AddModuleDbContext<ScheduledTasksDbContext, IScheduledTasksTestDbContext, IScheduledTasksTestUnitOfWork>(
                     context.Configuration.GetSection("Sergin"), ScheduledTasksDbContext.Schema);
 
@@ -56,6 +72,16 @@ internal static class ScheduledTaskTestHost
         // Not EnsureCreatedAsync: it no-ops once the database holds any table. CreateTablesAsync builds this model's.
         await context.Database.ExecuteSqlRawAsync(ResetSchemaSql);
         await context.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
+    }
+
+    private static void RemoveHostedService<TService>(IServiceCollection services)
+    {
+        foreach (ServiceDescriptor hosted in services
+            .Where(descriptor => descriptor.ServiceType == typeof(IHostedService) && descriptor.ImplementationType == typeof(TService))
+            .ToList())
+        {
+            services.Remove(hosted);
+        }
     }
 
     /// <summary>

@@ -20,6 +20,8 @@ internal sealed class FailingScheduledTaskEngine : IScheduledTaskEngine
 
     public Task<bool> ExistsAsync(Guid engineTriggerId, CancellationToken ct) => Fail<bool>();
 
+    public Task<IReadOnlyCollection<ScheduledEngineTrigger>> ListTriggersAsync(CancellationToken ct) => Fail<IReadOnlyCollection<ScheduledEngineTrigger>>();
+
     public Task<Guid> EnqueueRunItemAsync(ScheduledRunItemReference item, CancellationToken ct) => Fail<Guid>();
 
     public bool IsValidCron(string cron, string timeZoneId) => true;

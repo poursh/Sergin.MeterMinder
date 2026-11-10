@@ -16,6 +16,7 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
 
     private readonly Lock gate = new();
     private readonly Queue<ScheduledRunItemReference> queue = new();
+    private readonly Dictionary<Guid, DateTime> createdAt = [];
 
     public Dictionary<Guid, (ScheduledTrigger Trigger, bool Enabled)> Triggers { get; } = [];
 
@@ -40,9 +41,37 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
         lock (gate)
         {
             Triggers[id] = (trigger, true);
+            createdAt[id] = DateTime.UtcNow;
         }
 
         return Task.FromResult(id);
+    }
+
+    /// <summary>Puts a trigger straight into the engine, as if it had been made at <paramref name="madeAtUtc"/>.</summary>
+    public Guid AddTrigger(ScheduledTrigger trigger, DateTime madeAtUtc)
+    {
+        var id = Guid.CreateVersion7();
+
+        lock (gate)
+        {
+            Triggers[id] = (trigger, true);
+            createdAt[id] = madeAtUtc;
+        }
+
+        return id;
+    }
+
+    public Task<IReadOnlyCollection<ScheduledEngineTrigger>> ListTriggersAsync(CancellationToken ct)
+    {
+        ThrowIfFailing();
+
+        lock (gate)
+        {
+            IReadOnlyCollection<ScheduledEngineTrigger> all = [.. Triggers.Select(pair => new ScheduledEngineTrigger(
+                pair.Key, pair.Value.Trigger.Schema, pair.Value.Trigger.TaskId, createdAt.GetValueOrDefault(pair.Key, DateTime.UtcNow)))];
+
+            return Task.FromResult(all);
+        }
     }
 
     public Task RescheduleAsync(Guid engineTriggerId, ScheduledTrigger trigger, CancellationToken ct)
