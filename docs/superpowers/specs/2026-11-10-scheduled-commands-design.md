@@ -278,6 +278,14 @@ keeps run history, and ships a dashboard. The adapter registers TickerQ's own ta
 separate from every module. The TickerQ dashboard is **not** exposed by default. If it is turned on, it is
 Development-only behind the host's authentication. The Sergin UI is the operator's view.
 
+**Version and licence (decided with the user, 2026-11-10).** TickerQ **10.5.1** (the .NET 10 line), on the free
+Community licence. The 5.x line is source-available, not MIT, and a missing or invalid licence certificate blocks
+execution. So the licence path is configuration (`Sergin:ScheduledTasks:TickerQ:LicensePath`); the file is never
+committed; host start fails naming that key when the file is missing; and the tests that run real TickerQ skip
+with a reason when it is absent. Eligibility under the Community terms is to be checked before the first customer
+deployment. Because TickerQ holds only triggers, which are rebuilt from `scheduled_tasks` at start, a later move to
+another engine (Quartz.NET was the alternative considered) is a new adapter with no data migration.
+
 **TickerQ is the user's choice and is fixed.** If its current documentation shows a blocker (no .NET 10 or
 EF Core 10 support, no separate schema, no runtime cron tickers, no usable retry), the builder stops and asks
 the user. The builder does not swap engines silently. *(My call.)*
