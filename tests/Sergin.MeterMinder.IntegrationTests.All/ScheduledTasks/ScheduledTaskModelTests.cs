@@ -169,7 +169,7 @@ public sealed class ScheduledTaskModelTests(SerginWebApiFactory<Program> factory
             new ScheduledRunDefinition(task.Id, ScheduledRunTrigger.RunNow, savedBy, Guid.CreateVersion7(), "root", task.CommandName, task.Arguments),
             total: 1,
             startedAtUtc: DateTime.UtcNow);
-        var item = ScheduledTaskRunItem.Create(run.Id, target.TargetId, target.RootId);
+        var item = ScheduledTaskRunItem.Create(run.Id, target.TargetId, target.RootId, DateTime.UtcNow);
         item.MarkRunning(DateTime.UtcNow);
         item.MarkFailed("Code", "Description", DateTime.UtcNow);
         run.Complete(succeeded: 0, failed: 1, DateTime.UtcNow);

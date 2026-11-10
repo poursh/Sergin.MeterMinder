@@ -315,7 +315,7 @@ public sealed class RunItemExecutionTests(SerginWebApiFactory<Program> factory) 
             new ScheduledRunDefinition(null, ScheduledRunTrigger.OneOff, user.Id, scopeId, path, TouchName, arguments),
             targets.Length,
             DateTime.UtcNow);
-        ScheduledTaskRunItem[] items = [.. targets.Select(target => ScheduledTaskRunItem.Create(run.Id, target, rootId: null))];
+        ScheduledTaskRunItem[] items = [.. targets.Select(target => ScheduledTaskRunItem.Create(run.Id, target, rootId: null, DateTime.UtcNow))];
 
         IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema);
         store.AddRun(run, items);

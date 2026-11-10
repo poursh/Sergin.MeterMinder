@@ -13,8 +13,8 @@ namespace Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 
 /// <summary>
 /// Sergin's rows are the definition, so a host start puts the engine back in step with them: a task whose trigger the
-/// engine lost gets a new one (disabled when the task is paused), a run item saved but never handed to the engine is
-/// handed over, and a trigger of this host's schemas that no live task links is removed. Each test seeds the rows
+/// engine lost gets a new one, every trigger is enabled exactly when its task is active, and a trigger of this host's
+/// schemas that no live task links is removed. Each test seeds the rows
 /// through a host without the rebuild, then starts a second host over the same engine and waits for the rebuild.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
@@ -71,17 +71,16 @@ public sealed class TriggerRebuildTests(SerginWebApiFactory<Program> factory) : 
     }
 
     [Fact]
-    public async Task UnqueuedRunItem_IsHandedToTheEngineAtStart_ARecentOneIsLeftAlone()
+    public async Task ActiveTask_DisabledTrigger_IsEnabledAgainAtStart()
     {
-        Guid stranded = await SeedRunItemAsync(DateTime.UtcNow.AddMinutes(-10));
-        Guid starting = await SeedRunItemAsync(DateTime.UtcNow);
+        Guid disabled = await engine.ScheduleAsync(new ScheduledTrigger(Schema, new ScheduledTaskId(Guid.Empty), Cron, "UTC"), CancellationToken.None);
+        await engine.SetEnabledAsync(disabled, enabled: false, CancellationToken.None);
+        ScheduledTaskId id = await SeedTaskAsync(disabled, paused: false);
 
         await using WebApplicationFactory<Program> restarted = Start();
 
-        Assert.True(await EventuallyTrueAsync(async () => (await ItemAsync(stranded)).EngineJobId is not null));
-        ScheduledRunItemReference queued = Assert.Single(engine.QueuedItems);
-        Assert.Equal(new ScheduledRunItemReference(Schema, stranded), queued);
-        Assert.Null((await ItemAsync(starting)).EngineJobId);
+        Assert.True(await EventuallyTrueAsync(() => Task.FromResult(engine.Triggers[disabled].Enabled)));
+        Assert.Equal(disabled, (await TaskAsync(id)).EngineTriggerId);
     }
 
     [Fact]
@@ -148,36 +147,12 @@ public sealed class TriggerRebuildTests(SerginWebApiFactory<Program> factory) : 
         return task.Id;
     }
 
-    private async Task<Guid> SeedRunItemAsync(DateTime startedAtUtc)
-    {
-        using IServiceScope scope = seeding.Services.CreateScope();
-        IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(Schema);
-
-        var run = ScheduledTaskRun.Start(
-            new ScheduledRunDefinition(null, ScheduledRunTrigger.OneOff, new UserId(Guid.CreateVersion7()), tree.North, "root", "tst.probes.touch", "{}"),
-            1,
-            startedAtUtc);
-        var item = ScheduledTaskRunItem.Create(run.Id, Guid.CreateVersion7(), null);
-        store.AddRun(run, [item]);
-        await store.SaveAsync(CancellationToken.None);
-
-        return item.Id;
-    }
-
     private async Task<ScheduledTask> TaskAsync(ScheduledTaskId id)
     {
         using IServiceScope scope = seeding.Services.CreateScope();
         ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
 
         return await context.ScheduledTasks.IgnoreQueryFilters().AsNoTracking().SingleAsync(task => task.Id == id);
-    }
-
-    private async Task<ScheduledTaskRunItem> ItemAsync(Guid id)
-    {
-        using IServiceScope scope = seeding.Services.CreateScope();
-        ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
-
-        return await context.ScheduledTaskRunItems.AsNoTracking().SingleAsync(item => item.Id == id);
     }
 
     /// <summary>Polls until <paramref name="probe"/> answers a value; the rebuild runs in the background after start.</summary>

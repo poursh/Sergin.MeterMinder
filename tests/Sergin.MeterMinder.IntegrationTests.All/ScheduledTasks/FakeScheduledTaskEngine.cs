@@ -18,7 +18,19 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
     private readonly Queue<ScheduledRunItemReference> queue = new();
     private readonly Dictionary<Guid, DateTime> createdAt = [];
 
-    public Dictionary<Guid, (ScheduledTrigger Trigger, bool Enabled)> Triggers { get; } = [];
+    private readonly Dictionary<Guid, (ScheduledTrigger Trigger, bool Enabled)> triggers = [];
+
+    /// <summary>A snapshot, taken under the lock: the rebuild and the recovery change the triggers from other threads.</summary>
+    public IReadOnlyDictionary<Guid, (ScheduledTrigger Trigger, bool Enabled)> Triggers
+    {
+        get
+        {
+            lock (gate)
+            {
+                return new Dictionary<Guid, (ScheduledTrigger Trigger, bool Enabled)>(triggers);
+            }
+        }
+    }
 
     public bool FailNextCall { get; set; }
 
@@ -40,7 +52,7 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
 
         lock (gate)
         {
-            Triggers[id] = (trigger, true);
+            triggers[id] = (trigger, true);
             createdAt[id] = DateTime.UtcNow;
         }
 
@@ -54,7 +66,7 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
 
         lock (gate)
         {
-            Triggers[id] = (trigger, true);
+            triggers[id] = (trigger, true);
             createdAt[id] = madeAtUtc;
         }
 
@@ -67,7 +79,7 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
 
         lock (gate)
         {
-            IReadOnlyCollection<ScheduledEngineTrigger> all = [.. Triggers.Select(pair => new ScheduledEngineTrigger(
+            IReadOnlyCollection<ScheduledEngineTrigger> all = [.. triggers.Select(pair => new ScheduledEngineTrigger(
                 pair.Key, pair.Value.Trigger.Schema, pair.Value.Trigger.TaskId, createdAt.GetValueOrDefault(pair.Key, DateTime.UtcNow)))];
 
             return Task.FromResult(all);
@@ -80,7 +92,7 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
 
         lock (gate)
         {
-            Triggers[engineTriggerId] = (trigger, Triggers.TryGetValue(engineTriggerId, out (ScheduledTrigger Trigger, bool Enabled) existing) && existing.Enabled);
+            triggers[engineTriggerId] = (trigger, triggers.TryGetValue(engineTriggerId, out (ScheduledTrigger Trigger, bool Enabled) existing) && existing.Enabled);
         }
 
         return Task.CompletedTask;
@@ -92,9 +104,9 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
 
         lock (gate)
         {
-            if (Triggers.TryGetValue(engineTriggerId, out (ScheduledTrigger Trigger, bool Enabled) existing))
+            if (triggers.TryGetValue(engineTriggerId, out (ScheduledTrigger Trigger, bool Enabled) existing))
             {
-                Triggers[engineTriggerId] = (existing.Trigger, enabled);
+                triggers[engineTriggerId] = (existing.Trigger, enabled);
             }
         }
 
@@ -107,7 +119,7 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
 
         lock (gate)
         {
-            Triggers.Remove(engineTriggerId);
+            triggers.Remove(engineTriggerId);
         }
 
         return Task.CompletedTask;
@@ -119,7 +131,26 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
 
         lock (gate)
         {
-            return Task.FromResult(Triggers.ContainsKey(engineTriggerId));
+            return Task.FromResult(triggers.ContainsKey(engineTriggerId));
+        }
+    }
+
+    public Task<bool?> GetEnabledAsync(Guid engineTriggerId, CancellationToken ct)
+    {
+        ThrowIfFailing();
+
+        lock (gate)
+        {
+            return Task.FromResult(triggers.TryGetValue(engineTriggerId, out (ScheduledTrigger Trigger, bool Enabled) held) ? held.Enabled : (bool?)null);
+        }
+    }
+
+    /// <summary>Drops every queued job, as an engine that lost them would.</summary>
+    public void LoseQueuedItems()
+    {
+        lock (gate)
+        {
+            queue.Clear();
         }
     }
 

@@ -35,7 +35,7 @@ internal static class ScheduledTaskTestHost
     /// <param name="factory">The shared factory.</param>
     /// <param name="configure">The test's own services.</param>
     /// <param name="hostedServices">
-    /// Keep the trigger rebuild and the purge loop. Off by default: they run at host start, against whatever an earlier
+    /// Keep the trigger rebuild, the purge loop and the run item recovery. Off by default: they run at host start, against whatever an earlier
     /// test class left in the shared tst schema, racing the reset and filling the test's engine with stale triggers. Only
     /// the tests of those two services keep them; without them, a host with no engine (a model test) still starts.
     /// </param>
@@ -50,6 +50,7 @@ internal static class ScheduledTaskTestHost
                 {
                     RemoveHostedService<ScheduledTaskTriggerRebuildService>(services);
                     RemoveHostedService<ScheduledTaskPurgeService>(services);
+                    RemoveHostedService<ScheduledRunItemRecoveryService>(services);
                 }
 
                 services.AddModuleDbContext<ScheduledTasksDbContext, IScheduledTasksTestDbContext, IScheduledTasksTestUnitOfWork>(

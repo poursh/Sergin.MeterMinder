@@ -323,7 +323,7 @@ public sealed class ScheduledTaskQueryTests(SerginWebApiFactory<Program> factory
         var run = ScheduledTaskRun.Start(
             new ScheduledRunDefinition(null, ScheduledRunTrigger.OneOff, manager.Id, scopeId, path, TouchName, arguments), 1, startedAtUtc);
         IScheduledTaskStore store = Store(scope);
-        store.AddRun(run, [ScheduledTaskRunItem.Create(run.Id, targetId, null)]);
+        store.AddRun(run, [ScheduledTaskRunItem.Create(run.Id, targetId, null, DateTime.UtcNow)]);
         await store.SaveAsync(CancellationToken.None);
 
         return run.Id;

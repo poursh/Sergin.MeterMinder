@@ -81,7 +81,7 @@ public sealed class PurgeTests(SerginWebApiFactory<Program> factory) : IAsyncLif
         }
 
         var run = ScheduledTaskRun.Start(definition, 1, startedAtUtc);
-        var item = ScheduledTaskRunItem.Create(run.Id, Guid.CreateVersion7(), null);
+        var item = ScheduledTaskRunItem.Create(run.Id, Guid.CreateVersion7(), null, DateTime.UtcNow);
 
         if (completedAtUtc is { } at)
         {
