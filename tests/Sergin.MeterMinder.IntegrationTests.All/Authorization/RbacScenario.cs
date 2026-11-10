@@ -1,5 +1,6 @@
 using ErrorOr;
 using MediatR;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -7,7 +8,6 @@ using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Domain.Users;
-using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.Administration.UserAccess.Application.Contracts.Roles.Commands.Create;
 using Sergin.Administration.UserAccess.Application.Contracts.Roles.Commands.GetOne;
@@ -26,7 +26,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Authorization;
 /// Company &gt; North Region &gt; Feeder 1 and Feeder 2, plus a South Region beside North. Every write goes
 /// through <see cref="ISerginDispatcher"/> as the host's development user, the way a Blazor page sends it.
 /// </summary>
-internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
+internal sealed class RbacScenario(WebApplicationFactory<Program> factory)
 {
     public static readonly Permission Read = DevicePermissions.Read.Permission;
     public static readonly Permission Update = DevicePermissions.Update.Permission;
@@ -37,7 +37,7 @@ internal sealed class RbacScenario(SerginWebApiFactory<Program> factory)
     public Guid Feeder1 { get; private set; }
     public Guid Feeder2 { get; private set; }
 
-    public static async Task<RbacScenario> BuildAsync(SerginWebApiFactory<Program> factory)
+    public static async Task<RbacScenario> BuildAsync(WebApplicationFactory<Program> factory)
     {
         RbacScenario scenario = new(factory);
         string tag = Guid.NewGuid().ToString("N")[..8];

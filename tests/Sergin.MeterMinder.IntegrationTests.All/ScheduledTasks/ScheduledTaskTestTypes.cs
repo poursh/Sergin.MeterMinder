@@ -29,7 +29,12 @@ internal sealed class ScheduleProbe : AggregateRoot<ScheduleProbeId>
 
     public IReadOnlyCollection<ScheduleProbeChild> Children => children;
 
+    /// <summary>The note the last touch left; what a scheduled send changes.</summary>
+    public string? LastNote { get; private set; }
+
     public static ScheduleProbe Create() => new() { Id = new ScheduleProbeId(Guid.CreateVersion7()) };
+
+    public void Touch(ProbeNote note) => LastNote = note.Value;
 }
 
 internal static class ScheduleProbePermissions
