@@ -147,7 +147,7 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
     private const string ViewerRoleId = "01920000-0000-7000-8000-0000000000a2";
 
     /// <summary>The document title and the body (app bar, drawer, page); the rest of the document is markup and script.</summary>
-    private static IEnumerable<string> VisibleTexts(string html)
+    internal static IEnumerable<string> VisibleTexts(string html)
     {
         string visible = Regex.Replace(
             html,
@@ -192,7 +192,7 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
     /// <c>⟦…⟧</c> (innermost first, since a translated template may wrap a translated label) are taken out must hold no
     /// letter.
     /// </summary>
-    private static bool IsTranslatedOrData(string text, string[] data)
+    internal static bool IsTranslatedOrData(string text, string[] data)
     {
         string rest = data.Where(value => value.Length > 0).OrderByDescending(value => value.Length)
             .Aggregate(text, (current, value) => Regex.Replace(
