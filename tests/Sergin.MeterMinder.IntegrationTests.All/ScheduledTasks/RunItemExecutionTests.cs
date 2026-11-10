@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
@@ -123,6 +124,62 @@ public sealed class RunItemExecutionTests(SerginWebApiFactory<Program> factory) 
         ScheduledTaskRunItem item = Assert.Single(await ItemsAsync(run));
         Assert.Equal(ScheduledRunItemStatus.Failed, item.Status);
         Assert.Equal(Error.Forbidden().Code, item.ErrorCode);
+        Assert.Equal(1, item.Attempts);
+    }
+
+    [Fact]
+    public async Task AlreadyFinishedItem_CompletesItsOpenRun()
+    {
+        TestCaller user = await TouchCallerAsync(tree.North);
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+        Guid run = await StartRunAsync(user, tree.North, "hello", probe.Id.Value);
+
+        // A delivery that saved the item's final status and stopped before completing the run.
+        using (IServiceScope scope = host.Services.CreateScope())
+        {
+            IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema);
+            ScheduledTaskRunItem item = Assert.Single(await ItemsAsync(run));
+            (ScheduledTaskRun _, ScheduledTaskRunItem tracked) = (await store.GetRunItemAsync(item.Id, CancellationToken.None))!.Value;
+            tracked.MarkRunning(DateTime.UtcNow);
+            tracked.MarkSucceeded(DateTime.UtcNow);
+            await store.SaveAsync(CancellationToken.None);
+        }
+
+        Assert.Equal(ScheduledRunStatus.Running, (await RunAsync(run)).Status);
+
+        await Engine.DrainAsync(host.Services);
+
+        ScheduledTaskRun completed = await RunAsync(run);
+        Assert.Equal(ScheduledRunStatus.Completed, completed.Status);
+        Assert.Equal(1, completed.Succeeded);
+        Assert.Equal(1, Assert.Single(await ItemsAsync(run)).Attempts);
+        Assert.Null((await ProbeAsync(probe.Id)).LastNote);
+    }
+
+    [Fact]
+    public void ValueObjectThatRefuses_IsArgumentsInvalid()
+    {
+        ScheduledCommand command = new(
+            "tst.probes.checked", ScheduledTasksDbContext.Schema, typeof(CheckedProbeCommand), typeof(ScheduleProbe),
+            CommandTargetKind.Entity, typeof(ScheduleProbeId), RootIdType: null, Selectable: false);
+
+        ErrorOr<IBaseCommand> refused = ScheduledCommandFactory.Build(command, """{"Note":{"Value":"refused"}}""", Guid.CreateVersion7(), rootId: null);
+        ErrorOr<IBaseCommand> accepted = ScheduledCommandFactory.Build(command, """{"Note":{"Value":"fine"}}""", Guid.CreateVersion7(), rootId: null);
+
+        Assert.Equal(ScheduledTaskErrors.ArgumentsInvalid.Code, refused.FirstError.Code);
+        Assert.Equal("fine", Assert.IsType<CheckedProbeCommand>(accepted.Value).Note.Value);
+    }
+
+    [Fact]
+    public void IdTypeWithoutAGuidConstructor_IsArgumentsInvalid()
+    {
+        ScheduledCommand command = new(
+            "tst.probes.bad-id", ScheduledTasksDbContext.Schema, typeof(TouchProbeCommand), typeof(ScheduleProbe),
+            CommandTargetKind.Entity, typeof(ProbeNote), RootIdType: null, Selectable: false);
+
+        ErrorOr<IBaseCommand> built = ScheduledCommandFactory.Build(command, """{"Note":{"Value":"x"}}""", Guid.CreateVersion7(), rootId: null);
+
+        Assert.Equal(ScheduledTaskErrors.ArgumentsInvalid.Code, built.FirstError.Code);
     }
 
     [Fact]

@@ -167,3 +167,23 @@ internal sealed class OutsideSchemaCommandConfiguration : ICommandConfiguration<
 {
     public void Configure(CommandConfigurationBuilder<OutsideSchemaCommand> builder) => builder.Schedulable("dm.x");
 }
+
+// ---- Argument-template fixtures: built directly, never configured or registered. ----
+
+/// <summary>A value object whose constructor refuses one value, as a domain value object refuses a bad one.</summary>
+internal sealed record CheckedNote
+{
+    public CheckedNote(string value)
+    {
+        if (value == "refused")
+        {
+            throw new ArgumentException("The note was refused.", nameof(value));
+        }
+
+        Value = value;
+    }
+
+    public string Value { get; }
+}
+
+internal sealed record CheckedProbeCommand(ScheduleProbeId Id, CheckedNote Note) : ICommand<TouchProbeResponse>;
