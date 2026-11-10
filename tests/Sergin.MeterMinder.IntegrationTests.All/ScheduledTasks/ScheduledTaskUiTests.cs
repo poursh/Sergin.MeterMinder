@@ -14,7 +14,13 @@ using MudBlazor;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.MeterMinder.IntegrationTests.All.Localization;
 using Sergin.SharedKernel.Application.Localizations;
+using ErrorOr;
+using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
+using Sergin.SharedKernel.Application.ScheduledTasks.Queries;
+using Sergin.SharedKernel.Domain;
+using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
@@ -183,7 +189,7 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
                 return WebUtility.HtmlDecode(root.ToHtmlString());
             });
 
-            foreach (string expected in new[] { "⟦Touch the probe⟧", "⟦Run now⟧", "⟦Save⟧", "⟦Records⟧", "⟦Schedule⟧", "⟦Next runs⟧", "⟦Time zone⟧" })
+            foreach (string expected in new[] { "⟦Touch the probe⟧", "⟦Run now⟧", "⟦Save⟧", "⟦Records⟧", "⟦Schedule⟧", "⟦Next runs⟧", "⟦Time zone: " })
             {
                 Assert.Contains(expected, html, StringComparison.Ordinal);
             }
@@ -225,23 +231,69 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
         Assert.Equal(expected, SerginCronPicker.ChoiceOf(cron));
 
     [Fact]
-    public void CronSchedule_ListsTheNextFireTimesInTheZone()
+    public async Task Section_ShowsTheEnginesNextRun_OrNotAvailable()
     {
-        var zone = TimeZoneInfo.FindSystemTimeZoneById("UTC");
-        var after = new DateTimeOffset(2026, 11, 10, 2, 30, 0, TimeSpan.Zero);
+        Guid probe = await CreateProbeAsync();
+        await CreateTaskAsync(probe);
+        await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
 
-        Assert.Equal(
-            [
-                new DateTimeOffset(2026, 11, 11, 2, 0, 0, TimeSpan.Zero),
-                new DateTimeOffset(2026, 11, 12, 2, 0, 0, TimeSpan.Zero),
-                new DateTimeOffset(2026, 11, 13, 2, 0, 0, TimeSpan.Zero),
-            ],
-            CronSchedule.NextRuns("0 2 * * *", zone, after, 3));
+        // The fake engine's next run is 02:00 UTC the next day.
+        string withRun = await GetAsync($"/tst/probes/{probe}");
+        Assert.Matches(@"\d{1,2} \p{L}+ \d{4} 02:00", withRun);
+        Assert.DoesNotContain("Not available", withRun, StringComparison.Ordinal);
 
-        // Weekly: the next Monday after Tuesday the 10th is the 16th.
-        Assert.Equal([new DateTimeOffset(2026, 11, 16, 8, 0, 0, TimeSpan.Zero)], CronSchedule.NextRuns("0 8 * * 1", zone, after, 1));
-        Assert.Equal(2, CronSchedule.NextRuns("*/30 * * * *", zone, after, 2).Count);
-        Assert.Empty(CronSchedule.NextRuns("not a cron", zone, after, 3));
+        host.Services.GetRequiredService<FakeScheduledTaskEngine>().NoOccurrences = true;
+        string without = await GetAsync($"/tst/probes/{probe}");
+        Assert.Contains("Not available", without, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ScheduleDialog_OnAStaleSave_ReloadsTheVersion_AndKeepsTheDialogOpen()
+    {
+        Guid probe = await CreateProbeAsync();
+        ScheduledTaskId id = await CreateTaskAsync(probe);
+        await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
+
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+        IDialogService dialogs = scope.ServiceProvider.GetRequiredService<IDialogService>();
+        ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
+            .Initialize("http://localhost/", $"http://localhost/tst/probes/{probe}");
+
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            await renderer.RenderComponentAsync<ProbeDialogProviders>();
+            DialogParameters<SerginScheduleDialog> parameters = new()
+            {
+                { dialog => dialog.Schema, ScheduledTasksDbContext.Schema },
+                { dialog => dialog.CommandTitle, ScheduleProbeUiTexts.CommandTitle },
+                { dialog => dialog.BuildTemplate, () => new TouchProbeCommand(new ScheduleProbeId(probe), new ProbeNote("note")) },
+                { dialog => dialog.Targets, new[] { new ScheduledTaskTarget(probe, null) } },
+                { dialog => dialog.TargetLabels, new[] { probe.ToString() } },
+                { dialog => dialog.EditingId, id },
+            };
+
+            IDialogReference reference = await dialogs.ShowAsync<SerginScheduleDialog>(string.Empty, parameters);
+            var dialog = (SerginScheduleDialog)reference.Dialog!;
+
+            for (int attempt = 0; attempt < 50 && dialog.Version is null; attempt++)
+            {
+                await Task.Delay(100);
+            }
+
+            RowVersion opened = dialog.Version!.Value;
+
+            // Someone else saves the schedule: its version moves on.
+            ErrorOr<Versioned<UpdateScheduledTaskCommandResponse>> elsewhere = await UpdateCronAsync(id, "30 4 * * *");
+            Assert.False(elsewhere.IsError, elsewhere.IsError ? elsewhere.FirstError.Description : string.Empty);
+
+            // The dialog's save is now stale: it reads the task again instead of keeping its old version.
+            await dialog.SaveAsync();
+
+            Assert.NotEqual(opened, dialog.Version);
+            Assert.Equal(elsewhere.Value.Version, dialog.Version);
+        });
     }
 
     [GeneratedRegex(@"^\d{1,2} \p{L}+ \d{4} \d{2}:\d{2}$", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
@@ -271,7 +323,27 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
         return probe.Id.Value;
     }
 
-    private async Task CreateTaskAsync(Guid probe)
+    private async Task<ErrorOr<Versioned<UpdateScheduledTaskCommandResponse>>> UpdateCronAsync(ScheduledTaskId id, string cron)
+    {
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+
+        ErrorOr<Versioned<ScheduledTaskResponse>> current =
+            await dispatcher.SendVersionedAsync(new GetScheduledTaskByIdQuery(ScheduledTasksDbContext.Schema, id));
+
+        return await dispatcher.SendVersionedAsync(
+            new UpdateScheduledTaskCommand(
+                ScheduledTasksDbContext.Schema,
+                id,
+                new TouchProbeCommand(new ScheduleProbeId(Guid.Empty), new ProbeNote("hello")),
+                current.Value.Value.Targets,
+                cron,
+                "UTC"),
+            current.Value.Version);
+    }
+
+    private async Task<ScheduledTaskId> CreateTaskAsync(Guid probe)
     {
         TestCaller delegating = await tree.CreateGrantedCallerAsync(Scope.RootId.Value, ScheduleProbePermissions.Touch.Permission);
         string arguments = ScheduledCommandFactory.ToArguments(new TouchProbeCommand(new(Guid.Empty), new ProbeNote("hello")));
@@ -283,6 +355,8 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
         IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema);
         store.AddTask(task);
         await store.SaveAsync(CancellationToken.None);
+
+        return task.Id;
     }
 
     private async Task GrantAsync(params Sergin.SharedKernel.Domain.Securities.PermissionDefinition[] permissions) =>

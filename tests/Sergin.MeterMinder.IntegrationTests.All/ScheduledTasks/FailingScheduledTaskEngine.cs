@@ -28,6 +28,8 @@ internal sealed class FailingScheduledTaskEngine : IScheduledTaskEngine
 
     public bool IsValidCron(string cron, string timeZoneId) => true;
 
+    public IReadOnlyList<DateTimeOffset> NextOccurrences(string cron, string timeZoneId, DateTimeOffset after, int count) => [];
+
     private Task<T> Fail<T>()
     {
         Calls++;

@@ -45,6 +45,39 @@ public sealed class TickerQEngineTests(SerginWebApiFactory<Program> factory)
         Assert.True(engine.IsValidCron("*/5 * * * * *", "UTC"));
     }
 
+    [Fact]
+    public async Task NextOccurrences_AreTheZonesLocalTimes_AndAgreeWithIsValidCron()
+    {
+        string licence = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.tqlicense");
+        await using ServiceProvider provider = TickerQTestStore.BareProvider(TickerQTestStore.ConnectionString(factory.Services), licence);
+        IScheduledTaskEngine engine = provider.GetRequiredService<IScheduledTaskEngine>();
+        var tehran = TimeZoneInfo.FindSystemTimeZoneById("Asia/Tehran");
+        var after = new DateTimeOffset(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
+
+        IReadOnlyList<DateTimeOffset> times = engine.NextOccurrences("0 2 * * *", "Asia/Tehran", after, 3);
+
+        Assert.Equal(3, times.Count);
+        Assert.All(times, time =>
+        {
+            Assert.Equal(new TimeSpan(2, 0, 0), TimeZoneInfo.ConvertTime(time, tehran).TimeOfDay);
+            Assert.True(time > after);
+        });
+        Assert.Equal(times.OrderBy(time => time), times);
+        Assert.Equal(times.Distinct().Count(), times.Count);
+
+        // Six fields mean seconds first, as in IsValidCron.
+        Assert.Equal(2, engine.NextOccurrences("*/30 * * * * *", "UTC", after, 2).Count);
+
+        foreach ((string cron, string zone) in new[]
+        {
+            ("0 2 * * *", "Asia/Tehran"), ("*/5 * * * * *", "UTC"), ("0 0 1 * *", "UTC"), ("0 8 * * 1", "UTC"),
+            ("not a cron", "UTC"), ("0 2 * * *", "Nowhere/Atlantis"), ("%cron%", "UTC"), ("61 * * * *", "UTC"), (string.Empty, "UTC"),
+        })
+        {
+            Assert.Equal(engine.IsValidCron(cron, zone), engine.NextOccurrences(cron, zone, after, 1).Count == 1);
+        }
+    }
+
     [RequiresTickerQLicenseFact]
     public async Task CronFire_RunsTheCommand_EndToEnd()
     {

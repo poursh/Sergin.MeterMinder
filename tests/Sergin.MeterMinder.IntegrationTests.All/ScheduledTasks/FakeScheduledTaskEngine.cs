@@ -166,8 +166,27 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
         return Task.FromResult(Guid.CreateVersion7());
     }
 
+    /// <summary>Makes <see cref="NextOccurrences"/> answer nothing, as an engine that cannot say.</summary>
+    public bool NoOccurrences { get; set; }
+
     public bool IsValidCron(string cron, string timeZoneId) =>
         !string.IsNullOrWhiteSpace(cron) && cron.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length is 5 or 6;
+
+    /// <summary>
+    /// A deterministic stub: for a valid cron, one occurrence per day at 02:00 UTC after <paramref name="after"/> (whatever the
+    /// expression says), so a UI test sees real-looking next runs without a cron parser.
+    /// </summary>
+    public IReadOnlyList<DateTimeOffset> NextOccurrences(string cron, string timeZoneId, DateTimeOffset after, int count)
+    {
+        if (NoOccurrences || count <= 0 || !IsValidCron(cron, timeZoneId))
+        {
+            return [];
+        }
+
+        var first = new DateTimeOffset(after.UtcDateTime.Date.AddHours(2), TimeSpan.Zero);
+
+        return [.. Enumerable.Range(0, count + 1).Select(day => first.AddDays(day)).Where(time => time > after).Take(count)];
+    }
 
     /// <summary>Runs every queued item, and every retry it asks for, until the queue is empty.</summary>
     public async Task DrainAsync(IServiceProvider services)
