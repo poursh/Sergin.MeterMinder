@@ -42,6 +42,8 @@
 		<PackageVersion Include="Scalar.AspNetCore" Version="2.18.7" />
 		<PackageVersion Include="SonarAnalyzer.CSharp" Version="10.35.0.4138" />
 		<PackageVersion Include="Testcontainers.PostgreSql" Version="4.16.0" />
+		<PackageVersion Include="TickerQ" Version="10.5.1" />
+		<PackageVersion Include="TickerQ.EntityFrameworkCore" Version="10.5.1" />
 		<PackageVersion Include="xunit" Version="2.9.3" />
 		<PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
 	</ItemGroup>
