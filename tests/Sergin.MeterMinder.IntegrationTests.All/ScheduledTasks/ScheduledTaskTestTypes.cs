@@ -18,7 +18,19 @@ internal sealed record ProbeNote(string Value);
 
 internal sealed class ScheduleProbeChild : Entity<ScheduleProbeChildId>;
 
-internal sealed class ScheduleProbe : AggregateRoot<ScheduleProbeId>;
+internal sealed class ScheduleProbe : AggregateRoot<ScheduleProbeId>
+{
+    // The navigation is what makes the child reachable from its root in the EF model (ScheduledTasksDbContext).
+    private readonly List<ScheduleProbeChild> children = [];
+
+    private ScheduleProbe()
+    {
+    }
+
+    public IReadOnlyCollection<ScheduleProbeChild> Children => children;
+
+    public static ScheduleProbe Create() => new() { Id = new ScheduleProbeId(Guid.CreateVersion7()) };
+}
 
 internal static class ScheduleProbePermissions
 {

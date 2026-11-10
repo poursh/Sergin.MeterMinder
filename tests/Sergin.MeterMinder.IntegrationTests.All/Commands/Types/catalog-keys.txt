@@ -233,6 +233,7 @@ common.pages.overview
 common.permissions.groups.other
 common.permissions.groups.platform
 common.permissions.platform-all
+common.scheduled-tasks.singular
 common.scopes.no-scope
 common.scopes.no-scope-matches
 common.scopes.no-scope-to-work-in
