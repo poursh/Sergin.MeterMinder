@@ -21,6 +21,17 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
 
     public bool FailNextCall { get; set; }
 
+    public IReadOnlyCollection<ScheduledRunItemReference> QueuedItems
+    {
+        get
+        {
+            lock (gate)
+            {
+                return [.. queue];
+            }
+        }
+    }
+
     public Task<Guid> ScheduleAsync(ScheduledTrigger trigger, CancellationToken ct)
     {
         ThrowIfFailing();

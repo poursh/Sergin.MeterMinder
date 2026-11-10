@@ -87,6 +87,17 @@ public sealed class ScheduledTaskModelTests(SerginWebApiFactory<Program> factory
     }
 
     [Fact]
+    public void OneRunningRunPerTask_IsAPartialUniqueIndex()
+    {
+        IEntityType runs = Model().FindEntityType(typeof(ScheduledTaskRun))!;
+
+        IIndex index = Assert.Single(runs.GetIndexes(), one => one.IsUnique);
+        Assert.Equal(nameof(ScheduledTaskRun.TaskId), Names(index));
+        Assert.Equal("status = 'Running'", index.GetFilter());
+        Assert.Equal("ix_scheduled_task_runs_task_id_running", index.GetDatabaseName());
+    }
+
+    [Fact]
     public void NotOptedInContext_HasNoTables_AndNoRegistration()
     {
         using IServiceScope scope = host.Services.CreateScope();

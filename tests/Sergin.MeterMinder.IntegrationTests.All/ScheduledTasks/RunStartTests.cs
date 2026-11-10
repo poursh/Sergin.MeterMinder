@@ -207,6 +207,44 @@ public sealed class RunStartTests(SerginWebApiFactory<Program> factory) : IAsync
     }
 
     // jsonb stores arguments normalized (spacing), so equality is of the JSON, not the text.
+    [Fact]
+    public async Task Fire_EngineThrows_FailsItems_CompletesRun_NextFireStartsAgain()
+    {
+        TestCaller user = await TouchCallerAsync(tree.North);
+        ScheduleProbe first = await CreateProbeAsync(tree.Feeder1);
+        ScheduleProbe second = await CreateProbeAsync(tree.Feeder2);
+        ScheduledTask task = await CreateTaskAsync(user, tree.North, TouchName, Arguments("hello"), first, second);
+        Engine.FailNextCall = true;
+
+        await FireAsync(task);
+
+        ScheduledTaskRun run = Assert.Single(await RunsAsync(task));
+        Assert.Equal(ScheduledRunStatus.Completed, run.Status);
+        Assert.Equal(run.Total, run.Failed);
+        Assert.All(await ItemsAsync(run.Id), item => Assert.Equal(ScheduledTaskErrors.EngineUnavailable.Code, item.ErrorCode));
+
+        await FireAsync(task);
+
+        Assert.Equal(1, (await RunsAsync(task)).Count(one => one.Status == ScheduledRunStatus.Running));
+        Assert.DoesNotContain(await RunsAsync(task), one => one.Status == ScheduledRunStatus.Skipped);
+    }
+
+    [Fact]
+    public async Task Fire_Concurrently_StartsOneRun_SkipsTheOther()
+    {
+        TestCaller user = await TouchCallerAsync(tree.North);
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+        ScheduledTask task = await CreateTaskAsync(user, tree.North, TouchName, Arguments("hello"), probe);
+
+        await Task.WhenAll(FireAsync(task), FireAsync(task));
+
+        IReadOnlyCollection<ScheduledTaskRun> runs = await RunsAsync(task);
+        Assert.Equal(2, runs.Count);
+        Assert.Equal(1, runs.Count(run => run.Status == ScheduledRunStatus.Running));
+        Assert.Equal(1, runs.Count(run => run.Status == ScheduledRunStatus.Skipped));
+        Assert.Single(Engine.QueuedItems);
+    }
+
     private static void AssertSameJson(string expected, string actual) =>
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse(expected), JsonNode.Parse(actual)), $"{expected} != {actual}");
 
