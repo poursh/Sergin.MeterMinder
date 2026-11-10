@@ -233,6 +233,14 @@ common.pages.overview
 common.permissions.groups.other
 common.permissions.groups.platform
 common.permissions.platform-all
+common.scheduled-tasks.errors.command-changed
+common.scheduled-tasks.errors.duplicate-targets
+common.scheduled-tasks.errors.invalid-cron
+common.scheduled-tasks.errors.invalid-time-zone
+common.scheduled-tasks.errors.no-targets
+common.scheduled-tasks.errors.not-schedulable
+common.scheduled-tasks.errors.target-without-root
+common.scheduled-tasks.errors.too-many-targets
 common.scheduled-tasks.singular
 common.scopes.no-scope
 common.scopes.no-scope-matches

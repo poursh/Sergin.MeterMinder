@@ -35,8 +35,15 @@ public sealed class CreateAndGetUserTests(SerginWebApiFactory<Program> factory)
 
         Assert.False(created.IsError, created.IsError ? created.FirstError.Description : string.Empty);
 
+        // The database is shared by the whole suite, so the new user can sit past any fixed first page: read the
+        // total first, then one page that holds every user.
+        ErrorOr<ListQueryResponse<GetUserListItem>> counted =
+            await sender.SendAsync(new GetUserListQueryCommand(Paggination.Create(1, 1)));
+
+        Assert.False(counted.IsError, counted.IsError ? counted.FirstError.Description : string.Empty);
+
         ErrorOr<ListQueryResponse<GetUserListItem>> list =
-            await sender.SendAsync(new GetUserListQueryCommand(Paggination.Create(100, 1)));
+            await sender.SendAsync(new GetUserListQueryCommand(Paggination.Create(counted.Value.Total, 1)));
 
         Assert.False(list.IsError, list.IsError ? list.FirstError.Description : string.Empty);
 
