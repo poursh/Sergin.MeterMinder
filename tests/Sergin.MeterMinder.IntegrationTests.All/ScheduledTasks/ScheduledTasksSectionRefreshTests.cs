@@ -141,6 +141,33 @@ public sealed class ScheduledTasksSectionRefreshTests(SerginWebApiFactory<Progra
         });
     }
 
+    [Fact]
+    public async Task DisposedWhileAReloadAwaits_NoTimerSurvives()
+    {
+        Guid probe = await CreateProbeAsync();
+        await StartOneOffRunAsync(probe);
+
+        await using AsyncServiceScope scope = OpenScope(probe);
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            SectionHost.Section = null;
+            await renderer.RenderComponentAsync<SectionHost>(Parameters(probe, TimeSpan.FromMilliseconds(100)));
+            SerginScheduledTasksSection section = SectionHost.Section!;
+            Assert.True(section.IsPolling);
+
+            // The component goes away while a reload is still reading; the run is still Running when the read returns.
+            section.Dispose();
+            Assert.False(section.IsPolling);
+
+            Task reload = section.ReloadAsync();
+            await reload;
+
+            Assert.False(section.IsPolling);
+        });
+    }
+
     private static ParameterView Parameters(Guid probe, TimeSpan interval) => ParameterView.FromDictionary(new Dictionary<string, object?>
     {
         [nameof(SectionHost.TargetId)] = probe,
