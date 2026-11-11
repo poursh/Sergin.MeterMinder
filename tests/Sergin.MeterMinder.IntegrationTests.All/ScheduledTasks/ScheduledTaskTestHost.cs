@@ -3,12 +3,14 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Hosts.ScheduledTasks;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
+using Sergin.SharedKernel.Infrastructure.ScheduledTasks.TickerQ;
 using Sergin.SharedKernel.IntegrationTests;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
@@ -39,11 +41,20 @@ internal static class ScheduledTaskTestHost
     /// test class left in the shared tst schema, racing the reset and filling the test's engine with stale triggers. Only
     /// the tests of those two services keep them; without them, a host with no engine (a model test) still starts.
     /// </param>
+    /// <param name="standInEngine">
+    /// Register the engine the way a host does, through <c>AddSerginTickerQ</c>, with a blank licence path: the in-process
+    /// stand-in and its worker, not a fake. Off by default: most tests drive a fake engine by hand.
+    /// </param>
     public static WebApplicationFactory<Program> Create(
-        SerginWebApiFactory<Program> factory, Action<IWebHostBuilder>? configure = null, bool hostedServices = false)
+        SerginWebApiFactory<Program> factory, Action<IWebHostBuilder>? configure = null, bool hostedServices = false, bool standInEngine = false)
     {
         return factory.WithWebHostBuilder(builder =>
         {
+            if (standInEngine)
+            {
+                builder.UseSetting(TickerQTestStore.LicenseKey, string.Empty);
+            }
+
             builder.ConfigureServices((context, services) =>
             {
                 if (!hostedServices)
@@ -59,6 +70,12 @@ internal static class ScheduledTaskTestHost
                 services.AddSingleton(ModuleConfigurationSource.FromTypes(ProbeConfigurations));
 
                 AddProbeToHostRegistry(services);
+
+                if (standInEngine)
+                {
+                    IConfigurationSection sergin = context.Configuration.GetSection("Sergin");
+                    services.AddSerginTickerQ(sergin, sergin.GetSection("ConnectionStrings")["Database"]!);
+                }
             });
 
             configure?.Invoke(builder);

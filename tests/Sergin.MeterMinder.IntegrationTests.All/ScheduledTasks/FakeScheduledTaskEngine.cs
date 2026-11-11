@@ -34,6 +34,8 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
 
     public bool FailNextCall { get; set; }
 
+    public bool FiresTriggers => true;
+
     public IReadOnlyCollection<ScheduledRunItemReference> QueuedItems
     {
         get

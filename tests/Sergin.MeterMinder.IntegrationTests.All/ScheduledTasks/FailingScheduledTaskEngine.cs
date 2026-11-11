@@ -10,6 +10,8 @@ internal sealed class FailingScheduledTaskEngine : IScheduledTaskEngine
 {
     public int Calls { get; private set; }
 
+    public bool FiresTriggers => true;
+
     public Task<Guid> ScheduleAsync(ScheduledTrigger trigger, CancellationToken ct) => Fail<Guid>();
 
     public Task RescheduleAsync(Guid engineTriggerId, ScheduledTrigger trigger, CancellationToken ct) => Fail<bool>();
