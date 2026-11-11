@@ -257,6 +257,7 @@ common.scheduled-tasks.dialog.targets
 common.scheduled-tasks.dialog.trigger
 common.scheduled-tasks.edit-title
 common.scheduled-tasks.empty
+common.scheduled-tasks.engine-off
 common.scheduled-tasks.errors.command-changed
 common.scheduled-tasks.errors.duplicate-targets
 common.scheduled-tasks.errors.invalid-cron
@@ -353,6 +354,7 @@ common.validation.predicate-validator
 common.validation.regular-expression-validator
 common.validation.scale-precision-validator
 common.welcome.prompt
+device-management.devices.bulk-read-profile-done
 device-management.devices.created-between
 device-management.devices.date-range
 device-management.devices.delete-confirm
@@ -386,6 +388,8 @@ device-management.devices.permissions.delete
 device-management.devices.permissions.read
 device-management.devices.permissions.read-profile
 device-management.devices.permissions.update
+device-management.devices.read-profile
+device-management.devices.read-profile-done
 device-management.devices.search-placeholder
 device-management.devices.select-manufacturer-first
 device-management.devices.singular

@@ -43,6 +43,7 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
     private const string TouchName = "tst.probes.touch";
     private const string PseudoCulture = "qps-Ploc";
     private const string Cron = "15 3 * * *";
+    private const string EngineOff = "Scheduled runs are off until the scheduling engine is configured. Run now still works.";
 
     private readonly TestTranslationStore translations = new();
 
@@ -294,6 +295,72 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
             Assert.NotEqual(opened, dialog.Version);
             Assert.Equal(elsewhere.Value.Version, dialog.Version);
         });
+    }
+
+    [Fact]
+    public async Task EngineOn_HidesTheOffLine()
+    {
+        Guid probe = await CreateProbeAsync();
+        await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
+
+        string html = await GetAsync($"/tst/probes/{probe}");
+
+        Assert.Contains("Scheduled tasks", html, StringComparison.Ordinal);
+        Assert.DoesNotContain(EngineOff, html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task EngineOff_SectionShowsTheOffLine()
+    {
+        Guid probe = await CreateProbeAsync();
+        await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
+        host.Services.GetRequiredService<FakeScheduledTaskEngine>().FiresTriggers = false;
+
+        string html = await GetAsync($"/tst/probes/{probe}");
+
+        Assert.Contains(EngineOff, html, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task ScheduleDialog_ShowsTheOffLine_OnlyWhenTheEngineFiresNothing(bool firesTriggers, bool expected)
+    {
+        Guid probe = await CreateProbeAsync();
+        await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
+        host.Services.GetRequiredService<FakeScheduledTaskEngine>().FiresTriggers = firesTriggers;
+
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+        IDialogService dialogs = scope.ServiceProvider.GetRequiredService<IDialogService>();
+        ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
+            .Initialize("http://localhost/", $"http://localhost/tst/probes/{probe}");
+
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+        string html = await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            HtmlRootComponent root = await renderer.RenderComponentAsync<ProbeDialogProviders>();
+            DialogParameters<SerginScheduleDialog> parameters = new()
+            {
+                { dialog => dialog.Schema, ScheduledTasksDbContext.Schema },
+                { dialog => dialog.CommandTitle, ScheduleProbeUiTexts.CommandTitle },
+                { dialog => dialog.BuildTemplate, () => new TouchProbeCommand(new ScheduleProbeId(probe), new ProbeNote("note")) },
+                { dialog => dialog.Targets, new[] { new ScheduledTaskTarget(probe, null) } },
+                { dialog => dialog.TargetLabels, new[] { probe.ToString() } },
+            };
+
+            await dialogs.ShowAsync<SerginScheduleDialog>(string.Empty, parameters);
+
+            for (int attempt = 0; attempt < 50 && !root.ToHtmlString().Contains("Run now", StringComparison.Ordinal); attempt++)
+            {
+                await Task.Delay(100);
+            }
+
+            return WebUtility.HtmlDecode(root.ToHtmlString());
+        });
+
+        Assert.Contains("Run now", html, StringComparison.Ordinal);
+        Assert.Equal(expected, html.Contains(EngineOff, StringComparison.Ordinal));
     }
 
     [GeneratedRegex(@"^\d{1,2} \p{L}+ \d{4} \d{2}:\d{2}$", RegexOptions.None, matchTimeoutMilliseconds: 1000)]

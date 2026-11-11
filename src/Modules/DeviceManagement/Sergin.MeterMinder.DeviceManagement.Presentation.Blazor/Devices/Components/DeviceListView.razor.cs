@@ -2,12 +2,15 @@ using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.ReadProfile;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Securities.Authorization;
+using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
+using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
 using Sergin.SharedKernel.Presentation.Localizations;
 
@@ -15,6 +18,9 @@ namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Compon
 
 public sealed partial class DeviceListView
 {
+    // The module's schema: where a schedule over the selected devices is stored.
+    private const string Schema = "dm";
+
     private SerginAggregateList<GetDeviceListItem> list = default!;
     private DeviceOverview? overview;
 
@@ -24,6 +30,7 @@ public sealed partial class DeviceListView
     private IReadOnlyList<ScopeOption> scopes = [];
     private TimeZoneInfo timeZone = TimeZoneInfo.Utc;
     private bool optionsLoaded;
+    private SerginBulkAction<GetDeviceListItem>? bulkSchedule;
 
     private Guid? filterManufacturerId;
     private Guid? filterModelId;
@@ -38,9 +45,14 @@ public sealed partial class DeviceListView
         new(DeviceUiTexts.New, Icons.Material.Filled.Add, SerginActionKind.Primary, Href: "/dm/devices/new", Permission: DevicePermissions.Update),
     ];
 
-    // The selection bar's Delete: one confirm for every selected device, each then sent as the row command sends it.
+    // The selection bar: Read profile on each selected device, Schedule… one schedule over all of them (null for a user who
+    // may not manage scheduled tasks), and Delete — one confirm for every selected device, each then sent as the row
+    // command sends it.
     private IReadOnlyList<SerginBulkAction<GetDeviceListItem>> BulkActions =>
     [
+        new(DeviceUiTexts.ReadProfile, Icons.Material.Outlined.Sensors, SerginActionKind.Secondary, ReadProfileSelectedAsync,
+            Permission: DevicePermissions.ReadProfile),
+        .. bulkSchedule is null ? Array.Empty<SerginBulkAction<GetDeviceListItem>>() : [bulkSchedule],
         new(CommonTexts.Delete, Icons.Material.Outlined.Delete, SerginActionKind.Danger, DeleteSelectedAsync, Permission: DevicePermissions.Delete),
     ];
 
@@ -79,7 +91,14 @@ public sealed partial class DeviceListView
     [Inject]
     private IUiTimeZoneStore TimeZones { get; set; } = default!;
 
-    protected override Task OnInitializedAsync() => LoadOverviewAsync();
+    [Inject]
+    private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        bulkSchedule = await SerginScheduleAction.BulkAsync<GetDeviceListItem>(ScopeAuthorization, ScheduleSelectedAsync, DevicePermissions.ReadProfile);
+        await LoadOverviewAsync();
+    }
 
     private string Count(int? value) => value is { } number ? Formatter.Number(number) : "–";
 
@@ -258,6 +277,27 @@ public sealed partial class DeviceListView
 
         outcome.Report(ErrorPresenter, Snackbar, Localizer, Formatter, CommonTexts.BulkDeleted);
         await ReloadAsync();
+    }
+
+    private async Task ReadProfileSelectedAsync(IReadOnlyList<GetDeviceListItem> items)
+    {
+        SerginBulkOutcome outcome = await SerginBulk.RunAsync(
+            items, item => Dispatcher.SendAsync(new ReadDeviceProfileCommand(new DeviceIntenralId(item.Id))));
+
+        outcome.Report(ErrorPresenter, Snackbar, Localizer, Formatter, DeviceUiTexts.BulkReadProfileDone);
+    }
+
+    // One schedule over every selected device, shown in the dialog by their device ids; the template's own id is ignored.
+    private async Task ScheduleSelectedAsync(IReadOnlyList<GetDeviceListItem> items)
+    {
+        IReadOnlyCollection<ScheduledTaskTarget> targets = [.. items.Select(item => new ScheduledTaskTarget(item.Id, null))];
+
+        await DialogService.ShowScheduleAsync(new SerginScheduleRequest(
+            Schema,
+            DeviceUiTexts.ReadProfile,
+            () => new ReadDeviceProfileCommand(new DeviceIntenralId(Guid.Empty)),
+            targets,
+            [.. items.Select(item => item.DeviceId)]));
     }
 
     private async Task<ErrorOr<Success>> SendDeleteAsync(GetDeviceListItem item)

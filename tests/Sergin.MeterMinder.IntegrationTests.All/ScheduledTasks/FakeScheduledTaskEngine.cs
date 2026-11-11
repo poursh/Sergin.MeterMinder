@@ -34,7 +34,8 @@ internal sealed class FakeScheduledTaskEngine : IScheduledTaskEngine
 
     public bool FailNextCall { get; set; }
 
-    public bool FiresTriggers => true;
+    /// <summary>True, like TickerQ; a test sets it false to stand for an engine that fires no trigger.</summary>
+    public bool FiresTriggers { get; set; } = true;
 
     public IReadOnlyCollection<ScheduledRunItemReference> QueuedItems
     {
