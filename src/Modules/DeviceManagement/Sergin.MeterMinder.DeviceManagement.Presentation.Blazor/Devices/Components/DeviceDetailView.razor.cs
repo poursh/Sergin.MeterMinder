@@ -129,17 +129,15 @@ public sealed partial class DeviceDetailView
     {
         IReadOnlyCollection<ScheduledTaskTarget> targets = [new ScheduledTaskTarget(Id, null)];
 
-        bool saved = await DialogService.ShowScheduleAsync(new SerginScheduleRequest(
+        // Saved, run once or cancelled: the section reads its lists again either way (a one-off run starts Running).
+        await DialogService.ShowScheduleAsync(new SerginScheduleRequest(
             Schema,
             DeviceUiTexts.ReadProfile,
             () => new ReadDeviceProfileCommand(new DeviceIntenralId(Id)),
             targets,
             [device?.DeviceId ?? Id.ToString()]));
 
-        if (saved)
-        {
-            await section.ReloadAsync();
-        }
+        await section.ReloadAsync();
     }
 
     private async Task DeleteAsync()
