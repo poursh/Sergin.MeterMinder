@@ -5,8 +5,10 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
+using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Domain.Users;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.IntegrationTests;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
@@ -52,6 +54,18 @@ public sealed class TriggerRebuildTests(SerginWebApiFactory<Program> factory) : 
         Assert.Equal(new ScheduledTrigger(Schema, id, Cron, "UTC"), trigger);
         Assert.True(enabled);
         Assert.False(engine.Triggers.ContainsKey(lost));
+    }
+
+    [Fact]
+    public async Task RecreatedTrigger_IsLinkedUnderTheSystemActor()
+    {
+        var lost = Guid.CreateVersion7();
+        ScheduledTaskId id = await SeedTaskAsync(lost, paused: false);
+
+        await using WebApplicationFactory<Program> restarted = Start();
+
+        await EventuallyAsync<Guid>(async () => (await TaskAsync(id)).EngineTriggerId is { } now && now != lost ? now : null);
+        Assert.Equal(SystemActor.Id, await ModifiedByAsync(id));
     }
 
     [Fact]
@@ -153,6 +167,17 @@ public sealed class TriggerRebuildTests(SerginWebApiFactory<Program> factory) : 
         ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
 
         return await context.ScheduledTasks.IgnoreQueryFilters().AsNoTracking().SingleAsync(task => task.Id == id);
+    }
+
+    private async Task<Guid?> ModifiedByAsync(ScheduledTaskId id)
+    {
+        using IServiceScope scope = seeding.Services.CreateScope();
+        ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
+
+        return await context.ScheduledTasks.IgnoreQueryFilters().AsNoTracking()
+            .Where(task => task.Id == id)
+            .Select(task => EF.Property<Guid?>(task, AuditColumns.ModifiedBy))
+            .SingleAsync();
     }
 
     /// <summary>Polls until <paramref name="probe"/> answers a value; the rebuild runs in the background after start.</summary>

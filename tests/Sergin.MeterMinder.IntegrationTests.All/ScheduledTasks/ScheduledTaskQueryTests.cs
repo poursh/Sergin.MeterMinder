@@ -8,6 +8,7 @@ using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Application.Events.Integration;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.ScheduledTasks.Queries;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -15,6 +16,8 @@ using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.Administration.UserAccess.Application.Contracts.Scopes.Commands.Move;
+using Sergin.Administration.UserAccess.Domain.Scopes;
 using ErrorOrType = ErrorOr.ErrorType;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
@@ -234,6 +237,27 @@ public sealed class ScheduledTaskQueryTests(SerginWebApiFactory<Program> factory
     }
 
     [Fact]
+    public async Task OneOffRun_FollowsItsScope_WhenTheScopeMoves()
+    {
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder2);
+        Guid run = await AddOneOffRunAsync(tree.Feeder2, probe.Id.Value, DateTime.UtcNow);
+        TestCaller southManager = await tree.CreateGrantedCallerAsync(tree.South, ScheduledTaskPermissions.Manage.Permission);
+
+        Assert.Equal([run], await OneOffRunIdsAsync(manager, tree.North, probe));
+        Assert.Empty(await OneOffRunIdsAsync(southManager, tree.South, probe));
+
+        ErrorOr<MoveScopeCommandResponse> moved = await tree.TrySendAsync(new MoveScopeCommand(new ScopeId(tree.Feeder2), new ScopeId(tree.South)));
+        Assert.False(moved.IsError, moved.IsError ? moved.FirstError.Description : string.Empty);
+        await PublishMovedAsync([tree.Feeder2]);
+
+        // The run left the old path with its scope: the caller who reaches only North no longer sees it, South's does.
+        Assert.Empty(await OneOffRunIdsAsync(manager, tree.North, probe));
+        Assert.Equal([run], await OneOffRunIdsAsync(southManager, tree.South, probe));
+        Assert.Empty((await SendAsync(manager, tree.North, new GetScheduledTaskRunItemsQuery(Schema, run))).Value);
+        Assert.Single((await SendAsync(southManager, tree.South, new GetScheduledTaskRunItemsQuery(Schema, run))).Value);
+    }
+
+    [Fact]
     public async Task WithoutManage_IsForbidden()
     {
         ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
@@ -269,6 +293,26 @@ public sealed class ScheduledTaskQueryTests(SerginWebApiFactory<Program> factory
         using IServiceScope circuit = Circuit(caller, currentScope);
 
         return await circuit.ServiceProvider.GetRequiredService<ISerginDispatcher>().SendVersionedAsync(request);
+    }
+
+    private async Task<IReadOnlyCollection<Guid>> OneOffRunIdsAsync(IUserContext caller, Guid currentScope, ScheduleProbe probe)
+    {
+        ErrorOr<IReadOnlyCollection<ScheduledRunListItem>> runs = await SendAsync(caller, currentScope, new GetOneOffRunsForTargetQuery(Schema, probe.Id.Value, 10));
+        Assert.False(runs.IsError, runs.IsError ? runs.FirstError.Code : string.Empty);
+
+        return [.. runs.Value.Select(one => one.Id)];
+    }
+
+    /// <summary>Delivers the move's integration event as the outbox relay would, so the path rewrite runs now.</summary>
+    private async Task PublishMovedAsync(IReadOnlyCollection<Guid> scopeIds)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = new TestSystemCaller();
+
+        ScopesMovedIntegrationEvent moved = new(Guid.CreateVersion7(), DateTime.UtcNow, scopeIds);
+
+        await scope.ServiceProvider.GetRequiredService<IPublisher>()
+            .Publish(new IntegrationEventNotification<ScopesMovedIntegrationEvent>(Guid.CreateVersion7(), "test", moved));
     }
 
     private IServiceScope Circuit(IUserContext caller, Guid currentScope)

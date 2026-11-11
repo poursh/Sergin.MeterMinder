@@ -19,6 +19,8 @@ using Sergin.SharedKernel.Hosts.Commands;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.Administration.UserAccess.Application.Contracts.Roles.Commands.RevokePermission;
+using Sergin.Administration.UserAccess.Domain.Roles;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 
@@ -255,6 +257,29 @@ public sealed class ScheduledTaskCommandTests(SerginWebApiFactory<Program> facto
     }
 
     [Fact]
+    public async Task Update_EditorLacksCommandPermission_IsForbidden_TaskUnchanged()
+    {
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+        ScheduledTaskId id = await CreateTaskAsync(manager, probe);
+        (ScheduledTask before, _, _) = await StoredAsync(id);
+        TestCaller manageOnly = await tree.CreateGrantedCallerAsync(tree.North, ScheduledTaskPermissions.Manage.Permission);
+
+        ErrorOr<UpdateScheduledTaskCommandResponse> updated =
+            await SendAtCurrentVersionAsync(manageOnly, id, Update(id, Touch("edited"), probe) with { Cron = "30 * * * *" });
+
+        Assert.Equal(ErrorType.Forbidden, updated.FirstError.Type);
+        (ScheduledTask after, _, _) = await StoredAsync(id);
+        Assert.Equal(Cron, after.Cron);
+        Assert.Equal(before.Arguments, after.Arguments);
+        Assert.DoesNotContain("edited", after.Arguments, StringComparison.Ordinal);
+        Assert.Equal(manager.Id, after.DelegatingUserId);
+        Assert.Equal(before.EngineTriggerId, after.EngineTriggerId);
+        (ScheduledTrigger trigger, bool enabled) = Engine.Triggers[after.EngineTriggerId!.Value];
+        Assert.Equal(Cron, trigger.Cron);
+        Assert.True(enabled);
+    }
+
+    [Fact]
     public async Task Pause_ThenFire_DoesNothing()
     {
         ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
@@ -407,6 +432,53 @@ public sealed class ScheduledTaskCommandTests(SerginWebApiFactory<Program> facto
             await context.ScheduledTaskRunItems.AsNoTracking().Where(item => item.RunId == run.Id).ToListAsync(),
             item => Assert.Equal(ScheduledRunItemStatus.Succeeded, item.Status));
         Assert.Equal("once", (await context.Probes.AsNoTracking().IgnoreQueryFilters().SingleAsync(probe => probe.Id == first.Id)).LastNote);
+    }
+
+    [Fact]
+    public async Task RunOnce_CallerLacksCommandPermission_IsForbidden()
+    {
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+        TestCaller manageOnly = await tree.CreateGrantedCallerAsync(tree.North, ScheduledTaskPermissions.Manage.Permission);
+
+        ErrorOr<ScheduledRunStartedResponse> started =
+            await SendAsync(manageOnly, tree.North, new RunCommandOnceCommand(Schema, Touch("once"), [new(probe.Id.Value, null)]));
+
+        Assert.Equal(ErrorType.Forbidden, started.FirstError.Type);
+        Assert.Empty(Engine.QueuedItems);
+        using IServiceScope scope = host.Services.CreateScope();
+        Assert.False(await scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>().ScheduledTaskRuns.AnyAsync());
+    }
+
+    [Fact]
+    public async Task Fire_AfterTheDelegatingUsersPermissionIsRevoked_FailsTheItemForbidden_WithoutRetrying()
+    {
+        Guid role = await tree.CreateRoleAsync(
+            tree.North, $"delegate-{Guid.NewGuid():N}"[..20], inheritable: true, ScheduledTaskPermissions.Manage.Permission, ScheduleProbePermissions.Touch.Permission);
+        Guid user = await tree.CreateUserAsync("delegate");
+        Assert.False((await tree.AssignAsync(user, role, tree.North, includeSubtree: true)).IsError);
+        var delegating = new TestCaller { Id = new(user) };
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+        ScheduledTaskId id = await CreateTaskAsync(delegating, probe);
+
+        await FireAsync(id);
+        await Engine.DrainAsync(host.Services);
+
+        ScheduledTaskRun first = Assert.Single(await RunsAsync(id));
+        Assert.Equal(ScheduledRunItemStatus.Succeeded, Assert.Single(await ItemsAsync(first.Id)).Status);
+
+        ErrorOr<RevokeRolePermissionCommandResponse> revoked =
+            await tree.SendAtRoleVersionAsync(role, new RevokeRolePermissionCommand(new RoleId(role), ScheduleProbePermissions.Touch.Permission));
+        Assert.False(revoked.IsError, revoked.IsError ? revoked.FirstError.Description : string.Empty);
+
+        await FireAsync(id);
+        await Engine.DrainAsync(host.Services);
+
+        ScheduledTaskRun second = (await RunsAsync(id)).Single(run => run.Id != first.Id);
+        Assert.Equal(ScheduledRunStatus.Completed, second.Status);
+        ScheduledTaskRunItem item = Assert.Single(await ItemsAsync(second.Id));
+        Assert.Equal(ScheduledRunItemStatus.Failed, item.Status);
+        Assert.Equal(Error.Forbidden().Code, item.ErrorCode);
+        Assert.Equal(1, item.Attempts);
     }
 
     [Fact]
@@ -563,6 +635,14 @@ public sealed class ScheduledTaskCommandTests(SerginWebApiFactory<Program> facto
         ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
 
         return await context.ScheduledTaskRuns.AsNoTracking().Where(run => run.TaskId == id).OrderBy(run => run.StartedAtUtc).ToListAsync();
+    }
+
+    private async Task<IReadOnlyCollection<ScheduledTaskRunItem>> ItemsAsync(Guid runId)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
+
+        return await context.ScheduledTaskRunItems.AsNoTracking().Where(item => item.RunId == runId).ToListAsync();
     }
 
     private async Task<ScheduleProbe> CreateProbeAsync(Guid scopeId)

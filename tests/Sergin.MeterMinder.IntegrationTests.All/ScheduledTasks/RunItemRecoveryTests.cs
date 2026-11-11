@@ -143,6 +143,36 @@ public sealed class RunItemRecoveryTests(SerginWebApiFactory<Program> factory) :
         Assert.Equal(1, completed.Failed);
     }
 
+    [Fact]
+    public async Task RunWhoseItemsFinished_ButWhoseCompletionWasLost_IsCompleted_AndTheNextFireStartsANewRun()
+    {
+        TestCaller user = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
+        ScheduledTaskId task = await CreateTaskAsync(user, await CreateProbeAsync(tree.Feeder1));
+        await FireAsync(task);
+        ScheduledTaskRun run = Assert.Single(await RunsOfAsync(task));
+
+        // The item's save landed and the run's completion was lost (a database fault, or shutdown, in between).
+        await MarkItemsSucceededAsync(run.Id);
+
+        Assert.Equal(0, await RecoverAsync());
+        Assert.Equal(ScheduledRunStatus.Running, (await RunAsync(run.Id)).Status);
+
+        clock.Advance(PastStale);
+        Assert.Equal(0, await RecoverAsync());
+
+        ScheduledTaskRun completed = await RunAsync(run.Id);
+        Assert.Equal(ScheduledRunStatus.Completed, completed.Status);
+        Assert.Equal(1, completed.Succeeded);
+        Assert.Equal(0, completed.Failed);
+
+        await FireAsync(task);
+
+        IReadOnlyCollection<ScheduledTaskRun> runs = await RunsOfAsync(task);
+        Assert.Equal(2, runs.Count);
+        Assert.Single(runs, one => one.Status == ScheduledRunStatus.Running);
+        Assert.DoesNotContain(runs, one => one.Status == ScheduledRunStatus.Skipped);
+    }
+
     [Theory]
     [InlineData("00:00:00", "00:01:00", "StaleAfter must be a positive")]
     [InlineData("00:15:00", "00:00:00", "RecoveryInterval must be a positive")]
@@ -198,6 +228,59 @@ public sealed class RunItemRecoveryTests(SerginWebApiFactory<Program> factory) :
         await store.SaveAsync(CancellationToken.None);
 
         return (run.Id, item.Id);
+    }
+
+    private async Task<ScheduleProbe> CreateProbeAsync(Guid scopeId)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(scopeId);
+        ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
+        var probe = ScheduleProbe.Create();
+        context.Probes.Add(probe);
+        await context.SaveChangesAsync();
+
+        return probe;
+    }
+
+    private async Task<ScheduledTaskId> CreateTaskAsync(TestCaller user, ScheduleProbe target)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(tree.North);
+        string arguments = ScheduledCommandFactory.ToArguments(new TouchProbeCommand(new(Guid.Empty), new ProbeNote("scheduled")));
+        var task = ScheduledTask.Create(TouchName, arguments, [new ScheduledTaskTarget(target.Id.Value, null)], "0 * * * *", "UTC", user.Id);
+
+        IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(Schema);
+        store.AddTask(task);
+        await store.SaveAsync(CancellationToken.None);
+
+        return task.Id;
+    }
+
+    private async Task FireAsync(ScheduledTaskId task)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<IScheduledTaskRunner>().FireAsync(Schema, task, CancellationToken.None);
+    }
+
+    private async Task MarkItemsSucceededAsync(Guid runId)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
+
+        foreach (ScheduledTaskRunItem item in await context.ScheduledTaskRunItems.Where(item => item.RunId == runId).ToListAsync())
+        {
+            item.MarkSucceeded(clock.UtcNow);
+        }
+
+        await context.SaveChangesAsync();
+    }
+
+    private async Task<IReadOnlyCollection<ScheduledTaskRun>> RunsOfAsync(ScheduledTaskId task)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>().ScheduledTaskRuns
+            .AsNoTracking().Where(run => run.TaskId == task).OrderBy(run => run.StartedAtUtc).ToListAsync();
     }
 
     private async Task<bool> ExecuteAsync(Guid item)
