@@ -272,6 +272,7 @@ common.scheduled-tasks.one-off-empty
 common.scheduled-tasks.one-off-runs
 common.scheduled-tasks.pause
 common.scheduled-tasks.paused
+common.scheduled-tasks.permissions.manage
 common.scheduled-tasks.resume
 common.scheduled-tasks.resumed
 common.scheduled-tasks.run-now

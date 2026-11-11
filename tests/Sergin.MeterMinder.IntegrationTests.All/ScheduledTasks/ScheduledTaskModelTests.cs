@@ -1,10 +1,10 @@
-using System.Net;
+﻿using System.Net;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
+using Sergin.Administration.UserAccess.Infrastructure.Data;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.ScheduledTasks;
@@ -101,13 +101,16 @@ public sealed class ScheduledTaskModelTests(SerginWebApiFactory<Program> factory
     public void NotOptedInContext_HasNoTables_AndNoRegistration()
     {
         using IServiceScope scope = host.Services.CreateScope();
-        IModel deviceManagement = Assert.IsAssignableFrom<DbContext>(scope.ServiceProvider.GetRequiredService<IDeviceManagementDbContext>()).Model;
+        IModel userAccess = Assert.IsAssignableFrom<DbContext>(scope.ServiceProvider.GetRequiredService<IUserAccessDbContext>()).Model;
 
-        Assert.Null(deviceManagement.FindEntityType(typeof(ScheduledTask)));
-        Assert.Null(deviceManagement.FindEntityType(typeof(ScheduledTaskRun)));
+        Assert.Null(userAccess.FindEntityType(typeof(ScheduledTask)));
+        Assert.Null(userAccess.FindEntityType(typeof(ScheduledTaskRun)));
 
-        ScheduledTasksRegistration registration = Assert.Single(host.Services.GetServices<ScheduledTasksRegistration>());
-        Assert.Equal(new ScheduledTasksRegistration("tst", typeof(ScheduledTasksDbContext)), registration);
+        // DeviceManagement opted in itself; the test module is the second registration, and UserAccess has none.
+        IReadOnlyCollection<ScheduledTasksRegistration> registrations = [.. host.Services.GetServices<ScheduledTasksRegistration>()];
+        Assert.Equal(2, registrations.Count);
+        Assert.Contains(new ScheduledTasksRegistration("tst", typeof(ScheduledTasksDbContext)), registrations);
+        Assert.Contains(registrations, registration => registration.Schema == "dm");
     }
 
     [Fact]
@@ -153,8 +156,11 @@ public sealed class ScheduledTaskModelTests(SerginWebApiFactory<Program> factory
         HttpResponseMessage response = await client.GetAsync(new Uri("/", UriKind.Relative));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Empty(factory.Services.GetServices<ScheduledTasksRegistration>());
-        Assert.Equal(AggregateFeatures.None, factory.Services.GetRequiredService<AggregateFeatureRegistry>().For(typeof(ScheduledTask)));
+        // DeviceManagement opts in, so the real host runs the scheduled-task services for it and knows the task's features.
+        Assert.Equal("dm", Assert.Single(factory.Services.GetServices<ScheduledTasksRegistration>()).Schema);
+        Assert.Equal(
+            new AggregateFeatures(Audited: true, SoftDeletable: true, Versioned: true, Scoped: true),
+            factory.Services.GetRequiredService<AggregateFeatureRegistry>().For(typeof(ScheduledTask)));
     }
 
     [Fact]
