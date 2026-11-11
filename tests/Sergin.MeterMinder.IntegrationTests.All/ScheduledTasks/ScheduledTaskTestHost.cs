@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
+using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Hosts.ScheduledTasks;
 using Sergin.SharedKernel.Infrastructure.Data.EFCore;
 using Sergin.SharedKernel.Infrastructure.ScheduledTasks.TickerQ;
@@ -57,6 +58,10 @@ internal static class ScheduledTaskTestHost
 
             builder.ConfigureServices((context, services) =>
             {
+                // The real host registers the stand-in engine itself; a test host starts with none, as these tests were written
+                // for, and adds the engine it wants (a fake, or the stand-in through standInEngine).
+                RemoveHostEngine(services);
+
                 if (!hostedServices)
                 {
                     RemoveHostedService<ScheduledTaskTriggerRebuildService>(services);
@@ -90,6 +95,18 @@ internal static class ScheduledTaskTestHost
         // Not EnsureCreatedAsync: it no-ops once the database holds any table. CreateTablesAsync builds this model's.
         await context.Database.ExecuteSqlRawAsync(ResetSchemaSql);
         await context.GetService<IRelationalDatabaseCreator>().CreateTablesAsync();
+    }
+
+    private static void RemoveHostEngine(IServiceCollection services)
+    {
+        foreach (ServiceDescriptor engine in services
+            .Where(descriptor => descriptor.ServiceType == typeof(IScheduledTaskEngine)
+                || descriptor.ServiceType == typeof(InProcessScheduledTaskEngine)
+                || descriptor.ServiceType == typeof(IHostedService) && descriptor.ImplementationType?.Name == "InProcessRunItemWorker")
+            .ToList())
+        {
+            services.Remove(engine);
+        }
     }
 
     private static void RemoveHostedService<TService>(IServiceCollection services)
