@@ -383,6 +383,7 @@ device-management.devices.overview.summary-devices
 device-management.devices.overview.summary-models-in-use
 device-management.devices.permissions.delete
 device-management.devices.permissions.read
+device-management.devices.permissions.read-profile
 device-management.devices.permissions.update
 device-management.devices.search-placeholder
 device-management.devices.select-manufacturer-first
