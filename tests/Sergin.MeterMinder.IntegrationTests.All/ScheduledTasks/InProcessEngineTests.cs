@@ -14,6 +14,7 @@ using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Hosts.ScheduledTasks;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Aggregates;
 using Sergin.SharedKernel.Infrastructure.ScheduledTasks.TickerQ;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
@@ -155,6 +156,30 @@ public sealed class InProcessEngineTests(SerginWebApiFactory<Program> factory) :
     }
 
     [Fact]
+    public async Task TriggerRebuild_WithTheStandIn_LeavesSavedTasksAlone()
+    {
+        ScheduleProbe probe = await CreateProbeAsync();
+        ErrorOr<CreateScheduledTaskCommandResponse> created = await SendAsync(
+            new CreateScheduledTaskCommand(Schema, Touch("kept"), [new(probe.Id.Value, null)], "0 3 * * *", "UTC"));
+        Assert.False(created.IsError, created.IsError ? created.FirstError.Code : string.Empty);
+        var id = new ScheduledTaskId(created.Value.Id);
+        (Guid? triggerBefore, object versionBefore) = await TriggerAndVersionAsync(id);
+
+        // One whole rebuild pass, as a host start runs it (the shared test host leaves the service out).
+        using (ScheduledTaskTriggerRebuildService rebuild = ActivatorUtilities.CreateInstance<ScheduledTaskTriggerRebuildService>(host.Services))
+        {
+            await rebuild.StartAsync(CancellationToken.None);
+            await rebuild.ExecuteTask!;
+            await rebuild.StopAsync(CancellationToken.None);
+        }
+
+        (Guid? triggerAfter, object versionAfter) = await TriggerAndVersionAsync(id);
+        Assert.NotNull(triggerBefore);
+        Assert.Equal(triggerBefore, triggerAfter);
+        Assert.Equal(versionBefore, versionAfter);
+    }
+
+    [Fact]
     public void NextOccurrences_MatchesTheTickerQEngine()
     {
         IScheduledTaskEngine engine = host.Services.GetRequiredService<IScheduledTaskEngine>();
@@ -239,6 +264,15 @@ public sealed class InProcessEngineTests(SerginWebApiFactory<Program> factory) :
         await store.SaveAsync(CancellationToken.None);
 
         return item.Id;
+    }
+
+    private async Task<(Guid? TriggerId, object Version)> TriggerAndVersionAsync(ScheduledTaskId id)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
+        ScheduledTask task = await context.ScheduledTasks.AsNoTracking().IgnoreQueryFilters().SingleAsync(one => one.Id == id);
+
+        return (task.EngineTriggerId, context.Entry(task).Property(RowVersionColumns.RowVersion).CurrentValue!);
     }
 
     private async Task<IReadOnlyCollection<ScheduledTaskRunItem>> ItemsAsync(Guid runId)
