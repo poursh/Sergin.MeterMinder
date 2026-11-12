@@ -38,8 +38,16 @@ internal sealed class DeviceViewConfiguration : IAggregateViewConfiguration<Devi
         });
 
         // A device's model is a child of its manufacturer: a manufacturer picker, then that manufacturer's models.
-        view.Form<CreateDeviceCommand>(form => form.ChildPicker<Manufacturer, DeviceQueryResponse>(x => x.DeviceModelId, r => r.ManufacturerId));
-        view.Form<UpdateDeviceCommand>(form => form.ChildPicker<Manufacturer, DeviceQueryResponse>(x => x.DeviceModelId, r => r.ManufacturerId));
+        view.Form<CreateDeviceCommand>(form =>
+        {
+            form.Title(DeviceUiTexts.New);
+            form.ChildPicker<Manufacturer, DeviceQueryResponse>(x => x.DeviceModelId, r => r.ManufacturerId, DeviceUiTexts.SelectManufacturerFirst);
+        });
+        view.Form<UpdateDeviceCommand>(form =>
+        {
+            form.Title(DeviceUiTexts.EditTitle);
+            form.ChildPicker<Manufacturer, DeviceQueryResponse>(x => x.DeviceModelId, r => r.ManufacturerId, DeviceUiTexts.SelectManufacturerFirst);
+        });
 
         // Scope has no list query, so the scope filter is supplied.
         view.List<GetDeviceListItem>(list =>

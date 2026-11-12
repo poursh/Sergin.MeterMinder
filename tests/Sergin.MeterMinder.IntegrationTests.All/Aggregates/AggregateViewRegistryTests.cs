@@ -10,6 +10,7 @@ using MudBlazor;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Localizations;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
@@ -138,6 +139,10 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
         Assert.Equal(FormInputKind.ChildPicker, part.Kind);
         Assert.Equal(typeof(ViewPart), part.PickerRoot);
         Assert.Equal(typeof(ViewOwner), part.PickerParentRoot);
+        Assert.Equal(PartHolderTexts.ViewOwnerId.Label, part.ParentLabel!.Label);
+        Assert.Equal(ShellTexts.Forms.SelectParentFirst, part.ParentFirst);
+        Assert.True(part.Options!.IsChild);
+        Assert.False(part.ParentOptions!.IsChild);
 
         var owner = Guid.CreateVersion7();
         Assert.Equal(owner, part.ParentFromRecord!(new PartHolderResponse(Guid.Empty, owner)));

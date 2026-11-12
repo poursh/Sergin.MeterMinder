@@ -47,6 +47,9 @@ common.errors.version-required.detail
 common.errors.version-required.title
 common.errors.version-stale.detail
 common.errors.version-stale.title
+common.forms.edit-title
+common.forms.new-title
+common.forms.select-parent-first
 common.information.audit
 common.information.by
 common.information.created

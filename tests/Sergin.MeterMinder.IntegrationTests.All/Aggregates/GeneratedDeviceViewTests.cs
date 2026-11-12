@@ -14,6 +14,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
+using Sergin.SharedKernel.Presentation.Blazor.Validation;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
@@ -103,6 +104,102 @@ public sealed class GeneratedDeviceViewTests(SerginWebApiFactory<Program> factor
         Assert.Contains("aria-label=\"Overview\"", html, StringComparison.Ordinal);
         Assert.Contains(DeviceUiTexts.OverviewDevices.Default, html, StringComparison.Ordinal);
         Assert.Contains(DeviceUiTexts.OverviewModelsInUse.Default, html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DeviceCreate_RendersGeneratedInputs()
+    {
+        AggregateViewModel model = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Device>();
+        Assert.Equal(DeviceUiTexts.New, model.CreateTitle);
+        FormFieldView picker = Assert.Single(model.CreateFields, field => field.Kind == FormInputKind.ChildPicker);
+        Assert.NotNull(picker.ParentOptions);
+        Assert.NotNull(picker.Options);
+
+        string html = await GetAsync("/dm/devices/new");
+
+        Assert.Contains("Device ID", html, StringComparison.Ordinal);
+        Assert.Contains("Manufacturer", html, StringComparison.Ordinal);
+        Assert.Contains("Model", html, StringComparison.Ordinal);
+        Assert.Contains(DeviceUiTexts.SelectManufacturerFirst.Default, html, StringComparison.Ordinal);
+        Assert.Contains("mud-disabled", html, StringComparison.Ordinal);
+        Assert.Contains(">Create<", html, StringComparison.Ordinal);
+        Assert.Contains("href=\"/dm/devices\"", html, StringComparison.Ordinal);
+        Assert.Contains("New device", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DeviceEdit_PrefillsFromRecord()
+    {
+        AggregateViewModel model = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Device>();
+        Assert.Equal(DeviceUiTexts.EditTitle, model.UpdateTitle);
+
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        string marker = CatalogSeed.Marker();
+        ManufacturerId manufacturer = await CatalogSeed.ManufacturerAsync(dispatcher, $"maker-{marker}");
+        DeviceModelInternalId deviceModel = await CatalogSeed.ModelAsync(dispatcher, manufacturer, $"model-{marker}");
+        Guid device = await CatalogSeed.DeviceAsync(dispatcher, $"dev-{marker}", deviceModel);
+
+        string html = await GetAsync($"/dm/devices/{device}/edit");
+
+        Assert.Contains($"value=\"dev-{marker}\"", html, StringComparison.Ordinal);
+        Assert.Contains(">Save<", html, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/dm/devices/{device}\"", html, StringComparison.Ordinal);
+        Assert.Contains(DeviceUiTexts.EditTitle.Default, html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DeviceEdit_StaleSave_ReloadsForm()
+    {
+        AggregateViewModel model = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Device>();
+        CommandView update = Assert.Single(model.Commands, command => command.Request == typeof(UpdateDeviceCommand));
+        Assert.True(update.RequiresVersion);
+
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        string marker = CatalogSeed.Marker();
+        ManufacturerId manufacturer = await CatalogSeed.ManufacturerAsync(dispatcher, $"maker-{marker}");
+        DeviceModelInternalId deviceModel = await CatalogSeed.ModelAsync(dispatcher, manufacturer, $"model-{marker}");
+        Guid device = await CatalogSeed.DeviceAsync(dispatcher, $"dev-{marker}", deviceModel);
+
+        Dictionary<string, object?> values = new(StringComparer.Ordinal)
+        {
+            [nameof(UpdateDeviceCommand.DeviceId)] = $"renamed-{marker}",
+            [nameof(UpdateDeviceCommand.DeviceModelId)] = deviceModel.Value,
+        };
+
+        ViewSendResult stale = await model.UpdateInvoker!.SendVersionedAsync(dispatcher, model.BuildUpdate!(device, values), RowVersion.Create());
+
+        Assert.True(stale.IsError);
+        Assert.Equal(VersionErrors.Stale.Code, stale.Errors[0].Code);
+
+        ErrorOr<Versioned<DeviceQueryResponse>> reloaded = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(device)));
+        Assert.Equal($"dev-{marker}", reloaded.Value.Value.DeviceId);
+    }
+
+    [Fact]
+    public async Task DeviceCreate_DuplicateId_ValidationMessageFromPipeline()
+    {
+        AggregateViewModel model = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Device>();
+
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        ISerginFormValidator validator = scope.ServiceProvider.GetRequiredService<ISerginFormValidator>();
+        string marker = CatalogSeed.Marker();
+        ManufacturerId manufacturer = await CatalogSeed.ManufacturerAsync(dispatcher, $"maker-{marker}");
+        DeviceModelInternalId deviceModel = await CatalogSeed.ModelAsync(dispatcher, manufacturer, $"model-{marker}");
+        await CatalogSeed.DeviceAsync(dispatcher, $"dev-{marker}", deviceModel);
+
+        Dictionary<string, object?> values = new(StringComparer.Ordinal)
+        {
+            [nameof(CreateDeviceCommand.DeviceId)] = $"dev-{marker}",
+            [nameof(CreateDeviceCommand.DeviceModelId)] = deviceModel.Value,
+        };
+
+        IReadOnlyCollection<string> messages = await model.CreateInvoker!.ValidateAsync(
+            validator, model.BuildCreate!(Guid.Empty, values), nameof(CreateDeviceCommand.DeviceId));
+
+        Assert.Contains("'Device ID' is already in use.", messages);
     }
 
     private async Task<string> GetAsync(string path)

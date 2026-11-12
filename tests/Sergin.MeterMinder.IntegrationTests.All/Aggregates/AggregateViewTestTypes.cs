@@ -158,6 +158,9 @@ public static class PartHolderTexts
     public static TextDefinition Singular { get; } = Category.Text("Singular", "Part holder");
 
     public static FieldText PartId { get; } = Category.Field(nameof(PartId), "Part");
+
+    /// <summary>The part picker's parent select: a ChildPicker's parent is labelled by the &lt;Parent&gt;Id field.</summary>
+    public static FieldText ViewOwnerId { get; } = Category.Field(nameof(ViewOwnerId), "Owner");
 }
 
 internal sealed class PartHolderAggregateFeatureConfiguration : IAggregateFeatureConfiguration<PartHolder>
