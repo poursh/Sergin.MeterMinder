@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -38,6 +38,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Hosts\Sergin.MeterMinder.Hosts.All\Sergin.MeterMinder.Hosts.All.csproj" />
     <ProjectReference Include="..\..\src\SharedKernel\Sergin.SharedKernel.IntegrationTests\Sergin.SharedKernel.IntegrationTests.csproj" />
+    <ProjectReference Include="..\..\src\SharedKernel\Sergin.SharedKernel.Infrastructure.ScheduledTasks.TickerQ\Sergin.SharedKernel.Infrastructure.ScheduledTasks.TickerQ.csproj" />
     <!-- The Web API bootstrap is unhosted; CultureSelectionTests drives its request localization on a bare TestServer. -->
     <ProjectReference Include="..\..\src\SharedKernel\Sergin.SharedKernel.Hosts.WebApi\Sergin.SharedKernel.Hosts.WebApi.csproj" />
     <ProjectReference Include="..\..\src\Modules\DeviceManagement\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts\Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts.csproj" />

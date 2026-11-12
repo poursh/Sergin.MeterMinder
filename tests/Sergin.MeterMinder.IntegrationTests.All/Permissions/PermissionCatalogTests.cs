@@ -89,6 +89,11 @@ public sealed class PermissionCatalogTests
     }
 
     [Fact]
+    public void Catalog_ASharedKernelAggregate_RegistersSys() =>
+        Assert.True(Build(typeof(Sergin.SharedKernel.Application.ScheduledTasks.ScheduledTaskAggregateFeatureConfiguration))
+            .Contains(Sergin.SharedKernel.Application.ScheduledTasks.ScheduledTaskPermissions.Manage));
+
+    [Fact]
     public void Catalog_WithAMalformedDefinition_FailsNamingTheClass()
     {
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() => Build(typeof(MalformedCatalogTestRootConfiguration)));

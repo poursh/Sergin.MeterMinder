@@ -10,4 +10,6 @@ public static class DevicePermissions
     public static PermissionDefinition Update { get; } = PermissionDefinition.Create("permission.dm.devices.update", "Create and edit devices");
 
     public static PermissionDefinition Delete { get; } = PermissionDefinition.Create("permission.dm.devices.delete", "Delete devices");
+
+    public static PermissionDefinition ReadProfile { get; } = PermissionDefinition.Create("permission.dm.devices.read-profile", "Read device profile");
 }

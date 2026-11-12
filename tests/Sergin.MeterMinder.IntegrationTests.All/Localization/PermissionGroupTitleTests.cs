@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc.Testing;
+﻿using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
@@ -42,7 +42,7 @@ public sealed class PermissionGroupTitleTests(SerginWebApiFactory<Program> facto
     {
         PermissionCatalog catalog = factory.Services.GetRequiredService<PermissionCatalog>();
 
-        PermissionCatalogGroup platform = Assert.Single(catalog.Grouped().Single(module => module.Schema == "sys").Groups);
+        PermissionCatalogGroup platform = Assert.Single(catalog.Grouped().Single(module => module.Schema == "sys").Groups, group => group.Name == "Platform");
 
         Assert.Same(CommonTexts.PermissionGroupPlatform, platform.Title);
         Assert.Equal("common.permissions.groups.platform", platform.Title.Key.Value);

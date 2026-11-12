@@ -133,6 +133,15 @@ FROM (VALUES
 ) g(role,permission)
 JOIN ua.roles r ON r.name=g.role AND r.deleted_at_utc IS NULL
 ON CONFLICT (role_id,permission) DO NOTHING;
+-- Read profile and the schedule pages: every role that may update devices also gets the read-profile command
+-- and the scheduled-task management permission (administrator holds permission.sys.platform-all, so it needs none).
+INSERT INTO ua.role_permissions(role_id,permission,created_at_utc,created_by)
+SELECT DISTINCT rp.role_id, g.permission, now(), '01920000-0000-7000-8000-00000000000f'::uuid
+FROM ua.role_permissions rp
+JOIN ua.roles r ON r.id=rp.role_id AND r.deleted_at_utc IS NULL
+CROSS JOIN (VALUES ('permission.dm.devices.read-profile'), ('permission.sys.scheduled-tasks.manage')) g(permission)
+WHERE rp.permission='permission.dm.devices.update'
+ON CONFLICT (role_id,permission) DO NOTHING;
 INSERT INTO ua.role_assignments(id,role_id,scope_id,include_subtree,user_id)
 SELECT gen_random_uuid(), r.id, '01920000-0000-7000-8000-0000000000b1', true, u.id
 FROM ua.users u JOIN ua.roles r ON r.name='translator' AND r.deleted_at_utc IS NULL

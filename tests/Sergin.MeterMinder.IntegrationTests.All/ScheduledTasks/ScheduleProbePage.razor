@@ -1,0 +1,7 @@
+@page "/tst/probes/{Id:guid}"
+@layout SerginPageLayout
+@* A test-only page: it hosts the scheduled-task parts the way a module's detail view would — the Schedule action in
+   the actions bar and the section of the record's schedules below it. *@
+<SerginAggregateView TitleText="ScheduleProbeUiTexts.Title" Trail="Trail" Actions="actions">
+    <SerginScheduledTasksSection @ref="section" Schema="@ScheduleProbePage.Schema" TargetId="Id" />
+</SerginAggregateView>
