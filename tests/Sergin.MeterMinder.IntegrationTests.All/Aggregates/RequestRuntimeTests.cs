@@ -1,5 +1,6 @@
 using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Create;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.ReadProfile;
@@ -12,6 +13,7 @@ using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.SharedKernel.Presentation.Blazor.Validation;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
@@ -59,6 +61,30 @@ public sealed class RequestRuntimeTests(SerginWebApiFactory<Program> factory)
         Assert.Equal(
             new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId("MTR-9"), new DeviceModelInternalId(model)),
             built);
+    }
+
+    [Fact]
+    public void RequestFactory_ForForm_MissingValuesBecomeNonNullWrappers()
+    {
+        object built = RequestFactory.ForForm(typeof(CreateDeviceCommand))(Guid.Empty, new Dictionary<string, object?>());
+
+        CreateDeviceCommand command = Assert.IsType<CreateDeviceCommand>(built);
+        Assert.NotNull(command.DeviceId);
+        Assert.Equal(string.Empty, command.DeviceId.Value);
+        Assert.NotNull(command.DeviceModelId);
+    }
+
+    [Fact]
+    public async Task FormValidator_OnAnEmptyFormBuiltCommand_ReturnsAMessageInsteadOfThrowing()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginFormValidator formValidator = scope.ServiceProvider.GetRequiredService<ISerginFormValidator>();
+        object built = RequestFactory.ForForm(typeof(CreateDeviceCommand))(Guid.Empty, new Dictionary<string, object?>());
+
+        IReadOnlyCollection<string> messages = await formValidator.ValidateAsync(
+            Assert.IsType<CreateDeviceCommand>(built), nameof(CreateDeviceCommand.DeviceId));
+
+        Assert.NotEmpty(messages);
     }
 
     [Fact]

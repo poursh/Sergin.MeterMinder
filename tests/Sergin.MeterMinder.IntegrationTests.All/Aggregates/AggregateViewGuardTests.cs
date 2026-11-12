@@ -39,6 +39,12 @@ public sealed class AggregateViewGuardTests
             nameof(RunWithNoteViewProbeViewConfiguration), nameof(RunWithNoteNoteProbeCommand), "id");
 
     [Fact]
+    public void Guard_GetOneWhoseConstructorIsNotIdOnly_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(BadQueryProbeViewConfiguration)),
+            nameof(BadQueryProbeViewConfiguration), nameof(GetBadQueryProbeQuery), "id");
+
+    [Fact]
     public void Guard_DetailOfAnotherResponse_Refuses() =>
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(WrongDetailViewProbeViewConfiguration)),

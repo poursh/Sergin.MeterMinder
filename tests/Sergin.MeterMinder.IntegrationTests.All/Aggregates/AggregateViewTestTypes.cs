@@ -306,6 +306,7 @@ internal static class AggregateViewTestRegistry
         typeof(ViewProbeAggregateFeatureConfiguration), typeof(PartHolderAggregateFeatureConfiguration),
         typeof(QuerylessProbeAggregateFeatureConfiguration), typeof(FilterProbeAggregateFeatureConfiguration),
         typeof(UnlistedProbeAggregateFeatureConfiguration), typeof(NoteProbeAggregateFeatureConfiguration),
+        typeof(BadQueryProbeAggregateFeatureConfiguration),
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -313,7 +314,7 @@ internal static class AggregateViewTestRegistry
         .. aggregateConfigurationTypes, typeof(RunViewProbeCommandConfiguration),
         typeof(GetViewProbeQuery), typeof(ListViewProbesQuery), typeof(CreateViewProbeCommand), typeof(RunViewProbeCommand),
         typeof(DeleteViewProbeCommand), typeof(GetViewOwnerQuery), typeof(ListViewPartsQuery), typeof(RenameViewOwnerCommand),
-        typeof(CreatePartHolderCommand), typeof(DeleteQuerylessProbeCommand), typeof(RunWithNoteNoteProbeCommand), typeof(ListFilterProbesQuery),
+        typeof(CreatePartHolderCommand), typeof(DeleteQuerylessProbeCommand), typeof(RunWithNoteNoteProbeCommand), typeof(GetBadQueryProbeQuery), typeof(ListFilterProbesQuery),
         typeof(ListViewOwnersQuery), typeof(ListUnlistedProbesQuery), typeof(CreateUnlistedProbeCommand), typeof(GetUnlistedThingQuery),
     ];
 
@@ -326,7 +327,7 @@ internal static class AggregateViewTestRegistry
             [
                 TextSource.Common,
                 TextSource.FromTypes("Tst", TextOrigin.Ui, typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
-                    typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts)),
+                    typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts), typeof(BadQueryProbeTexts)),
             ]));
 }
 
@@ -355,4 +356,34 @@ internal sealed class RunWithNoteViewProbeViewConfiguration : IAggregateViewConf
 {
     public void Configure(AggregateViewBuilder<NoteProbe> view) =>
         view.Command<RunWithNoteNoteProbeCommand>().Label(ViewProbeTexts.Run);
+}
+
+// ---- Refusal: a GetOne, overview or audit query whose constructor does not fit ----
+
+internal sealed record BadQueryProbeId(Guid Value);
+
+internal sealed class BadQueryProbe : AggregateRoot<BadQueryProbeId>;
+
+public static class BadQueryProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "BadQueryProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Bad query probe");
+}
+
+internal sealed class BadQueryProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<BadQueryProbe>
+{
+    public void Configure(AggregateFeatureBuilder<BadQueryProbe> builder) =>
+        builder.Texts(BadQueryProbeTexts.Category).Named(BadQueryProbeTexts.Singular);
+}
+
+internal sealed record BadQueryProbeResponse(Guid Id);
+
+internal sealed record GetBadQueryProbeQuery(BadQueryProbeId Id, string Extra) : IQuery<BadQueryProbeResponse>, IGetOneQuery<BadQueryProbe, BadQueryProbeId>;
+
+internal sealed class BadQueryProbeViewConfiguration : IAggregateViewConfiguration<BadQueryProbe>
+{
+    public void Configure(AggregateViewBuilder<BadQueryProbe> view)
+    {
+    }
 }
