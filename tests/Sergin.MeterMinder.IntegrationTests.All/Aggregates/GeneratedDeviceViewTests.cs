@@ -86,6 +86,16 @@ public sealed class GeneratedDeviceViewTests(SerginWebApiFactory<Program> factor
     }
 
     [Fact]
+    public void DeviceList_ItemAndBodyType_AreResolvedAtRegistryBuild()
+    {
+        AggregateViewModel model = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Device>();
+
+        Assert.Equal(typeof(GetDeviceListItem), model.ListItem);
+        Assert.Equal(typeof(GeneratedListBody<GetDeviceListItem>), model.ListBodyType);
+        Assert.Equal(nameof(GetDeviceListItem.DeviceId), model.ListTitleField);
+    }
+
+    [Fact]
     public async Task DeviceList_OverviewSlot_Prerenders()
     {
         string html = await GetAsync("/dm/devices");
