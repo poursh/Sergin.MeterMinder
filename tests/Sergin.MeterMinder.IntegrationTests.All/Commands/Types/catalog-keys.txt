@@ -13,6 +13,7 @@ common.actions.edit
 common.actions.expand
 common.actions.help
 common.actions.information
+common.actions.more
 common.actions.open
 common.actions.refresh
 common.actions.reload
