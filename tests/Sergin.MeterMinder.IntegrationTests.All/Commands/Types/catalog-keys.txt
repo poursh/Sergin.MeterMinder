@@ -267,6 +267,7 @@ common.scheduled-tasks.errors.no-targets
 common.scheduled-tasks.errors.not-schedulable
 common.scheduled-tasks.errors.target-without-root
 common.scheduled-tasks.errors.too-many-targets
+common.scheduled-tasks.filtered-to
 common.scheduled-tasks.never
 common.scheduled-tasks.next-run-unavailable
 common.scheduled-tasks.not-scheduled
@@ -312,6 +313,7 @@ common.scheduled-tasks.stale-reloaded
 common.scheduled-tasks.states.active
 common.scheduled-tasks.states.paused
 common.scheduled-tasks.title
+common.scheduled-tasks.view-schedules
 common.scopes.no-scope
 common.scopes.no-scope-matches
 common.scopes.no-scope-to-work-in

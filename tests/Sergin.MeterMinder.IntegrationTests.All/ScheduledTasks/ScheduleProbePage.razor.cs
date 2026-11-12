@@ -16,9 +16,13 @@ public sealed partial class ScheduleProbePage
     private SerginScheduledTasksSection section = default!;
     private IReadOnlyList<SerginPageAction> actions = [];
     private string note = "scheduled";
+    private int count;
 
     [Parameter]
     public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery(Name = "schedules")]
+    private string? commandName { get; set; }
 
     [Inject]
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
@@ -44,6 +48,8 @@ public sealed partial class ScheduleProbePage
 
         actions = schedule is null ? [] : [schedule];
     }
+
+    private void OnLoaded() => count = section.CountOf("tst.probes.touch");
 
     private async Task ScheduleAsync()
     {
