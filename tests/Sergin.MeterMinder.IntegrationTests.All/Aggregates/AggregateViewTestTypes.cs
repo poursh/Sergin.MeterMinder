@@ -12,8 +12,9 @@ using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
-// Test-only roots, requests and view configurations. Nothing here is registered into a host: each test builds its own
-// AggregateViewRegistry from the configurations it names (AggregateViewTestRegistry.Build).
+// Test-only roots, requests and view configurations. The registry tests build their own AggregateViewRegistry from the
+// configurations they name (AggregateViewTestRegistry.Build); only the generated-view probe host (ViewProbeTestHost)
+// registers the probe into a test host, never into the real one.
 
 // ---- The probe root and its requests ----
 
@@ -40,7 +41,7 @@ public static class ViewProbeTexts
 
     public static TextDefinition Title { get; } = Category.Text("Title", "View probes");
 
-    public static TextDefinition Run { get; } = Category.Text("Run", "Run");
+    public static TextDefinition Run { get; } = Category.Text("Run", "Run probe");
 
     public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
 
@@ -59,6 +60,8 @@ internal sealed class ViewProbeAggregateFeatureConfiguration : IAggregateFeature
 internal sealed record ViewProbeResponse(Guid Id, string Name, int Hits);
 
 internal sealed record GetViewProbeQuery(ViewProbeId Id) : IQuery<ViewProbeResponse>, IGetOneQuery<ViewProbe, ViewProbeId>;
+
+internal sealed record GetViewProbeAuditQuery(ViewProbeId Id) : IQuery<AuditInfo>, IAuditQuery<ViewProbe, ViewProbeId>;
 
 internal sealed record ViewProbeListItem(Guid Id, string Name);
 
@@ -312,7 +315,7 @@ internal static class AggregateViewTestRegistry
     private static readonly Type[] requestAndConfigurationTypes =
     [
         .. aggregateConfigurationTypes, typeof(RunViewProbeCommandConfiguration),
-        typeof(GetViewProbeQuery), typeof(ListViewProbesQuery), typeof(CreateViewProbeCommand), typeof(RunViewProbeCommand),
+        typeof(GetViewProbeQuery), typeof(GetViewProbeAuditQuery), typeof(ListViewProbesQuery), typeof(CreateViewProbeCommand), typeof(RunViewProbeCommand),
         typeof(DeleteViewProbeCommand), typeof(GetViewOwnerQuery), typeof(ListViewPartsQuery), typeof(RenameViewOwnerCommand),
         typeof(CreatePartHolderCommand), typeof(DeleteQuerylessProbeCommand), typeof(RunWithNoteNoteProbeCommand), typeof(GetBadQueryProbeQuery), typeof(ListFilterProbesQuery),
         typeof(ListViewOwnersQuery), typeof(ListUnlistedProbesQuery), typeof(CreateUnlistedProbeCommand), typeof(GetUnlistedThingQuery),

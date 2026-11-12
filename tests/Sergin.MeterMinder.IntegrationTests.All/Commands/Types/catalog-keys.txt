@@ -9,6 +9,7 @@ common.actions.collapse-all
 common.actions.copy-link
 common.actions.create
 common.actions.delete
+common.actions.delete-confirm
 common.actions.edit
 common.actions.expand
 common.actions.help
