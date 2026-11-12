@@ -15,12 +15,20 @@ internal sealed class DeviceViewConfiguration : IAggregateViewConfiguration<Devi
         view.Title(DeviceUiTexts.Title)
             .Routes("/dm/devices", id => $"/dm/devices/{id}", "/dm/devices/new", id => $"/dm/devices/{id}/edit");
 
+        view.Command<CreateDeviceCommand>().Label(DeviceUiTexts.New);
+
         view.Command<ReadDeviceProfileCommand>()
             .Label(DeviceUiTexts.ReadProfile)
             .Icon(Icons.Material.Outlined.Sensors)
-            .SucceededText(DeviceUiTexts.ReadProfileDone);
+            .SucceededText(DeviceUiTexts.ReadProfileDone)
+            .BulkSucceededText(DeviceUiTexts.BulkReadProfileDone);
 
-        view.Command<DeleteDeviceCommand>().ConfirmDelete(DeviceUiTexts.DeleteTitle, DeviceUiTexts.DeleteConfirm);
+        view.Command<DeleteDeviceCommand>()
+            .ConfirmDelete(DeviceUiTexts.DeleteTitle, DeviceUiTexts.DeleteConfirm)
+            .ConfirmDeleteMany(DeviceUiTexts.DeleteManyTitle, DeviceUiTexts.DeleteManyConfirm);
+
+        view.Slot<DeviceOverviewSlot>(SerginViewSlot.ListOverview)
+            .Slot<DeviceOverviewSummarySlot>(SerginViewSlot.ListOverviewSummary);
 
         view.Detail<DeviceQueryResponse>(detail =>
         {
@@ -34,6 +42,10 @@ internal sealed class DeviceViewConfiguration : IAggregateViewConfiguration<Devi
         view.Form<UpdateDeviceCommand>(form => form.ChildPicker<Manufacturer, DeviceQueryResponse>(x => x.DeviceModelId, r => r.ManufacturerId));
 
         // Scope has no list query, so the scope filter is supplied.
-        view.List<GetDeviceListItem>(list => list.Filter(DeviceListFields.ScopeId, typeof(DeviceScopeFilter)));
+        view.List<GetDeviceListItem>(list =>
+        {
+            list.Title(x => x.DeviceId);
+            list.Filter(DeviceListFields.ScopeId, typeof(DeviceScopeFilter)).SearchPlaceholder(DeviceUiTexts.SearchPlaceholder);
+        });
     }
 }

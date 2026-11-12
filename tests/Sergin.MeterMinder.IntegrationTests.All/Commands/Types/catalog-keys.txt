@@ -1,5 +1,6 @@
 common.actions.add
 common.actions.apply
+common.actions.bulk-done
 common.actions.cancel
 common.actions.clear
 common.actions.clear-all
@@ -10,6 +11,7 @@ common.actions.copy-link
 common.actions.create
 common.actions.delete
 common.actions.delete-confirm
+common.actions.delete-many-confirm
 common.actions.edit
 common.actions.expand
 common.actions.help
@@ -61,6 +63,8 @@ common.layout.sign-out
 common.layout.switch-to-dark-mode
 common.layout.switch-to-light-mode
 common.lists.advanced-filter
+common.lists.date-range
+common.lists.filter-chip
 common.lists.filtered-by
 common.lists.nothing-here-yet
 common.lists.nothing-matches-filters

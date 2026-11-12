@@ -132,7 +132,16 @@ internal sealed record ListViewOwnersQuery : ListQuery<ViewOwnerListItem>, IList
     }
 }
 
-internal sealed record ListViewPartsQuery(ViewOwnerId RootId) : IQuery<IReadOnlyList<Guid>>, IChildListOf<ViewOwner, ViewOwnerId, ViewPart>;
+internal sealed record ViewPartListItem(Guid Id);
+
+/// <summary>What makes ViewPart pickable under a ViewOwner: a list query the generated picker can build and read.</summary>
+internal sealed record ListViewPartsQuery : ListQuery<ViewPartListItem>, IChildListOf<ViewOwner, ViewOwnerId, ViewPart>
+{
+    public ListViewPartsQuery(ViewOwnerId rootId, Paggination paggination)
+        : base(paggination) => RootId = rootId;
+
+    public ViewOwnerId RootId { get; }
+}
 
 internal sealed record RenameViewOwnerCommand(ViewOwnerId Id) : ICommand, IUpdateCommand<ViewOwner, ViewOwnerId>;
 

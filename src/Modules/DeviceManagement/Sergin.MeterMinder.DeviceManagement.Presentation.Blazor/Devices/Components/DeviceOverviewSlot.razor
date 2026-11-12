@@ -1,0 +1,7 @@
+@* The device list's overview figures: the generated list view's ListOverview slot. *@
+<SerginOverviewCards>
+    @foreach ((TextDefinition label, string value, string sub) in OverviewCards)
+    {
+        <SerginOverviewCard LabelText="label" ValueData="@value" CaptionData="@sub" />
+    }
+</SerginOverviewCards>
