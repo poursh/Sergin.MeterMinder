@@ -57,7 +57,8 @@ internal sealed class ViewProbeAggregateFeatureConfiguration : IAggregateFeature
             .Named(ViewProbeTexts.Singular);
 }
 
-internal sealed record ViewProbeResponse(Guid Id, string Name, int Hits);
+/// <summary>Its name is a value object, so a generated view proves it shows the wrapped value, not the record.</summary>
+internal sealed record ViewProbeResponse(Guid Id, ViewProbeName Name, int Hits);
 
 internal sealed record GetViewProbeQuery(ViewProbeId Id) : IQuery<ViewProbeResponse>, IGetOneQuery<ViewProbe, ViewProbeId>;
 
@@ -267,7 +268,7 @@ internal sealed class UnknownFieldViewProbeViewConfiguration : IAggregateViewCon
     public void Configure(AggregateViewBuilder<ViewProbe> view)
     {
         view.Command<RunViewProbeCommand>().Label(ViewProbeTexts.Run);
-        view.Detail<ViewProbeResponse>(detail => detail.Field(record => record.Name.Length));
+        view.Detail<ViewProbeResponse>(detail => detail.Field(record => record.Name.Value.Length));
     }
 }
 

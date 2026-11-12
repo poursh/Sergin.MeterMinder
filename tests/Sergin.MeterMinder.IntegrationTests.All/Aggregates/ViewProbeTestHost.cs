@@ -32,7 +32,7 @@ internal sealed class ViewProbeStore
     public Guid Add(string name)
     {
         var id = Guid.CreateVersion7();
-        records[id] = (new ViewProbeResponse(id, name, 0), RowVersion.Create());
+        records[id] = (new ViewProbeResponse(id, new ViewProbeName(name), 0), RowVersion.Create());
         return id;
     }
 

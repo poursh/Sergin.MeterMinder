@@ -1,4 +1,6 @@
+using System.Globalization;
 using MudBlazor;
+using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
@@ -62,7 +64,20 @@ public sealed class AggregateViewRegistryTests
         Assert.Equal(["Name"], probe.DetailFields.Where(field => !field.Hidden).Select(field => field.Name));
         Assert.Equal(ViewProbeTexts.Name, probe.DetailFields.Single().Label);
         Assert.Equal("Name", probe.DetailTitleField);
-        Assert.Equal("probe", probe.DetailFields.Single().Get(new ViewProbeResponse(Guid.Empty, "probe", 3)));
+        Assert.Equal("probe", probe.DetailFields.Single().Get(new ViewProbeResponse(Guid.Empty, new ViewProbeName("probe"), 3)));
+    }
+
+    [Fact]
+    public void Registry_DetailArguments_ReadValueObjectsThroughToTheirValue()
+    {
+        AggregateViewModel probe = Probe();
+        ViewProbeResponse record = new(Guid.Empty, new ViewProbeName("probe"), 3);
+
+        IReadOnlyDictionary<string, object?> arguments = probe.DetailArguments!(record);
+
+        Assert.Equal("probe", arguments["Name"]);
+        Assert.Equal(3, arguments["Hits"]);
+        Assert.Equal("Delete probe? 3 hits.", TextPlaceholders.Format("Delete {Name}? {Hits} hits.", arguments, CultureInfo.InvariantCulture));
     }
 
     [Fact]

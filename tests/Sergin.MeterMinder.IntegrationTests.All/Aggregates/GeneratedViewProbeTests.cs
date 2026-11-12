@@ -53,6 +53,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         string html = await GetAsync($"/tst/view-probes/{probe}");
 
         Assert.Contains("Probe alpha", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("ViewProbeName", html, StringComparison.Ordinal);
         Assert.Contains("aria-label=\"Reload\"", html, StringComparison.Ordinal);
         Assert.Contains("aria-label=\"Copy link\"", html, StringComparison.Ordinal);
         Assert.Contains("aria-label=\"Information\"", html, StringComparison.Ordinal);
