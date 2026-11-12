@@ -37,7 +37,7 @@ The TickerQ Community licence file is not available yet. The host must start and
 ## Anti-goals
 
 - A schedule saved with the engine off must not silently look like it will fire.
-- The licence's arrival must not need a code change or a data migration — configuration and a restart only.
+- The licence's arrival must not need a code change or a Sergin data migration: switching to the licence takes the licence path, the `tickerq` tables (created once, e.g. with TickerQ's `CreateTablesAsync` as `TickerQTestStore` does) and a restart; no Sergin data change.
 - No `if (engineOff)` branches scattered through handlers; the difference lives behind `IScheduledTaskEngine`.
 
 ## The command slice (DeviceManagement)

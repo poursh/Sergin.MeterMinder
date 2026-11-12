@@ -12,7 +12,7 @@ using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
 namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(DeviceManagementDbContext))]
-    [Migration("20261111103740_AddScheduledTasks")]
+    [Migration("20261112095307_AddScheduledTasks")]
     partial class AddScheduledTasks
     {
         /// <inheritdoc />
@@ -467,6 +467,9 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                     b.HasIndex("Status", "LastActivityAtUtc")
                         .HasDatabaseName("ix_scheduled_task_run_items_unfinished_last_activity")
                         .HasFilter("status IN ('Pending', 'Running', 'Retrying')");
+
+                    b.HasIndex("TargetId", "RunId")
+                        .HasDatabaseName("ix_scheduled_task_run_items_target_id_run_id");
 
                     b.ToTable("scheduled_task_run_items", "dm");
                 });

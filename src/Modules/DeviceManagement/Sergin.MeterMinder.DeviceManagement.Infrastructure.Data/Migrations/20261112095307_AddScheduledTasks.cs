@@ -11,6 +11,7 @@ public partial class AddScheduledTasks : Migration
     private static readonly string[] RunItemStatusLastActivityColumns = ["status", "last_activity_at_utc"];
     private static readonly string[] RunTaskIdStartedAtColumns = ["task_id", "started_at_utc"];
     private static readonly bool[] RunTaskIdStartedAtDescending = [false, true];
+    private static readonly string[] RunItemTargetIdRunIdColumns = ["target_id", "run_id"];
 
     /// <inheritdoc />
     protected override void Up(MigrationBuilder migrationBuilder)
@@ -130,6 +131,12 @@ public partial class AddScheduledTasks : Migration
                     principalColumn: "id",
                     onDelete: ReferentialAction.Cascade);
             });
+
+        migrationBuilder.CreateIndex(
+            name: "ix_scheduled_task_run_items_target_id_run_id",
+            schema: "dm",
+            table: "scheduled_task_run_items",
+            columns: RunItemTargetIdRunIdColumns);
 
         migrationBuilder.CreateIndex(
             name: "ix_scheduled_task_run_items_run_id",

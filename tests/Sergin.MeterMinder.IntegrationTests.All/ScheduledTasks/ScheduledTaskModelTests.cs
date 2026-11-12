@@ -84,6 +84,11 @@ public sealed class ScheduledTaskModelTests(SerginWebApiFactory<Program> factory
         Assert.Contains(
             runs.GetIndexes(),
             index => Names(index) == $"{nameof(ScheduledTaskRun.TaskId)},{nameof(ScheduledTaskRun.StartedAtUtc)}");
+
+        // The schedules section's one-off runs read: a run item over the target, joined to its run.
+        Assert.Contains(
+            model.FindEntityType(typeof(ScheduledTaskRunItem))!.GetIndexes(),
+            index => Names(index) == $"{nameof(ScheduledTaskRunItem.TargetId)},{nameof(ScheduledTaskRunItem.RunId)}");
     }
 
     [Fact]

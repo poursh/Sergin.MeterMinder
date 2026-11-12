@@ -7,19 +7,25 @@ using Microsoft.AspNetCore.Components.Web.HtmlRendering;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using MediatR;
 using Microsoft.Extensions.Logging;
 using MudBlazor;
 using Sergin.Administration.UserAccess.Domain.Scopes;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
+using Sergin.SharedKernel.Application.ScheduledTasks.Queries;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.IntegrationTests;
+using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
+using Sergin.SharedKernel.Presentation.Errors;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 
@@ -40,6 +46,7 @@ public sealed class ScheduledTasksSectionRefreshTests(SerginWebApiFactory<Progra
     private ProbeUserContextFactory users = default!;
     private RbacScenario tree = default!;
     private TestCaller delegating = default!;
+    private SectionFaults faults = default!;
 
     public async Task InitializeAsync()
     {
@@ -50,7 +57,12 @@ public sealed class ScheduledTasksSectionRefreshTests(SerginWebApiFactory<Progra
                 ScheduleProbeUiModule.AddTo(services);
                 ProbeUserContextFactory.AddTo(services);
                 services.Replace(ServiceDescriptor.Scoped<IUiTimeZoneStore, FixedTimeZoneStore>());
+                services.AddSingleton<SectionFaults>();
+                Decorate<ISerginDispatcher>(services, (provider, inner) => new FaultyDispatcher(inner, provider.GetRequiredService<SectionFaults>()));
+                Decorate<IUiErrorPresenter>(services, (provider, inner) => new CountingErrorPresenter(inner, provider.GetRequiredService<SectionFaults>()));
             }));
+
+        faults = host.Services.GetRequiredService<SectionFaults>();
 
         users = host.Services.GetRequiredService<ProbeUserContextFactory>();
         await ScheduledTaskTestHost.ResetSchemaAsync(host);
@@ -168,6 +180,84 @@ public sealed class ScheduledTasksSectionRefreshTests(SerginWebApiFactory<Progra
         });
     }
 
+    [Fact]
+    public async Task AReadErrorWhileARunIsRunning_StopsPolling_AndNotifiesOnce()
+    {
+        Guid probe = await CreateProbeAsync();
+        await StartOneOffRunAsync(probe);
+
+        await using AsyncServiceScope scope = OpenScope(probe);
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            SectionHost.Section = null;
+            await renderer.RenderComponentAsync<SectionHost>(Parameters(probe, TimeSpan.FromMilliseconds(100)));
+            SerginScheduledTasksSection section = SectionHost.Section!;
+            Assert.True(section.IsPolling);
+
+            // From now on the one-off runs read fails; the run stays Running, so only the error can stop the timer.
+            faults.FailOneOffReads = true;
+
+            for (int attempt = 0; attempt < 50 && section.IsPolling; attempt++)
+            {
+                await Task.Delay(100);
+            }
+
+            Assert.False(section.IsPolling);
+
+            // Several intervals later still one notification: no tick repeats it.
+            await Task.Delay(600);
+            Assert.False(section.IsPolling);
+            Assert.Equal(1, faults.Notifications);
+        });
+    }
+
+    [Fact]
+    public async Task ANewTarget_ReloadsTheSection_WithThatTargetsSchedules()
+    {
+        Guid scheduled = await CreateProbeAsync();
+        Guid empty = await CreateProbeAsync();
+        await CreateTaskAsync(scheduled);
+
+        await using AsyncServiceScope scope = OpenScope(empty);
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            SectionHost.Current = null;
+            HtmlRootComponent root = await renderer.RenderComponentAsync<SectionHost>(Parameters(empty, TimeSpan.FromHours(1)));
+            Assert.Contains(NothingScheduled, WebUtility.HtmlDecode(root.ToHtmlString()), StringComparison.Ordinal);
+
+            // The same section instance, handed another record, as a detail view reused across a navigation is.
+            await SectionHost.Current!.ShowAsync(scheduled);
+
+            string html = WebUtility.HtmlDecode(root.ToHtmlString());
+
+            for (int attempt = 0; attempt < 50 && !html.Contains(TouchName, StringComparison.Ordinal); attempt++)
+            {
+                await Task.Delay(100);
+                html = WebUtility.HtmlDecode(root.ToHtmlString());
+            }
+
+            Assert.Contains(TouchName, html, StringComparison.Ordinal);
+            Assert.DoesNotContain(NothingScheduled, html, StringComparison.Ordinal);
+        });
+    }
+
+    // Wraps the registered implementation (internal to SharedKernel) rather than naming it.
+    private static void Decorate<TService>(IServiceCollection services, Func<IServiceProvider, TService, TService> decorate)
+        where TService : class
+    {
+        ServiceDescriptor registered = services.Last(descriptor => descriptor.ServiceType == typeof(TService));
+        Type implementation = registered.ImplementationType
+            ?? throw new InvalidOperationException($"{typeof(TService).Name} is not registered by type.");
+        services.Replace(ServiceDescriptor.Describe(
+            typeof(TService),
+            provider => decorate(provider, (TService)ActivatorUtilities.CreateInstance(provider, implementation)),
+            registered.Lifetime));
+    }
+
     private static ParameterView Parameters(Guid probe, TimeSpan interval) => ParameterView.FromDictionary(new Dictionary<string, object?>
     {
         [nameof(SectionHost.TargetId)] = probe,
@@ -237,10 +327,65 @@ public sealed class ScheduledTasksSectionRefreshTests(SerginWebApiFactory<Progra
         await context.SaveChangesAsync();
     }
 
+    /// <summary>What the section's reads and notifications see: a switch that fails the one-off runs read, and a count.</summary>
+    private sealed class SectionFaults
+    {
+        private int notifications;
+        private volatile bool failOneOffReads;
+
+        public bool FailOneOffReads
+        {
+            get => failOneOffReads;
+            set => failOneOffReads = value;
+        }
+
+        public int Notifications => Volatile.Read(ref notifications);
+
+        public void Notified() => Interlocked.Increment(ref notifications);
+    }
+
+    private sealed class FaultyDispatcher(ISerginDispatcher inner, SectionFaults faults) : ISerginDispatcher
+    {
+        public Task<ErrorOr.ErrorOr<TResponse>> SendAsync<TResponse>(
+            IRequest<ErrorOr.ErrorOr<TResponse>> request, CancellationToken cancellationToken = default) =>
+            faults.FailOneOffReads && request is GetOneOffRunsForTargetQuery
+                ? Task.FromResult<ErrorOr.ErrorOr<TResponse>>(ErrorOr.Error.Failure("test.one-off-read-failed"))
+                : inner.SendAsync(request, cancellationToken);
+
+        public Task<ErrorOr.ErrorOr<Versioned<TResponse>>> SendVersionedAsync<TResponse>(
+            IRequest<ErrorOr.ErrorOr<TResponse>> request, RowVersion? expected = null, CancellationToken cancellationToken = default) =>
+            inner.SendVersionedAsync(request, expected, cancellationToken);
+    }
+
+    private sealed class CountingErrorPresenter(IUiErrorPresenter inner, SectionFaults faults) : IUiErrorPresenter
+    {
+        public SerginProblem Present(ErrorOr.Error error)
+        {
+            faults.Notified();
+            return inner.Present(error);
+        }
+
+        public void Notify(ErrorOr.Error error)
+        {
+            faults.Notified();
+            inner.Notify(error);
+        }
+
+        public void Notify(IReadOnlyList<ErrorOr.Error> errors)
+        {
+            faults.Notified();
+            inner.Notify(errors);
+        }
+    }
+
     /// <summary>The providers the section's tooltips render into, and a handle on the section for the host-style reload.</summary>
     private sealed class SectionHost : ComponentBase
     {
+        private Guid? shown;
+
         public static SerginScheduledTasksSection? Section { get; set; }
+
+        public static SectionHost? Current { get; set; }
 
         [Parameter]
         public Guid TargetId { get; set; }
@@ -248,13 +393,22 @@ public sealed class ScheduledTasksSectionRefreshTests(SerginWebApiFactory<Progra
         [Parameter]
         public TimeSpan Interval { get; set; }
 
+        /// <summary>Hands the section another record, as a parent re-rendering with a new parameter does.</summary>
+        public Task ShowAsync(Guid target)
+        {
+            shown = target;
+            return InvokeAsync(StateHasChanged);
+        }
+
+        protected override void OnInitialized() => Current = this;
+
         protected override void BuildRenderTree(RenderTreeBuilder builder)
         {
             builder.OpenComponent<MudPopoverProvider>(0);
             builder.CloseComponent();
             builder.OpenComponent<SerginScheduledTasksSection>(1);
             builder.AddComponentParameter(2, nameof(SerginScheduledTasksSection.Schema), ScheduledTasksDbContext.Schema);
-            builder.AddComponentParameter(3, nameof(SerginScheduledTasksSection.TargetId), TargetId);
+            builder.AddComponentParameter(3, nameof(SerginScheduledTasksSection.TargetId), shown ?? TargetId);
             builder.AddComponentParameter(4, nameof(SerginScheduledTasksSection.PollInterval), Interval);
             builder.AddComponentReferenceCapture(5, instance => Section = (SerginScheduledTasksSection)instance);
             builder.CloseComponent();

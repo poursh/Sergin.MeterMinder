@@ -465,6 +465,9 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasDatabaseName("ix_scheduled_task_run_items_unfinished_last_activity")
                         .HasFilter("status IN ('Pending', 'Running', 'Retrying')");
 
+                    b.HasIndex("TargetId", "RunId")
+                        .HasDatabaseName("ix_scheduled_task_run_items_target_id_run_id");
+
                     b.ToTable("scheduled_task_run_items", "dm");
                 });
 
