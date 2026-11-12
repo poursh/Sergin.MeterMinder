@@ -1,0 +1,112 @@
+using ErrorOr;
+using Microsoft.Extensions.DependencyInjection;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetList;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.ReadProfile;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Update;
+using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
+using Sergin.MeterMinder.IntegrationTests.All.Lists;
+using Sergin.SharedKernel.Application.Commands.Queries;
+using Sergin.SharedKernel.IntegrationTests;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+
+namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
+
+/// <summary>The compiled send and the request construction a generated view runs on, against the real Device requests.</summary>
+[Collection(nameof(IntegrationTestCollection))]
+public sealed class RequestRuntimeTests(SerginWebApiFactory<Program> factory)
+{
+    [Fact]
+    public void ValueObjects_PrimitiveOf_ReadsWrappedType()
+    {
+        Assert.Equal(typeof(string), ValueObjects.PrimitiveOf(typeof(DeviceId)));
+        Assert.Equal(typeof(Guid), ValueObjects.PrimitiveOf(typeof(DeviceIntenralId)));
+        Assert.Equal(typeof(int), ValueObjects.PrimitiveOf(typeof(int)));
+    }
+
+    [Fact]
+    public void ValueObjects_WrapUnwrap_RoundTrip()
+    {
+        object? wrapped = ValueObjects.Wrap(typeof(DeviceId), "MTR-1");
+
+        Assert.Equal(new DeviceId("MTR-1"), wrapped);
+        Assert.Equal("MTR-1", ValueObjects.Unwrap(wrapped));
+    }
+
+    [Fact]
+    public void RequestFactory_ForId_BuildsIdOnlyCommand()
+    {
+        var id = Guid.CreateVersion7();
+
+        Assert.Equal(
+            new ReadDeviceProfileCommand(new DeviceIntenralId(id)),
+            RequestFactory.ForId(typeof(ReadDeviceProfileCommand))(id));
+    }
+
+    [Fact]
+    public void RequestFactory_ForForm_BuildsUpdateCommandFromValues()
+    {
+        var id = Guid.CreateVersion7();
+        var model = Guid.CreateVersion7();
+
+        object built = RequestFactory.ForForm(typeof(UpdateDeviceCommand))(
+            id,
+            new Dictionary<string, object?> { ["DeviceId"] = "MTR-9", ["DeviceModelId"] = model });
+
+        Assert.Equal(
+            new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId("MTR-9"), new DeviceModelInternalId(model)),
+            built);
+    }
+
+    [Fact]
+    public void RequestFactory_ForList_BuildsListQueryFromInput()
+    {
+        object built = RequestFactory.ForList(typeof(GetDeviceListQueryCommand))(
+            new ListQueryInput(
+                Paggination.Create(5, 2),
+                "abc",
+                [new FilterData { Id = "manufacturerId", Value = "x", Mode = "equals" }],
+                [new SortingData("deviceId", true)]));
+
+        GetDeviceListQueryCommand query = Assert.IsType<GetDeviceListQueryCommand>(built);
+        Assert.Equal(5, (int)query.Paggination.Size);
+        Assert.Equal(2, (int)query.Paggination.Index);
+        Assert.Equal("abc", query.Term?.Value);
+        Assert.Equal("manufacturerId", Assert.Single(query.Filtering!.Filters).Id);
+        Assert.True(Assert.Single(query.Sorting!.Sorts).Desc);
+    }
+
+    [Fact]
+    public async Task RequestInvoker_SendVersioned_ReturnsValueAndVersion()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        string marker = CatalogSeed.Marker();
+        ManufacturerId manufacturer = await CatalogSeed.ManufacturerAsync(dispatcher, $"maker-{marker}");
+        DeviceModelInternalId model = await CatalogSeed.ModelAsync(dispatcher, manufacturer, $"model-{marker}");
+        Guid id = await CatalogSeed.DeviceAsync(dispatcher, $"R-{marker}", model);
+
+        ViewSendResult result = await RequestInvoker.For(typeof(GetDeviceByIdQueryCommand))
+            .SendVersionedAsync(dispatcher, RequestFactory.ForId(typeof(GetDeviceByIdQueryCommand))(id), expected: null);
+
+        Assert.False(result.IsError);
+        Assert.Equal($"R-{marker}", Assert.IsType<DeviceQueryResponse>(result.Value).DeviceId);
+        Assert.NotNull(result.Version);
+    }
+
+    [Fact]
+    public async Task RequestInvoker_NotFound_ReturnsErrors()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+
+        ViewSendResult result = await RequestInvoker.For(typeof(GetDeviceByIdQueryCommand))
+            .SendAsync(dispatcher, RequestFactory.ForId(typeof(GetDeviceByIdQueryCommand))(Guid.CreateVersion7()));
+
+        Assert.True(result.IsError);
+        Assert.Equal(ErrorType.NotFound, result.Errors[0].Type);
+    }
+}

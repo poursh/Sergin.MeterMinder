@@ -33,6 +33,12 @@ public sealed class AggregateViewGuardTests
             nameof(UnlabelledViewProbeViewConfiguration), nameof(RunViewProbeCommand));
 
     [Fact]
+    public void Guard_TransitionWhoseConstructorIsNotIdOnly_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(RunWithNoteViewProbeViewConfiguration)),
+            nameof(RunWithNoteViewProbeViewConfiguration), nameof(RunWithNoteNoteProbeCommand), "id");
+
+    [Fact]
     public void Guard_DetailOfAnotherResponse_Refuses() =>
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(WrongDetailViewProbeViewConfiguration)),

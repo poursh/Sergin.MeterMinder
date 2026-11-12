@@ -305,7 +305,7 @@ internal static class AggregateViewTestRegistry
     [
         typeof(ViewProbeAggregateFeatureConfiguration), typeof(PartHolderAggregateFeatureConfiguration),
         typeof(QuerylessProbeAggregateFeatureConfiguration), typeof(FilterProbeAggregateFeatureConfiguration),
-        typeof(UnlistedProbeAggregateFeatureConfiguration),
+        typeof(UnlistedProbeAggregateFeatureConfiguration), typeof(NoteProbeAggregateFeatureConfiguration),
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -313,7 +313,7 @@ internal static class AggregateViewTestRegistry
         .. aggregateConfigurationTypes, typeof(RunViewProbeCommandConfiguration),
         typeof(GetViewProbeQuery), typeof(ListViewProbesQuery), typeof(CreateViewProbeCommand), typeof(RunViewProbeCommand),
         typeof(DeleteViewProbeCommand), typeof(GetViewOwnerQuery), typeof(ListViewPartsQuery), typeof(RenameViewOwnerCommand),
-        typeof(CreatePartHolderCommand), typeof(DeleteQuerylessProbeCommand), typeof(ListFilterProbesQuery),
+        typeof(CreatePartHolderCommand), typeof(DeleteQuerylessProbeCommand), typeof(RunWithNoteNoteProbeCommand), typeof(ListFilterProbesQuery),
         typeof(ListViewOwnersQuery), typeof(ListUnlistedProbesQuery), typeof(CreateUnlistedProbeCommand), typeof(GetUnlistedThingQuery),
     ];
 
@@ -326,6 +326,33 @@ internal static class AggregateViewTestRegistry
             [
                 TextSource.Common,
                 TextSource.FromTypes("Tst", TextOrigin.Ui, typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
-                    typeof(FilterProbeTexts), typeof(UnlistedProbeTexts)),
+                    typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts)),
             ]));
+}
+
+// ---- Refusal: a transition that is not id-only ----
+
+internal sealed record NoteProbeId(Guid Value);
+
+internal sealed class NoteProbe : AggregateRoot<NoteProbeId>;
+
+public static class NoteProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "NoteProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Note probe");
+}
+
+internal sealed class NoteProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<NoteProbe>
+{
+    public void Configure(AggregateFeatureBuilder<NoteProbe> builder) =>
+        builder.Texts(NoteProbeTexts.Category).Named(NoteProbeTexts.Singular);
+}
+
+internal sealed record RunWithNoteNoteProbeCommand(NoteProbeId Id, string Note) : ICommand, ITransitionCommand<NoteProbe, NoteProbeId>;
+
+internal sealed class RunWithNoteViewProbeViewConfiguration : IAggregateViewConfiguration<NoteProbe>
+{
+    public void Configure(AggregateViewBuilder<NoteProbe> view) =>
+        view.Command<RunWithNoteNoteProbeCommand>().Label(ViewProbeTexts.Run);
 }
