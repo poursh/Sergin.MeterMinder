@@ -507,3 +507,6 @@ graphify-out/cache/*
 
 # git worktrees created inside the repo
 .claude/worktrees/
+
+# TickerQ licence file, never committed
+*.tqlicense

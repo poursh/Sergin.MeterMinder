@@ -23,11 +23,11 @@ public sealed class DeviceManagementPermissionCatalogTests(SerginWebApiFactory<P
 
         PermissionDefinition[] all =
         [
-            DevicePermissions.Read, DevicePermissions.Update, DevicePermissions.Delete,
+            DevicePermissions.Read, DevicePermissions.Update, DevicePermissions.Delete, DevicePermissions.ReadProfile,
             ManufacturerPermissions.Read, ManufacturerPermissions.Update, ManufacturerPermissions.Delete,
         ];
 
-        Assert.Equal(6, module.Groups.Sum(g => g.Permissions.Count));
+        Assert.Equal(7, module.Groups.Sum(g => g.Permissions.Count));
         Assert.All(all, definition => Assert.True(catalog.Contains(definition), definition.Permission.Value));
     }
 

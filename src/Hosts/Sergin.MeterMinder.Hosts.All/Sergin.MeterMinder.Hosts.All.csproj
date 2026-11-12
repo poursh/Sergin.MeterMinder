@@ -12,6 +12,7 @@
 		<ProjectReference Include="..\..\Modules\Administration\UserAccess\Sergin.Administration.UserAccess\Sergin.Administration.UserAccess.csproj" />
 		<ProjectReference Include="..\..\Modules\Administration\Settings\Sergin.Administration.Settings\Sergin.Administration.Settings.csproj" />
 		<ProjectReference Include="..\..\SharedKernel\Sergin.SharedKernel.Hosts.WebUi\Sergin.SharedKernel.Hosts.WebUi.csproj" />
+		<ProjectReference Include="..\..\SharedKernel\Sergin.SharedKernel.Infrastructure.ScheduledTasks.TickerQ\Sergin.SharedKernel.Infrastructure.ScheduledTasks.TickerQ.csproj" />
 
 		<!--
 			These look redundant against the module composition roots above and are NOT.

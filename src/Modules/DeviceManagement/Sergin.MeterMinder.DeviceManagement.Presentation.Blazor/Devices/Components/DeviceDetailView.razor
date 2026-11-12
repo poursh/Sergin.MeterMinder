@@ -16,4 +16,7 @@
             <SerginDetailField LabelText="DeviceTexts.ManufacturerName.Label"><MudLink Href="@($"/dm/manufacturers/{device.ManufacturerId}")">@device.ManufacturerName</MudLink></SerginDetailField>
         }
     </Fields>
+    <Entities>
+        <SerginScheduledTasksSection @ref="section" Schema="@Schema" TargetId="Id" />
+    </Entities>
 </SerginAggregateDetailView>

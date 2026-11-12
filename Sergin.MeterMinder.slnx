@@ -90,6 +90,7 @@
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Infrastracture.WebApi/Sergin.SharedKernel.Infrastracture.WebApi.csproj" />
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Infrastructure.Data.EFCore/Sergin.SharedKernel.Infrastructure.Data.EFCore.csproj" />
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Infrastructure/Sergin.SharedKernel.Infrastructure.csproj" />
+    <Project Path="src/SharedKernel/Sergin.SharedKernel.Infrastructure.ScheduledTasks.TickerQ/Sergin.SharedKernel.Infrastructure.ScheduledTasks.TickerQ.csproj" />
   </Folder>
   <Folder Name="/src/SharedKernel/Presentation/">
     <Project Path="src/SharedKernel/Sergin.SharedKernel.Presentation.Blazor/Sergin.SharedKernel.Presentation.Blazor.csproj" />

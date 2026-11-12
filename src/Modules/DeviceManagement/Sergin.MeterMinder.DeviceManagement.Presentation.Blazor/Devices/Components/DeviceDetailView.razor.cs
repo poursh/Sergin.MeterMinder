@@ -4,22 +4,32 @@ using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetAudit;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.ReadProfile;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Concurrency;
+using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain;
+using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
+using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 using Sergin.SharedKernel.Presentation.Errors;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Components;
 
 public sealed partial class DeviceDetailView
 {
+    // The module's schema: where the device's schedules are stored.
+    private const string Schema = "dm";
+
     private DeviceQueryResponse? device;
     private SerginProblem? problem;
     private bool deleting;
+    private bool reading;
     private RowVersion? version;
+    private SerginPageAction? schedule;
+    private SerginScheduledTasksSection section = default!;
 
     [Parameter]
     public Guid Id { get; set; }
@@ -36,6 +46,12 @@ public sealed partial class DeviceDetailView
     [Inject]
     private IStringLocalizer Localizer { get; set; } = default!;
 
+    [Inject]
+    private ISnackbar Snackbar { get; set; } = default!;
+
+    [Inject]
+    private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
+
     [CascadingParameter]
     private SerginViewHost Host { get; set; } = SerginViewHost.Unhosted;
 
@@ -47,13 +63,21 @@ public sealed partial class DeviceDetailView
         device is null ? new(DeviceTexts.Singular) : SerginBreadcrumb.Data(device.DeviceId),
     ];
 
-    // Edit, then Delete at the far end; each hidden from a user who lacks its permission on the current scope.
+    // Edit, Read profile and Schedule…, then Delete at the far end; each hidden from a user who lacks its permission on the
+    // current scope. Schedule… is null for a user who may not manage scheduled tasks at all.
     private IReadOnlyList<SerginPageAction> Actions =>
     [
         new(CommonTexts.Edit, Icons.Material.Outlined.Edit, SerginActionKind.Secondary, Href: $"/dm/devices/{Id}/edit", Permission: DevicePermissions.Update),
+        new(DeviceUiTexts.ReadProfile, Icons.Material.Outlined.Sensors, SerginActionKind.Secondary, OnClick: EventCallback.Factory.Create(this, ReadProfileAsync),
+            Permission: DevicePermissions.ReadProfile, Disabled: reading),
+        .. schedule is null ? Array.Empty<SerginPageAction>() : [schedule],
         new(CommonTexts.Delete, Icons.Material.Outlined.Delete, SerginActionKind.Danger, OnClick: EventCallback.Factory.Create(this, DeleteAsync),
             Permission: DevicePermissions.Delete, Disabled: deleting),
     ];
+
+    protected override async Task OnInitializedAsync() =>
+        schedule = await SerginScheduleAction.PageAsync(
+            ScopeAuthorization, EventCallback.Factory.Create(this, ScheduleAsync), DevicePermissions.ReadProfile);
 
     protected override Task OnParametersSetAsync() => LoadAsync();
 
@@ -76,6 +100,44 @@ public sealed partial class DeviceDetailView
         problem = null;
         device = loaded.Value.Value;
         version = loaded.Value.Version;
+    }
+
+    // Sent directly, not through a one-off run: the button stays busy for the read's few seconds.
+    private async Task ReadProfileAsync()
+    {
+        reading = true;
+
+        try
+        {
+            ErrorOr<Success> result = await Dispatcher.SendAsync(new ReadDeviceProfileCommand(new DeviceIntenralId(Id)));
+
+            if (result.IsError)
+            {
+                ErrorPresenter.Notify(result.Errors);
+                return;
+            }
+
+            Snackbar.Add(Localizer.Text(DeviceUiTexts.ReadProfileDone, new { device?.DeviceId }), Severity.Success);
+        }
+        finally
+        {
+            reading = false;
+        }
+    }
+
+    private async Task ScheduleAsync()
+    {
+        IReadOnlyCollection<ScheduledTaskTarget> targets = [new ScheduledTaskTarget(Id, null)];
+
+        // Saved, run once or cancelled: the section reads its lists again either way (a one-off run starts Running).
+        await DialogService.ShowScheduleAsync(new SerginScheduleRequest(
+            Schema,
+            DeviceUiTexts.ReadProfile,
+            () => new ReadDeviceProfileCommand(new DeviceIntenralId(Id)),
+            targets,
+            [device?.DeviceId ?? Id.ToString()]));
+
+        await section.ReloadAsync();
     }
 
     private async Task DeleteAsync()
