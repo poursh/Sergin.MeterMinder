@@ -24,15 +24,36 @@ public sealed class DeviceScheduleUiTests(SerginWebApiFactory<Program> factory)
     private const string EngineOff = "Scheduled runs are off until the scheduling engine is configured. Run now still works.";
 
     [Fact]
-    public async Task DeviceDetail_ShowsReadProfileAndSchedule()
+    public async Task DeviceDetail_ShowsReadProfileSplitButton()
     {
         Guid device = await CreateDeviceAsync();
 
         string html = await GetAsync(factory, $"/dm/devices/{device}");
 
+        // Schedule… lives in the split button's menu, which is not prerendered.
         Assert.Contains("Read profile", html, StringComparison.Ordinal);
-        Assert.Contains("Schedule…", html, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"More actions\"", html, StringComparison.Ordinal);
         Assert.Contains("Scheduled tasks", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Schedule…", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task DeviceDetail_WithoutManagePermission_ShowsPlainReadProfile()
+    {
+        Guid device = await CreateDeviceAsync();
+
+        await using WebApplicationFactory<Program> host = factory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(ProbeUserContextFactory.AddTo));
+
+        RbacScenario tree = await RbacScenario.BuildAsync(host);
+        host.Services.GetRequiredService<ProbeUserContextFactory>().Current = await tree.CreateGrantedCallerAsync(
+            Scope.RootId.Value, DevicePermissions.Read.Permission, DevicePermissions.ReadProfile.Permission);
+
+        string html = await GetAsync(host, $"/dm/devices/{device}");
+
+        Assert.Contains("Read profile", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("More actions", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Scheduled tasks", html, StringComparison.Ordinal);
     }
 
     [Fact]

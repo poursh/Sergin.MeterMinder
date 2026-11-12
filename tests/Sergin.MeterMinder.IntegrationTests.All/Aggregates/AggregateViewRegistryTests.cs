@@ -1,4 +1,11 @@
 using System.Globalization;
+using Microsoft.Extensions.DependencyInjection;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.ReadProfile;
+using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
+using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices;
+using Sergin.SharedKernel.IntegrationTests;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
@@ -11,7 +18,8 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 /// What the view registry derives for a configured root: each command's policy from its configuration and type, the
 /// role defaults, the fields of the GetOne response, the form inputs and the identifier filters.
 /// </summary>
-public sealed class AggregateViewRegistryTests
+[Collection(nameof(IntegrationTestCollection))]
+public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> factory)
 {
     private static AggregateViewModel Probe(Type configuration) => AggregateViewTestRegistry.Build(configuration).For<ViewProbe>();
 
@@ -156,6 +164,20 @@ public sealed class AggregateViewRegistryTests
         CommandView run = Probe(typeof(HiddenRunViewProbeViewConfiguration)).Commands.Single(command => command.Request == typeof(RunViewProbeCommand));
 
         Assert.True(run.Hidden);
+    }
+
+    [Fact]
+    public void Registry_RealHost_BuildsDeviceModel()
+    {
+        AggregateViewModel device = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Device>();
+
+        Assert.Equal("dm", device.Schema);
+        Assert.Equal(DeviceUiTexts.Title, device.Title);
+        Assert.Equal("/dm/devices", device.Routes.List);
+        Assert.Contains(device.Commands, command => command.Request == typeof(ReadDeviceProfileCommand));
+        Assert.Contains(device.Commands, command => command.Request == typeof(DeleteDeviceCommand));
+        Assert.True(device.HasSchedulableCommand);
+        Assert.Equal(typeof(GetDeviceByIdQueryCommand), device.GetOne);
     }
 
     [Fact]
