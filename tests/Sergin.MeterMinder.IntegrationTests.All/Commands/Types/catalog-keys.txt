@@ -366,8 +366,6 @@ common.validation.regular-expression-validator
 common.validation.scale-precision-validator
 common.welcome.prompt
 device-management.devices.bulk-read-profile-done
-device-management.devices.created-between
-device-management.devices.date-range
 device-management.devices.delete-confirm
 device-management.devices.delete-many-confirm
 device-management.devices.delete-many-title
@@ -382,7 +380,6 @@ device-management.devices.fields.manufacturer-id.label
 device-management.devices.fields.manufacturer-id.placeholder
 device-management.devices.fields.manufacturer-name.label
 device-management.devices.fields.scope-id.label
-device-management.devices.filter-chip
 device-management.devices.new
 device-management.devices.overview.added
 device-management.devices.overview.added-count
