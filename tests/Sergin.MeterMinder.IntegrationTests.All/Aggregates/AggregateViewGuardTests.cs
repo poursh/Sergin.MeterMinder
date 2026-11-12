@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 
@@ -90,6 +91,19 @@ public sealed class AggregateViewGuardTests
         ListFilterView picked = AggregateViewTestRegistry.Build(typeof(PickedFilterViewConfiguration)).For<FilterProbe>().ListFilters.Single();
         Assert.Equal(typeof(MudBlazor.MudText), picked.Component);
     }
+
+    [Fact]
+    public void Guard_IdentifierFilterOnARootWithNoListQuery_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(UnlistedFilterViewConfiguration)),
+            nameof(UnlistedFilterViewConfiguration), "unlistedThingId", "IListOf");
+
+    [Fact]
+    public void Guard_FormPickerOnARootWithNoListQuery_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(UnlistedPickerViewConfiguration)),
+            nameof(UnlistedPickerViewConfiguration), nameof(CreateUnlistedProbeCommand), nameof(CreateUnlistedProbeCommand.ThingId),
+            $"IListOf<{nameof(UnlistedThing)}>");
 
     private static InvalidOperationException AssertRefused(Action build, params string[] named)
     {

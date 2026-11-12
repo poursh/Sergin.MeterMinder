@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
@@ -115,6 +116,17 @@ internal sealed class ViewPart : Entity<ViewPartId>;
 internal sealed record ViewOwnerResponse(Guid Id);
 
 internal sealed record GetViewOwnerQuery(ViewOwnerId Id) : IQuery<ViewOwnerResponse>, IGetOneQuery<ViewOwner, ViewOwnerId>;
+
+internal sealed record ViewOwnerListItem(Guid Id);
+
+/// <summary>What makes ViewOwner pickable: its options come from this list.</summary>
+internal sealed record ListViewOwnersQuery : ListQuery<ViewOwnerListItem>, IListOf<ViewOwner>
+{
+    public ListViewOwnersQuery(Paggination paggination)
+        : base(paggination)
+    {
+    }
+}
 
 internal sealed record ListViewPartsQuery(ViewOwnerId RootId) : IQuery<IReadOnlyList<Guid>>, IChildListOf<ViewOwner, ViewOwnerId, ViewPart>;
 
@@ -293,6 +305,7 @@ internal static class AggregateViewTestRegistry
     [
         typeof(ViewProbeAggregateFeatureConfiguration), typeof(PartHolderAggregateFeatureConfiguration),
         typeof(QuerylessProbeAggregateFeatureConfiguration), typeof(FilterProbeAggregateFeatureConfiguration),
+        typeof(UnlistedProbeAggregateFeatureConfiguration),
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -301,6 +314,7 @@ internal static class AggregateViewTestRegistry
         typeof(GetViewProbeQuery), typeof(ListViewProbesQuery), typeof(CreateViewProbeCommand), typeof(RunViewProbeCommand),
         typeof(DeleteViewProbeCommand), typeof(GetViewOwnerQuery), typeof(ListViewPartsQuery), typeof(RenameViewOwnerCommand),
         typeof(CreatePartHolderCommand), typeof(DeleteQuerylessProbeCommand), typeof(ListFilterProbesQuery),
+        typeof(ListViewOwnersQuery), typeof(ListUnlistedProbesQuery), typeof(CreateUnlistedProbeCommand), typeof(GetUnlistedThingQuery),
     ];
 
     public static AggregateViewRegistry Build(params Type[] viewConfigurations) =>
@@ -312,6 +326,6 @@ internal static class AggregateViewTestRegistry
             [
                 TextSource.Common,
                 TextSource.FromTypes("Tst", TextOrigin.Ui, typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
-                    typeof(FilterProbeTexts)),
+                    typeof(FilterProbeTexts), typeof(UnlistedProbeTexts)),
             ]));
 }
