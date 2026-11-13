@@ -40,3 +40,13 @@ Rulings made during Plan 3 execution and findings deferred to later plans, copie
 - Task 6: minor (deferred): GeneratedLanguageViewTests:197 uses loaded.Version without asserting !IsError; :235 DoesNotContain("IsRightToLeft") weak; "–" literal in LanguageProgressSlot (carried over)
 - Task 7: minor (deferred): TranslationGrid.LanguageId throws when Context.ParentId null (page always passes it); using order; TRoot fully qualified in page; long summary line; reload test doesn't check rows/direction
 - Plan 3 known gaps: child views do not apply AppliesWhen; Move still has no view.
+
+## Final review triage (for Plan 4)
+Final whole-branch review: ready to merge, no Critical. Open Plan 4 with these hardening commits before converting UserAccess:
+- `GeneratedSetProperty` returns its errors with the status instead of the shared `Errors` property.
+- `AggregateViewGuard.EnsureEditable` refuses an `Inline` Select/Switch command whose detail field is hidden or replaced by a `DetailFields` slot.
+- Refuse `AppliesWhen` (and demand none) on child `IReverseOf` pairs until child views apply it.
+- Refuse an `IOverviewQuery` on a `ListUnder` root (it would be sent without the parent id).
+- Cover the Dialog edit mode end to end (headless-browser step or circuit test): open, save, stale keeps the dialog open, cancel.
+- Later: a `ListUnder` root's detail view has no list to leave to after delete and no parent trail step.
+Resolved since logged: IsRightToLeft duplication (views deleted), SK Localization docs, bulk-skip documentation.
