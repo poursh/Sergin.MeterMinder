@@ -117,6 +117,30 @@ public sealed class AggregateViewGuardTests
             nameof(UnlistedPickerViewConfiguration), nameof(CreateUnlistedProbeCommand), nameof(CreateUnlistedProbeCommand.ThingId),
             $"IListOf<{nameof(UnlistedThing)}>");
 
+    [Fact]
+    public void Guard_SchedulableCommandNotBuiltFromTheId_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(EditScheduledProbeViewConfiguration)),
+            nameof(EditScheduledProbeViewConfiguration), nameof(UpdateEditScheduledProbeCommand), "Schedulable");
+
+    [Fact]
+    public void Guard_CreateRouteWithoutCreateCommand_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(CreateRouteWithoutCommandViewConfiguration)),
+            nameof(CreateRouteWithoutCommandViewConfiguration), $"ICreateCommand<{nameof(PlainProbe)}");
+
+    [Fact]
+    public void Guard_EditRouteWithoutUpdateCommand_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(EditRouteWithoutUpdateViewProbeViewConfiguration)),
+            nameof(EditRouteWithoutUpdateViewProbeViewConfiguration), $"IUpdateCommand<{nameof(ViewProbe)}");
+
+    [Fact]
+    public void Guard_FormCommandWithoutPublicConstructor_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(CtorProbeViewConfiguration)),
+            nameof(CtorProbeViewConfiguration), nameof(CreateCtorProbeCommand), "public constructor");
+
     private static InvalidOperationException AssertRefused(Action build, params string[] named)
     {
         InvalidOperationException refused = Assert.Throws<InvalidOperationException>(build);

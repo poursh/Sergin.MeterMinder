@@ -4,6 +4,6 @@
    the actions bar and the section of the record's schedules below it. *@
 <SerginAggregateView TitleText="ScheduleProbeUiTexts.Title" Trail="Trail" Actions="actions">
     <SerginScheduledTasksSection @ref="section" Schema="@ScheduleProbePage.Schema" TargetId="Id"
-                                 @bind-CommandName="commandName" Loaded="OnLoaded" />
+                                 @bind-CommandName="commandName" CommandLabel="CommandLabel" Loaded="OnLoaded" />
     <span data-count="@count"></span>
 </SerginAggregateView>

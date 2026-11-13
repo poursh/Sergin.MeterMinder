@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
@@ -24,11 +25,17 @@ public sealed partial class ScheduleProbePage
     [SupplyParameterFromQuery(Name = "schedules")]
     private string? commandName { get; set; }
 
+    // ?label=true names the filtered command by its label, the way a generated detail view does.
+    [SupplyParameterFromQuery(Name = "label")]
+    private bool labelled { get; set; }
+
     [Inject]
     private IScopeAuthorization ScopeAuthorization { get; set; } = default!;
 
     [Inject]
     private IDialogService Dialogs { get; set; } = default!;
+
+    private TextDefinition? CommandLabel => labelled ? ScheduleProbeUiTexts.CommandTitle : null;
 
     private static IReadOnlyList<SerginBreadcrumb> Trail => [new(ScheduleProbeUiTexts.Title)];
 

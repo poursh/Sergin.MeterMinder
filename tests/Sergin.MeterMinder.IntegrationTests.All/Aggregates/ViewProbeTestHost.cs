@@ -119,7 +119,7 @@ internal static class ViewProbeTestHost
         services.AddSingleton(provider => AggregateViewRegistry.Build(
             provider.GetServices<AggregateViewSource>(),
             provider.GetRequiredService<CommandConfigurationRegistry>(),
-            provider.GetRequiredService<AggregateFeatureRegistry>().Including([typeof(ViewProbeAggregateFeatureConfiguration)]),
+            provider.GetRequiredService<AggregateFeatureRegistry>().Including([typeof(ViewProbeAggregateFeatureConfiguration), typeof(PlainProbeAggregateFeatureConfiguration)]),
             provider.GetRequiredService<TextCatalog>()));
 
         services.AddSingleton<ViewProbeStore>();

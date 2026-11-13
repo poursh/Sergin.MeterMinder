@@ -76,6 +76,19 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
     public async Task DisposeAsync() => await host.DisposeAsync();
 
     [Fact]
+    public async Task Section_CommandFilter_WithLabel_NamesTheCommandByItsLabel()
+    {
+        Guid probe = await CreateProbeAsync();
+        await CreateTaskAsync(probe);
+        await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
+
+        string filtered = await GetAsync($"/tst/probes/{probe}?schedules={TouchName}&label=true");
+
+        Assert.Contains($"Showing {ScheduleProbeUiTexts.CommandTitle.Default}", filtered, StringComparison.Ordinal);
+        Assert.DoesNotContain($"Showing {TouchName}", filtered, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Section_CommandFilter_ShowsOnlyThatCommand_AndClears()
     {
         Guid probe = await CreateProbeAsync();

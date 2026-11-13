@@ -322,7 +322,8 @@ internal static class AggregateViewTestRegistry
         typeof(ViewProbeAggregateFeatureConfiguration), typeof(PartHolderAggregateFeatureConfiguration),
         typeof(QuerylessProbeAggregateFeatureConfiguration), typeof(FilterProbeAggregateFeatureConfiguration),
         typeof(UnlistedProbeAggregateFeatureConfiguration), typeof(NoteProbeAggregateFeatureConfiguration),
-        typeof(BadQueryProbeAggregateFeatureConfiguration),
+        typeof(BadQueryProbeAggregateFeatureConfiguration), typeof(PlainProbeAggregateFeatureConfiguration),
+        typeof(EditScheduledProbeAggregateFeatureConfiguration), typeof(CtorProbeAggregateFeatureConfiguration),
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -332,6 +333,8 @@ internal static class AggregateViewTestRegistry
         typeof(DeleteViewProbeCommand), typeof(GetViewOwnerQuery), typeof(ListViewPartsQuery), typeof(RenameViewOwnerCommand),
         typeof(CreatePartHolderCommand), typeof(DeleteQuerylessProbeCommand), typeof(RunWithNoteNoteProbeCommand), typeof(GetBadQueryProbeQuery), typeof(ListFilterProbesQuery),
         typeof(ListViewOwnersQuery), typeof(ListUnlistedProbesQuery), typeof(CreateUnlistedProbeCommand), typeof(GetUnlistedThingQuery),
+        typeof(GetPlainProbeQuery), typeof(ListPlainProbesQuery), typeof(UpdatePlainProbeCommand),
+        typeof(UpdateEditScheduledProbeCommand), typeof(UpdateEditScheduledProbeCommandConfiguration), typeof(CreateCtorProbeCommand),
     ];
 
     public static AggregateViewRegistry Build(params Type[] viewConfigurations) =>
@@ -343,7 +346,8 @@ internal static class AggregateViewTestRegistry
             [
                 TextSource.Common,
                 TextSource.FromTypes("Tst", TextOrigin.Ui, typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
-                    typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts), typeof(BadQueryProbeTexts)),
+                    typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts), typeof(BadQueryProbeTexts),
+                    typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts)),
             ]));
 }
 
@@ -400,6 +404,102 @@ internal sealed record GetBadQueryProbeQuery(BadQueryProbeId Id, string Extra) :
 internal sealed class BadQueryProbeViewConfiguration : IAggregateViewConfiguration<BadQueryProbe>
 {
     public void Configure(AggregateViewBuilder<BadQueryProbe> view)
+    {
+    }
+}
+
+// ---- Refusals: routes promising a form with no command behind it ----
+
+/// <summary>A create route on a root with no create command.</summary>
+internal sealed class CreateRouteWithoutCommandViewConfiguration : IAggregateViewConfiguration<PlainProbe>
+{
+    public void Configure(AggregateViewBuilder<PlainProbe> view) =>
+        view.Routes("/tst/plain-probes", id => $"/tst/plain-probes/{id}", create: "/tst/plain-probes/new");
+}
+
+/// <summary>An edit route on a root with no update command.</summary>
+internal sealed class EditRouteWithoutUpdateViewProbeViewConfiguration : IAggregateViewConfiguration<ViewProbe>
+{
+    public void Configure(AggregateViewBuilder<ViewProbe> view)
+    {
+        view.Routes("/tst/view-probes", id => $"/tst/view-probes/{id}", edit: id => $"/tst/view-probes/{id}/edit");
+        view.Command<RunViewProbeCommand>().Label(ViewProbeTexts.Run);
+    }
+}
+
+// ---- Refusal: a schedulable command a detail view cannot build from the id ----
+
+internal sealed record EditScheduledProbeId(Guid Value);
+
+internal sealed record EditScheduledProbeName(string Value);
+
+internal sealed class EditScheduledProbe : AggregateRoot<EditScheduledProbeId>;
+
+public static class EditScheduledProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "EditScheduledProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Edit-scheduled probe");
+
+    public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
+}
+
+internal sealed class EditScheduledProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<EditScheduledProbe>
+{
+    public void Configure(AggregateFeatureBuilder<EditScheduledProbe> builder) =>
+        builder.Texts(EditScheduledProbeTexts.Category).Named(EditScheduledProbeTexts.Singular);
+}
+
+internal sealed record UpdateEditScheduledProbeCommand(EditScheduledProbeId Id, EditScheduledProbeName Name)
+    : ICommand, IUpdateCommand<EditScheduledProbe, EditScheduledProbeId>;
+
+internal sealed class UpdateEditScheduledProbeCommandConfiguration : ICommandConfiguration<UpdateEditScheduledProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<UpdateEditScheduledProbeCommand> builder) =>
+        builder.Schedulable("tst.edit-scheduled-probes.update");
+}
+
+internal sealed class EditScheduledProbeViewConfiguration : IAggregateViewConfiguration<EditScheduledProbe>
+{
+    public void Configure(AggregateViewBuilder<EditScheduledProbe> view)
+    {
+    }
+}
+
+// ---- Refusal: a form command with no public constructor ----
+
+internal sealed record CtorProbeId(Guid Value);
+
+internal sealed record CtorProbeName(string Value);
+
+internal sealed class CtorProbe : AggregateRoot<CtorProbeId>;
+
+public static class CtorProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "CtorProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Constructor probe");
+
+    public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
+}
+
+internal sealed class CtorProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<CtorProbe>
+{
+    public void Configure(AggregateFeatureBuilder<CtorProbe> builder) =>
+        builder.Texts(CtorProbeTexts.Category).Named(CtorProbeTexts.Singular);
+}
+
+/// <summary>Its only constructor is internal, so a generated form has none to build it with.</summary>
+internal sealed record CreateCtorProbeCommand : ICommand, ICreateCommand<CtorProbe, CtorProbeId>
+{
+    internal CreateCtorProbeCommand(CtorProbeName name) => Name = name;
+
+    public CtorProbeName Name { get; }
+}
+
+internal sealed class CtorProbeViewConfiguration : IAggregateViewConfiguration<CtorProbe>
+{
+    public void Configure(AggregateViewBuilder<CtorProbe> view)
     {
     }
 }

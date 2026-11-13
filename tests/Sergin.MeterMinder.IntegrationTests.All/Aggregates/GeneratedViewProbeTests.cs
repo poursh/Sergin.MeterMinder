@@ -8,6 +8,8 @@ using Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
@@ -24,6 +26,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
     private ProbeUserContextFactory users = default!;
     private RbacScenario tree = default!;
     private ViewProbeStore store = default!;
+    private PlainProbeStore plainStore = default!;
 
     public async Task InitializeAsync()
     {
@@ -33,11 +36,13 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
             ScheduleProbeUiModule.AddTo(services);
             ProbeUserContextFactory.AddTo(services);
             ViewProbeTestHost.AddTo(services);
+            PlainProbeTestHost.AddTo(services);
             services.Replace(ServiceDescriptor.Scoped<IUiTimeZoneStore, FixedTimeZoneStore>());
         }));
 
         users = host.Services.GetRequiredService<ProbeUserContextFactory>();
         store = host.Services.GetRequiredService<ViewProbeStore>();
+        plainStore = host.Services.GetRequiredService<PlainProbeStore>();
         await ScheduledTaskTestHost.ResetSchemaAsync(host);
         tree = await RbacScenario.BuildAsync(host);
     }
@@ -108,6 +113,52 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         Assert.Contains("Not found", html, StringComparison.Ordinal);
         Assert.DoesNotContain("Run probe", html, StringComparison.Ordinal);
         Assert.DoesNotContain(">Delete", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PlainProbeDetail_NotVersioned_RendersRecord()
+    {
+        Guid probe = plainStore.Add("Plain alpha");
+
+        string html = await GetAsync($"/tst/plain-probes/{probe}");
+
+        Assert.Contains("Plain alpha", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Something went wrong", html, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Reload\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PlainProbeEdit_NotVersioned_RendersPrefilledForm()
+    {
+        Guid probe = plainStore.Add("Plain beta");
+
+        string html = await GetAsync($"/tst/plain-probes/{probe}/edit");
+
+        Assert.Contains("value=\"Plain beta\"", html, StringComparison.Ordinal);
+        Assert.Contains(">Save<", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Something went wrong", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task PlainProbeEdit_NotVersioned_LoadsAndSubmitsWithoutAVersion()
+    {
+        Guid probe = plainStore.Add("Plain gamma");
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<PlainProbe>();
+        Assert.False(model.Features.Versioned);
+
+        using IServiceScope scope = host.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+
+        ViewSendResult loaded = await model.LoadRecordAsync(dispatcher, probe);
+
+        Assert.False(loaded.IsError, loaded.IsError ? loaded.Errors[0].Code : null);
+        Assert.Null(loaded.Version);
+
+        Dictionary<string, object?> values = new(StringComparer.Ordinal) { [nameof(UpdatePlainProbeCommand.Name)] = "Plain delta" };
+        ViewSendResult saved = await model.SubmitFormAsync(dispatcher, probe, values, loaded.Version);
+
+        Assert.False(saved.IsError, saved.IsError ? saved.Errors[0].Code : null);
+        Assert.Equal("Plain delta", plainStore.Find(probe)!.Name.Value);
     }
 
     private async Task GrantAsync(params PermissionDefinition[] permissions) =>
