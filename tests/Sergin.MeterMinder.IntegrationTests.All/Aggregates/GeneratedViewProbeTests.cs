@@ -1,13 +1,19 @@
 using System.Net;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using MudBlazor;
 using Sergin.Administration.UserAccess.Domain.Scopes;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -418,6 +424,37 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         Assert.DoesNotContain("<table", html, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task List_UnderParent_NewParent_ReloadsTableUnderIt()
+    {
+        Guid first = store.Add("First parent");
+        Guid second = store.Add("Second parent");
+        await GrantAsync(ViewProbePermissions.Read);
+        ViewProbeNoteQueries queries = host.Services.GetRequiredService<ViewProbeNoteQueries>();
+        queries.ParentIds.Clear();
+
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+        ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
+            .Initialize("http://localhost/", $"http://localhost/tst/view-probes/{first}/notes");
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            NoteListHost.Current = null;
+            await renderer.RenderComponentAsync<NoteListHost>(ParameterView.FromDictionary(new Dictionary<string, object?>
+            {
+                [nameof(NoteListHost.ParentId)] = first,
+            }));
+
+            // The table's first load, then the same table handed another parent, as a page reused across a navigation is.
+            await NoteListHost.Body!.ReloadAsync();
+            await NoteListHost.Current!.ShowAsync(second);
+        });
+
+        Assert.Equal([first, second], queries.ParentIds);
+    }
+
     private static IReadOnlyList<SerginPageAction> RowActions(
         AggregateViewModel model, Guid id, IReadOnlySet<CommandRole>? roles, object? record, ViewLinkPlacement links) =>
         new GeneratedCommandActions(new NoopReceiver(), _ => Task.CompletedTask, _ => Task.CompletedTask)
@@ -448,5 +485,41 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         Assert.True(response.StatusCode == HttpStatusCode.OK, $"{path} answered {response.StatusCode}: {body[..Math.Min(body.Length, 3000)]}");
 
         return body;
+    }
+
+    /// <summary>The generated table of the probe's notes under a parent the test can change, with the providers it renders into.</summary>
+    private sealed class NoteListHost : ComponentBase
+    {
+        private Guid? shown;
+
+        public static NoteListHost? Current { get; set; }
+
+        public static GeneratedListBody<ViewProbeNoteListItem>? Body { get; set; }
+
+        [Parameter]
+        public Guid ParentId { get; set; }
+
+        [Inject]
+        private AggregateViewRegistry Views { get; set; } = default!;
+
+        /// <summary>Hands the table another parent, as a parent component re-rendering with a new parameter does.</summary>
+        public Task ShowAsync(Guid parentId)
+        {
+            shown = parentId;
+            return InvokeAsync(StateHasChanged);
+        }
+
+        protected override void OnInitialized() => Current = this;
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<GeneratedListBody<ViewProbeNoteListItem>>(1);
+            builder.AddComponentParameter(2, nameof(GeneratedListBody<ViewProbeNoteListItem>.Model), Views.For<ViewProbeNote>());
+            builder.AddComponentParameter(3, nameof(GeneratedListBody<ViewProbeNoteListItem>.ParentId), shown ?? ParentId);
+            builder.AddComponentReferenceCapture(4, instance => Body = (GeneratedListBody<ViewProbeNoteListItem>)instance);
+            builder.CloseComponent();
+        }
     }
 }

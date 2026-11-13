@@ -59,6 +59,8 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
         // Its own optional parameters take their declared defaults.
         Assert.Null(query.Tag);
         Assert.Equal(7, query.Limit);
+        Assert.Equal(default, query.Since);
+        Assert.Equal(Guid.Empty, query.Marker);
     }
 
     [Fact]
