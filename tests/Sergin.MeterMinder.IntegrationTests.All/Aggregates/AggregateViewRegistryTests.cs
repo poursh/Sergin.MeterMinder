@@ -17,6 +17,7 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices;
 using Sergin.SharedKernel.IntegrationTests;
 using MudBlazor;
+using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -35,6 +36,32 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     private static AggregateViewModel Probe(Type configuration) => AggregateViewTestRegistry.Build(configuration).For<ViewProbe>();
 
     private static AggregateViewModel Probe() => Probe(typeof(ViewProbeViewConfiguration));
+
+    [Fact]
+    public void ViewModel_ListUnder_HasParentAndRoute()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry
+            .Build(typeof(ViewProbeViewConfiguration), typeof(ViewProbeNoteViewConfiguration))
+            .For<ViewProbeNote>();
+        var probe = Guid.CreateVersion7();
+
+        Assert.Equal(typeof(ViewProbe), model.Parent);
+        Assert.Null(model.Routes.List);
+        Assert.Equal($"/tst/view-probes/{probe}/notes", model.Routes.ListUnderParent!(probe));
+        Assert.Equal(typeof(ViewProbeNoteListSlot), model.Slots[SerginViewSlot.ListBody]);
+
+        // Every list query the view sends carries the parent's id.
+        var query = (ListViewProbeNotesQuery)model.List!.Build(new ListQueryInput(Paggination.Create(10, 1), "note", [], [], probe));
+
+        Assert.Equal(new ViewProbeId(probe), query.ParentId);
+        Assert.Equal("note", query.Term?.Value);
+
+        // Its own optional parameters take their declared defaults.
+        Assert.Null(query.Tag);
+        Assert.Equal(7, query.Limit);
+        Assert.Equal(default, query.Since);
+        Assert.Equal(Guid.Empty, query.Marker);
+    }
 
     [Fact]
     public void Registry_ReadsPermissionScopeVersionAndSchedule_FromCommandConfiguration()
@@ -109,6 +136,34 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
         Assert.Equal(3, arguments["Hits"]);
         Assert.Equal("Delete probe? 3 hits.", TextPlaceholders.Format("Delete {Name}? {Hits} hits.", arguments, CultureInfo.InvariantCulture));
     }
+
+    [Fact]
+    public void ViewModel_EnumField_HasValueTexts()
+    {
+        FieldView status = PlainProbe().DetailFields.Single(field => field.Name == nameof(PlainProbeResponse.Status));
+
+        Assert.NotNull(status.ValueTexts);
+        Assert.Equal(PlainProbeTexts.StatusValues.For(ProbeEnum.First), status.ValueTexts[ProbeEnum.First]);
+        Assert.Equal(PlainProbeTexts.StatusValues.For(ProbeEnum.Second), status.ValueTexts[ProbeEnum.Second]);
+        Assert.NotNull(PlainProbe().ListFields.Single(field => field.Name == nameof(PlainProbeListItem.Status)).ValueTexts);
+    }
+
+    [Fact]
+    public void ViewModel_BoolField_DefaultsToYesNo_OrDeclaredTexts()
+    {
+        IReadOnlyList<FieldView> fields = PlainProbe().DetailFields;
+
+        IReadOnlyDictionary<object, TextDefinition> byDefault = fields.Single(field => field.Name == nameof(PlainProbeResponse.Active)).ValueTexts!;
+        Assert.Equal(ShellTexts.Values.Yes, byDefault[true]);
+        Assert.Equal(ShellTexts.Values.No, byDefault[false]);
+
+        IReadOnlyDictionary<object, TextDefinition> declared = fields.Single(field => field.Name == nameof(PlainProbeResponse.Enabled)).ValueTexts!;
+        Assert.Equal(PlainProbeTexts.EnabledOn, declared[true]);
+        Assert.Equal(PlainProbeTexts.EnabledOff, declared[false]);
+    }
+
+    private static AggregateViewModel PlainProbe() =>
+        AggregateViewTestRegistry.Build(typeof(PlainProbeViewConfiguration)).For<PlainProbe>();
 
     [Fact]
     public void Registry_FieldOverride_HidesALabelledField() =>
@@ -190,6 +245,67 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
         CommandView run = Probe(typeof(HiddenRunViewProbeViewConfiguration)).Commands.Single(command => command.Request == typeof(RunViewProbeCommand));
 
         Assert.True(run.Hidden);
+    }
+
+    [Fact]
+    public void ViewModel_SetPropertyLabel_DefaultsToFieldLabel()
+    {
+        IReadOnlyList<CommandView> commands = AggregateViewTestRegistry.Build(typeof(EditProbeViewConfiguration)).For<EditProbe>().Commands;
+        CommandView retitle = commands.Single(command => command.Request == typeof(RetitleProbeCommand));
+        CommandView color = commands.Single(command => command.Request == typeof(SetProbeColorCommand));
+        CommandView rename = commands.Single(command => command.Request == typeof(RenameProbeCommand));
+
+        Assert.Equal(EditProbeTexts.Title.Label, retitle.Label);
+        Assert.Equal(SerginEditMode.Dialog, retitle.EditMode);
+        Assert.Equal(SerginActionKind.Secondary, retitle.Kind);
+        Assert.Equal(EditProbeTexts.Color.Label, color.Label);
+        Assert.Equal(FormInputKind.Select, color.ValueField!.Kind);
+        Assert.Equal(CommonTexts.Rename, rename.Label);
+        Assert.Equal(SerginEditMode.Inline, rename.EditMode);
+        Assert.Equal(FormInputKind.Text, rename.ValueField!.Kind);
+        Assert.Equal([EditProbePermissions.Update], rename.Permissions);
+        Assert.True(rename.RequiresVersion);
+    }
+
+    [Fact]
+    public void ViewModel_ReversePair_PartnerIsNegation()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(PublishProbeViewConfiguration)).For<PublishProbe>();
+        CommandView publish = model.Commands.Single(command => command.Request == typeof(PublishProbeCommand));
+        CommandView unpublish = model.Commands.Single(command => command.Request == typeof(UnpublishProbeCommand));
+        var draft = new PublishProbeResponse(Guid.CreateVersion7(), "Draft", Published: false);
+        PublishProbeResponse live = draft with { Published = true };
+
+        Assert.True(publish.AppliesWhen!(draft));
+        Assert.False(publish.AppliesWhen(live));
+        Assert.False(unpublish.AppliesWhen!(draft));
+        Assert.True(unpublish.AppliesWhen(live));
+
+        // A record that is not the declared one (a list row) satisfies neither side.
+        var row = new PublishProbeListItem(draft.Id, "Draft", Published: false);
+        Assert.False(publish.AppliesWhen(row));
+        Assert.False(unpublish.AppliesWhen(row));
+    }
+
+    [Fact]
+    public void ViewModel_Kind_ReplacesTheRolesDefault()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(PublishProbeViewConfiguration)).For<PublishProbe>();
+
+        Assert.Equal(SerginActionKind.Primary, model.Commands.Single(command => command.Request == typeof(PublishProbeCommand)).Kind);
+        Assert.Equal(SerginActionKind.Secondary, model.Commands.Single(command => command.Request == typeof(UnpublishProbeCommand)).Kind);
+    }
+
+    [Fact]
+    public void ViewModel_Link_IsCollected()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(PublishProbeViewConfiguration)).For<PublishProbe>();
+        var id = Guid.CreateVersion7();
+
+        ViewLinkView link = Assert.Single(model.Links!);
+        Assert.Equal(PublishProbeTexts.Translations, link.Label);
+        Assert.Equal(MudBlazor.Icons.Material.Outlined.Translate, link.Icon);
+        Assert.Equal($"/tst/publish-probes/{id}/translations", link.Href(id));
     }
 
     [Fact]

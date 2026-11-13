@@ -1,5 +1,6 @@
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BrokenChildViews;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ParentedLists;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -210,10 +211,22 @@ public sealed class AggregateViewGuardTests
             nameof(ChildDisabledWhenOnForeignRecordViewConfiguration), nameof(RemoveViewProbeChildCommand), nameof(ViewProbeResponse));
 
     [Fact]
-    public void Guard_RootSetPropertyCommand_Refuses() =>
+    public void Guard_RootSetPropertyPage_Refuses() =>
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(RootSetPropertyViewConfiguration)),
-            nameof(RootSetPropertyViewConfiguration), nameof(RenameSetProbeCommand), nameof(SetProbe));
+            nameof(RootSetPropertyViewConfiguration), nameof(RenameSetProbeCommand), nameof(SerginEditMode.Page));
+
+    [Fact]
+    public void Guard_RootSetPropertyNotIdAndOneValue_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(PairSetPropertyViewConfiguration)),
+            nameof(PairSetPropertyViewConfiguration), nameof(SetPairSetProbeCommand), "(Id, value)");
+
+    [Fact]
+    public void Guard_InlineWithoutResponseProperty_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(InlineWithoutResponsePropertyViewConfiguration)),
+            nameof(InlineWithoutResponsePropertyViewConfiguration), nameof(RenameSetProbeCommand), nameof(SetProbeResponse), "Name");
 
     [Fact]
     public void Guard_ChildRouteMissingAnId_Refuses() =>
@@ -236,6 +249,64 @@ public sealed class AggregateViewGuardTests
             () => AggregateViewGuard.Ensure(registry, [typeof(AggregateViewGuardTests).Assembly]),
             nameof(ChildHostViewConfiguration), nameof(ViewProbeChild), "/tst/child-hosts/");
     }
+
+    [Fact]
+    public void Guard_DetailEnumFieldWithoutValueText_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(EnumGapProbeViewConfiguration)),
+            nameof(EnumGapProbeViewConfiguration), $"{nameof(EnumGapProbeResponse)}.{nameof(EnumGapProbeResponse.Status)}", $"{nameof(ProbeEnum)}.{nameof(ProbeEnum.Second)}");
+
+    [Fact]
+    public void Guard_ReversePairWithoutAppliesWhen_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(PairWithoutAppliesWhenViewConfiguration)),
+            nameof(PairWithoutAppliesWhenViewConfiguration), nameof(PublishProbeCommand), nameof(UnpublishProbeCommand), "neither");
+
+    [Fact]
+    public void Guard_ReversePairAppliesWhenOnBoth_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(PairAppliesWhenOnBothViewConfiguration)),
+            nameof(PairAppliesWhenOnBothViewConfiguration), nameof(PublishProbeCommand), nameof(UnpublishProbeCommand), "both");
+
+    [Fact]
+    public void Guard_AppliesWhenOnUnknownRecord_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(AppliesWhenUnknownRecordViewConfiguration)),
+            nameof(AppliesWhenUnknownRecordViewConfiguration), nameof(PublishProbeCommand), nameof(ViewProbeResponse), "AppliesWhen");
+
+    [Fact]
+    public void Guard_LinkToUnknownRoute_Refuses()
+    {
+        AggregateViewRegistry registry = AggregateViewTestRegistry.Build(typeof(LinkToUnknownRouteViewConfiguration));
+
+        AssertRefused(
+            () => AggregateViewGuard.Ensure(registry, [typeof(AggregateViewGuardTests).Assembly]),
+            nameof(LinkToUnknownRouteViewConfiguration), "link", "/nowhere");
+    }
+
+    [Fact]
+    public void Guard_ParentedListWithoutListUnder_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ViewProbeViewConfiguration), typeof(RoutedViewProbeNoteViewConfiguration)),
+            nameof(RoutedViewProbeNoteViewConfiguration), nameof(ListViewProbeNotesQuery), "ListUnder<ViewProbe>");
+
+    [Fact]
+    public void Guard_ListUnderWrongParent_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ViewProbeViewConfiguration), typeof(WrongParentViewProbeNoteViewConfiguration)),
+            nameof(WrongParentViewProbeNoteViewConfiguration), $"ListUnder<{nameof(ViewOwner)}>", nameof(ViewProbe));
+
+    [Fact]
+    public void Guard_ListUnderWithoutParentQuery_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ListUnderViewProbeViewConfiguration)),
+            nameof(ListUnderViewProbeViewConfiguration), $"ListUnder<{nameof(ViewOwner)}>", nameof(ListViewProbesQuery));
+
+    [Fact]
+    public void Guard_ListUnderParentWithoutView_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ViewProbeNoteViewConfiguration)),
+            nameof(ViewProbeNoteViewConfiguration), typeof(ViewProbe).FullName!, "view configuration");
 
     private static InvalidOperationException AssertRefused(Action build, params string[] named)
     {

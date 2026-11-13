@@ -92,7 +92,8 @@ public sealed class ModuleConfigurationsAssemblyTests
             .All(member => member switch
             {
                 FieldInfo field => field.IsInitOnly
-                    && (field.FieldType == typeof(TextCategory) || field.FieldType == typeof(TextDefinition) || field.FieldType == typeof(FieldText)),
+                    && (field.FieldType == typeof(TextCategory) || field.FieldType == typeof(TextDefinition) || field.FieldType == typeof(FieldText)
+                        || field.FieldType.IsGenericType && field.FieldType.GetGenericTypeDefinition() == typeof(EnumTexts<>)),
                 _ => false,
             });
 }

@@ -201,6 +201,19 @@ public sealed class RequestRuntimeTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public void ViewModel_SetProperty_HasValueFieldAndBuild()
+    {
+        CommandView rename = AggregateViewTestRegistry.Build(typeof(EditProbeViewConfiguration)).For<EditProbe>().Commands
+            .Single(command => command.Request == typeof(RenameProbeCommand));
+        var id = Guid.CreateVersion7();
+
+        Assert.Equal(nameof(RenameProbeCommand.Name), rename.ValueField!.Name);
+        Assert.Equal(
+            new RenameProbeCommand(new EditProbeId(id), new EditProbeName("x")),
+            rename.BuildFromValues!(id, new Dictionary<string, object?> { [nameof(RenameProbeCommand.Name)] = "x" }));
+    }
+
+    [Fact]
     public void Runtime_ChildListBuilder_TakesTheRootsId()
     {
         var manufacturer = Guid.CreateVersion7();
@@ -208,5 +221,15 @@ public sealed class RequestRuntimeTests(SerginWebApiFactory<Program> factory)
             manufacturer, new ListQueryInput(Paggination.Create(10, 1), null, [], []));
 
         Assert.Equal(manufacturer, query.RootId.Value);
+    }
+
+    [Fact]
+    public void ListBuilder_RequiredParameterOfItsOwn_IsRefused()
+    {
+        InvalidOperationException refused = Assert.Throws<InvalidOperationException>(
+            () => RequestFactory.ForList(typeof(ParentedLists.ListTaggedViewProbeNotesQuery)));
+
+        Assert.Contains("is not a list query a view can build", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("String tag", refused.Message, StringComparison.Ordinal);
     }
 }

@@ -82,6 +82,51 @@ internal sealed class RenameSetProbeCommandConfiguration : ICommandConfiguration
     public void Configure(CommandConfigurationBuilder<RenameSetProbeCommand> builder) => builder.Texts(SetProbeTexts.Category);
 }
 
+/// <summary>Its record has no Name property, so the set-property command cannot be edited inline.</summary>
+internal sealed record SetProbeResponse(Guid Id, string Label);
+
+internal sealed record GetSetProbeQuery(SetProbeId Id) : IQuery<SetProbeResponse>, IGetOneQuery<SetProbe, SetProbeId>;
+
+// ---- A root whose set-property command sets two values ----
+
+internal sealed record PairSetProbeId(Guid Value);
+
+internal sealed class PairSetProbe : AggregateRoot<PairSetProbeId>;
+
+public static class PairSetProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "PairSetProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Pair set probe");
+
+    public static FieldText Left { get; } = Category.Field(nameof(Left), "Left");
+
+    public static FieldText Right { get; } = Category.Field(nameof(Right), "Right");
+}
+
+internal sealed class PairSetProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<PairSetProbe>
+{
+    public void Configure(AggregateFeatureBuilder<PairSetProbe> builder) =>
+        builder.Texts(PairSetProbeTexts.Category).Named(PairSetProbeTexts.Singular);
+}
+
+internal sealed record SetPairSetProbeCommand(PairSetProbeId Id, string Left, string Right) : ICommand, ISetPropertyCommand<PairSetProbe, PairSetProbeId>;
+
+/// <summary>Declares nothing: the command is offered in a dialog, which edits one value.</summary>
+internal sealed class PairSetPropertyViewConfiguration : IAggregateViewConfiguration<PairSetProbe>
+{
+    public void Configure(AggregateViewBuilder<PairSetProbe> view)
+    {
+    }
+}
+
+/// <summary>A set-property command declared Inline whose value the GetOne response does not carry.</summary>
+internal sealed class InlineWithoutResponsePropertyViewConfiguration : IAggregateViewConfiguration<SetProbe>
+{
+    public void Configure(AggregateViewBuilder<SetProbe> view) =>
+        view.Command<RenameSetProbeCommand>().Label(CommonTexts.Rename).Edit(SerginEditMode.Inline);
+}
+
 // ---- The broken configurations ----
 
 /// <summary>The root's requests name a child its view never declares: it has no name.</summary>
@@ -186,7 +231,7 @@ internal sealed class ChildDisabledWhenOnForeignRecordViewConfiguration : IAggre
         });
 }
 
-/// <summary>A set-property command on the root itself, in the one mode a child accepts.</summary>
+/// <summary>A set-property command on the root itself in Page mode, which only a child's accepts.</summary>
 internal sealed class RootSetPropertyViewConfiguration : IAggregateViewConfiguration<SetProbe>
 {
     public void Configure(AggregateViewBuilder<SetProbe> view) =>

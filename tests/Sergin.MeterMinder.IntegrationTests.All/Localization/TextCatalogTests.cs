@@ -2,6 +2,8 @@ using System.Reflection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Sergin.Administration.Settings.Application.Configurations.Languages;
+using Sergin.Administration.Settings.Domain.Languages;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Modules;
@@ -22,6 +24,29 @@ public sealed class TextCatalogTests(SerginWebApiFactory<Program> factory)
         Assert.Equal("Device ID", catalog.FindField(Devices.Category, "DeviceId")!.Label.Default);
         Assert.Single(catalog.FieldsOf(Devices.Category));
     }
+
+    [Fact]
+    public void Values_KeysAreCategoryValuesEnumMember()
+    {
+        TextDefinition draft = LanguageTexts.StatusValues.For(LanguageStatus.Draft);
+
+        Assert.Equal("settings.languages.values.language-status.draft", draft.Key.Value);
+
+        TextCatalog catalog = factory.Services.GetRequiredService<TextCatalog>();
+        TextCatalogEntry entry = Assert.Single(catalog.Entries, entry => entry.Definition.Key == draft.Key);
+
+        Assert.Equal(TextOrigin.Application, entry.Origin);
+        Assert.Equal(draft, catalog.FindValue(LanguageTexts.Category, typeof(LanguageStatus), LanguageStatus.Draft));
+        Assert.Equal(2, catalog.ValueTextsOf(LanguageTexts.Category, typeof(LanguageStatus)).Count);
+        Assert.Throws<ArgumentOutOfRangeException>(() => LanguageTexts.StatusValues.For((LanguageStatus)99));
+    }
+
+    [Fact]
+    public void Values_DuplicateMember_Throws() =>
+        Assert.Throws<ArgumentException>(() =>
+            TextCategory.Create("DeviceManagement", "Devices").Values(
+                (LanguageStatus.Draft, "Draft", null),
+                (LanguageStatus.Draft, "Again", null)));
 
     [Fact]
     public void Catalog_RefusesDuplicateKey()

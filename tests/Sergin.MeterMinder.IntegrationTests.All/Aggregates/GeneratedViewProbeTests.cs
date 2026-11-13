@@ -1,16 +1,27 @@
 using System.Net;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Logging;
+using MudBlazor;
 using Sergin.Administration.UserAccess.Domain.Scopes;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
+using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
+using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
+using Sergin.SharedKernel.Presentation.Blazor.Validation;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
@@ -27,6 +38,8 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
     private RbacScenario tree = default!;
     private ViewProbeStore store = default!;
     private PlainProbeStore plainStore = default!;
+    private EditProbeStore editStore = default!;
+    private PublishProbeStore publishStore = default!;
 
     public async Task InitializeAsync()
     {
@@ -37,12 +50,17 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
             ProbeUserContextFactory.AddTo(services);
             ViewProbeTestHost.AddTo(services);
             PlainProbeTestHost.AddTo(services);
+            EditProbeTestHost.AddTo(services);
+            PublishProbeTestHost.AddTo(services);
+            ViewProbeNoteTestHost.AddTo(services);
             services.Replace(ServiceDescriptor.Scoped<IUiTimeZoneStore, FixedTimeZoneStore>());
         }));
 
         users = host.Services.GetRequiredService<ProbeUserContextFactory>();
         store = host.Services.GetRequiredService<ViewProbeStore>();
         plainStore = host.Services.GetRequiredService<PlainProbeStore>();
+        editStore = host.Services.GetRequiredService<EditProbeStore>();
+        publishStore = host.Services.GetRequiredService<PublishProbeStore>();
         await ScheduledTaskTestHost.ResetSchemaAsync(host);
         tree = await RbacScenario.BuildAsync(host);
     }
@@ -139,6 +157,28 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
     }
 
     [Fact]
+    public async Task Detail_RendersEnumValueText_NotMemberName()
+    {
+        Guid probe = plainStore.Add("Plain enum");
+
+        string html = await GetAsync($"/tst/plain-probes/{probe}");
+
+        Assert.Contains("Runner-up value", html, StringComparison.Ordinal);
+        Assert.DoesNotContain($">{nameof(ProbeEnum.Second)}<", html, StringComparison.Ordinal);
+        Assert.Contains("Switched off", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Form_ShowsFieldHint()
+    {
+        Guid probe = plainStore.Add("Plain hint");
+
+        string html = await GetAsync($"/tst/plain-probes/{probe}/edit");
+
+        Assert.Contains("Probe hint text", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task PlainProbeEdit_NotVersioned_RendersPrefilledForm()
     {
         Guid probe = plainStore.Add("Plain beta");
@@ -172,8 +212,268 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         Assert.Equal("Plain delta", plainStore.Find(probe)!.Name.Value);
     }
 
-    private async Task GrantAsync(params PermissionDefinition[] permissions) =>
+    [Fact]
+    public async Task GeneratedSetProperty_Stale_ReportsStaleAndSendsOnce()
+    {
+        Guid probe = editStore.Add("Stale probe");
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<EditProbe>();
+        CommandView retitle = model.Commands.Single(command => command.Request == typeof(RetitleProbeCommand));
+
+        using IServiceScope scope = host.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        GeneratedSetProperty setProperty = new(scope.ServiceProvider.GetRequiredService<ISerginFormValidator>());
+
+        ViewSendResult loaded = await model.LoadRecordAsync(dispatcher, probe);
+        Assert.NotNull(loaded.Version);
+        editStore.Touch(probe);
+        int before = editStore.Sends;
+
+        SetPropertyStatus status = await setProperty.SubmitAsync(dispatcher, retitle, probe, "Too late", loaded.Version);
+
+        Assert.Equal(SetPropertyStatus.Stale, status);
+        Assert.Contains(setProperty.Errors, VersionErrors.IsStale);
+        Assert.Equal(before + 1, editStore.Sends);
+        Assert.Equal("Headline Stale probe", editStore.Find(probe)!.Value.Record.Title.Value);
+    }
+
+    [Fact]
+    public async Task GeneratedSetProperty_AtTheCurrentVersion_Sends()
+    {
+        Guid probe = editStore.Add("Sent probe");
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<EditProbe>();
+        CommandView color = model.Commands.Single(command => command.Request == typeof(SetProbeColorCommand));
+
+        using IServiceScope scope = host.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        GeneratedSetProperty setProperty = new(scope.ServiceProvider.GetRequiredService<ISerginFormValidator>());
+
+        ViewSendResult loaded = await model.LoadRecordAsync(dispatcher, probe);
+        SetPropertyStatus status = await setProperty.SubmitAsync(dispatcher, color, probe, ProbeColor.Red, loaded.Version);
+
+        Assert.Equal(SetPropertyStatus.Sent, status);
+        Assert.Empty(setProperty.Errors);
+        Assert.Equal(ProbeColor.Red, editStore.Find(probe)!.Value.Record.Color);
+    }
+
+    [Fact]
+    public async Task InlineEdit_InvalidValue_SendsNothing()
+    {
+        Guid probe = editStore.Add("Valid probe");
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<EditProbe>();
+        CommandView rename = model.Commands.Single(command => command.Request == typeof(RenameProbeCommand));
+
+        using IServiceScope scope = host.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        GeneratedSetProperty setProperty = new(scope.ServiceProvider.GetRequiredService<ISerginFormValidator>());
+        ViewSendResult loaded = await model.LoadRecordAsync(dispatcher, probe);
+        int before = editStore.Sends;
+
+        // What the value form's field validation shows, then what a submit of that value does.
+        IReadOnlyCollection<string> messages = await setProperty.ValidateAsync(rename, probe, string.Empty);
+        SetPropertyStatus status = await setProperty.SubmitAsync(dispatcher, rename, probe, string.Empty, loaded.Version);
+
+        string message = Assert.Single(messages);
+        Assert.Contains("Name", message, StringComparison.Ordinal);
+        Assert.Equal(SetPropertyStatus.Failed, status);
+        Assert.Equal(message, Assert.Single(setProperty.Errors).Description);
+        Assert.Equal(before, editStore.Sends);
+        Assert.Equal("Valid probe", editStore.Find(probe)!.Value.Record.Name.Value);
+    }
+
+    [Fact]
+    public async Task Detail_InlineCardAndChoice_ShownToManager_HiddenFromReader()
+    {
+        Guid probe = editStore.Add("Inline probe");
+
+        await GrantAsync(EditProbePermissions.Read, EditProbePermissions.Update);
+        string manager = await GetAsync($"/tst/edit-probes/{probe}");
+
+        Assert.Contains(">Rename<", manager, StringComparison.Ordinal);
+        Assert.Contains("value=\"Inline probe\"", manager, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Color\"", manager, StringComparison.Ordinal);
+        Assert.Contains("Emerald", manager, StringComparison.Ordinal);
+
+        await GrantAsync(EditProbePermissions.Read);
+        string reader = await GetAsync($"/tst/edit-probes/{probe}");
+
+        Assert.Contains("Inline probe", reader, StringComparison.Ordinal);
+        Assert.Contains("Emerald", reader, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Rename<", reader, StringComparison.Ordinal);
+        Assert.DoesNotContain("value=\"Inline probe\"", reader, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-label=\"Color\"", reader, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Detail_DialogCommand_IsABarAction()
+    {
+        Guid probe = editStore.Add("Dialog probe");
+
+        await GrantAsync(EditProbePermissions.Read, EditProbePermissions.Update);
+        string manager = await GetAsync($"/tst/edit-probes/{probe}");
+
+        await GrantAsync(EditProbePermissions.Read);
+        string reader = await GetAsync($"/tst/edit-probes/{probe}");
+
+        // The field's caption shows to both; the Headline action (Retitle's default label) only to a holder of Update.
+        Assert.Contains("Headline Dialog probe", reader, StringComparison.Ordinal);
+        Assert.Equal(CountOf(reader, ">Headline<") + 1, CountOf(manager, ">Headline<"));
+    }
+
+    [Fact]
+    public async Task Detail_ReversePair_ShowsOnlyTheOneThatApplies()
+    {
+        Guid draft = publishStore.Add("Draft probe", published: false);
+        Guid live = publishStore.Add("Live probe", published: true);
+
+        string draftHtml = await GetAsync($"/tst/publish-probes/{draft}");
+        string liveHtml = await GetAsync($"/tst/publish-probes/{live}");
+
+        Assert.Contains(">Publish<", draftHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Unpublish", draftHtml, StringComparison.Ordinal);
+        Assert.Contains(">Unpublish<", liveHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Publish<", liveHtml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void List_ReversePair_NotOffered()
+    {
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<PublishProbe>();
+        var item = new PublishProbeListItem(Guid.CreateVersion7(), "Row", Published: false);
+
+        // The row is not the record the pair reads, so the menu (where a transition goes) holds neither command.
+        IReadOnlyList<SerginPageAction> menu = RowActions(model, item.Id, GeneratedLists.Menu, item, ViewLinkPlacement.None);
+
+        Assert.Empty(menu);
+    }
+
+    [Fact]
+    public async Task Detail_Link_IsSecondaryActionWithHref()
+    {
+        Guid probe = publishStore.Add("Linked probe", published: false);
+
+        string html = await GetAsync($"/tst/publish-probes/{probe}");
+
+        Assert.Contains($"href=\"/tst/publish-probes/{probe}/translations\"", html, StringComparison.Ordinal);
+        Assert.Contains("Translations", html, StringComparison.Ordinal);
+
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<PublishProbe>();
+        IReadOnlyList<SerginPageAction> actions = RowActions(model, probe, null, publishStore.Find(probe), ViewLinkPlacement.AfterCommands);
+
+        // Publish (Primary), then the link, which carries no permission.
+        Assert.Equal([PublishProbeTexts.Publish, PublishProbeTexts.Translations], actions.Select(action => action.Label));
+        SerginPageAction link = actions[^1];
+        Assert.Equal(SerginActionKind.Secondary, link.Kind);
+        Assert.Equal($"/tst/publish-probes/{probe}/translations", link.Href);
+        Assert.Null(link.Permission);
+    }
+
+    [Fact]
+    public void List_Link_IsRowIcon()
+    {
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<PublishProbe>();
+        var item = new PublishProbeListItem(Guid.CreateVersion7(), "Row", Published: false);
+
+        IReadOnlyList<SerginPageAction> icons = RowActions(model, item.Id, GeneratedLists.Icons, item, ViewLinkPlacement.BeforeCommands);
+
+        SerginPageAction link = Assert.Single(icons);
+        Assert.Equal(PublishProbeTexts.Translations, link.Label);
+        Assert.Equal(MudBlazor.Icons.Material.Outlined.Translate, link.Icon);
+        Assert.Equal($"/tst/publish-probes/{item.Id}/translations", link.Href);
+    }
+
+    [Fact]
+    public async Task List_UnderParent_TrailHasParentRecordStep()
+    {
+        Guid probe = store.Add("Noted probe");
+
+        string html = await GetAsync($"/tst/view-probes/{probe}/notes");
+
+        Assert.Contains("<title>Probe notes</title>", html, StringComparison.Ordinal);
+
+        // The parent's list step, the parent as stored linking to its detail, then this list's title.
+        Assert.Contains("href=\"/tst/view-probes\"", html, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/tst/view-probes/{probe}\"", html, StringComparison.Ordinal);
+        Assert.Contains(">Noted probe<", html, StringComparison.Ordinal);
+        Assert.Contains(">Probe notes<", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task List_UnderParent_UnknownParent_KeepsPlaceholderStep()
+    {
+        var unknown = Guid.CreateVersion7();
+
+        string html = await GetAsync($"/tst/view-probes/{unknown}/notes");
+
+        // The parent's singular, still linking to where the parent would be; the page renders.
+        Assert.Contains($"href=\"/tst/view-probes/{unknown}\"", html, StringComparison.Ordinal);
+        Assert.Contains(">View probe<", html, StringComparison.Ordinal);
+        Assert.Contains($"note-parent-id:{unknown}", html, StringComparison.Ordinal);
+        Assert.Contains("note-parent-name:<", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task List_BodySlot_ReplacesTableAndGetsParent()
+    {
+        Guid probe = store.Add("Slotted probe");
+
+        string html = await GetAsync($"/tst/view-probes/{probe}/notes");
+
+        Assert.Contains($"note-parent-id:{probe}", html, StringComparison.Ordinal);
+        Assert.Contains("note-parent-name:Slotted probe", html, StringComparison.Ordinal);
+        Assert.Contains("note-generation:0", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<table", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task List_UnderParent_NewParent_ReloadsTableUnderIt()
+    {
+        Guid first = store.Add("First parent");
+        Guid second = store.Add("Second parent");
+        await GrantAsync(ViewProbePermissions.Read);
+        ViewProbeNoteQueries queries = host.Services.GetRequiredService<ViewProbeNoteQueries>();
+        queries.ParentIds.Clear();
+
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+        ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
+            .Initialize("http://localhost/", $"http://localhost/tst/view-probes/{first}/notes");
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            NoteListHost.Current = null;
+            await renderer.RenderComponentAsync<NoteListHost>(ParameterView.FromDictionary(new Dictionary<string, object?>
+            {
+                [nameof(NoteListHost.ParentId)] = first,
+            }));
+
+            // The table's first load, then the same table handed another parent, as a page reused across a navigation is.
+            await NoteListHost.Body!.ReloadAsync();
+            await NoteListHost.Current!.ShowAsync(second);
+        });
+
+        Assert.Equal([first, second], queries.ParentIds);
+    }
+
+    private static IReadOnlyList<SerginPageAction> RowActions(
+        AggregateViewModel model, Guid id, IReadOnlySet<CommandRole>? roles, object? record, ViewLinkPlacement links) =>
+        new GeneratedCommandActions(new NoopReceiver(), _ => Task.CompletedTask, _ => Task.CompletedTask)
+            .For(model, id, _ => [], roles, record: record, links: links);
+
+    private sealed class NoopReceiver : IHandleEvent
+    {
+        public Task HandleEventAsync(EventCallbackWorkItem item, object? arg) => Task.CompletedTask;
+    }
+
+    private static int CountOf(string html, string text) =>
+        (html.Length - html.Replace(text, string.Empty, StringComparison.Ordinal).Length) / text.Length;
+
+    // The grant is made as the host's own user, so a second grant in one test is not made by the caller of the first.
+    private async Task GrantAsync(params PermissionDefinition[] permissions)
+    {
+        users.Current = null;
         users.Current = await tree.CreateGrantedCallerAsync(Scope.RootId.Value, [.. permissions.Select(permission => permission.Permission)]);
+    }
 
     private async Task<string> GetAsync(string path)
     {
@@ -185,5 +485,41 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         Assert.True(response.StatusCode == HttpStatusCode.OK, $"{path} answered {response.StatusCode}: {body[..Math.Min(body.Length, 3000)]}");
 
         return body;
+    }
+
+    /// <summary>The generated table of the probe's notes under a parent the test can change, with the providers it renders into.</summary>
+    private sealed class NoteListHost : ComponentBase
+    {
+        private Guid? shown;
+
+        public static NoteListHost? Current { get; set; }
+
+        public static GeneratedListBody<ViewProbeNoteListItem>? Body { get; set; }
+
+        [Parameter]
+        public Guid ParentId { get; set; }
+
+        [Inject]
+        private AggregateViewRegistry Views { get; set; } = default!;
+
+        /// <summary>Hands the table another parent, as a parent component re-rendering with a new parameter does.</summary>
+        public Task ShowAsync(Guid parentId)
+        {
+            shown = parentId;
+            return InvokeAsync(StateHasChanged);
+        }
+
+        protected override void OnInitialized() => Current = this;
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<GeneratedListBody<ViewProbeNoteListItem>>(1);
+            builder.AddComponentParameter(2, nameof(GeneratedListBody<ViewProbeNoteListItem>.Model), Views.For<ViewProbeNote>());
+            builder.AddComponentParameter(3, nameof(GeneratedListBody<ViewProbeNoteListItem>.ParentId), shown ?? ParentId);
+            builder.AddComponentReferenceCapture(4, instance => Body = (GeneratedListBody<ViewProbeNoteListItem>)instance);
+            builder.CloseComponent();
+        }
     }
 }

@@ -12,6 +12,7 @@ using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
@@ -115,6 +116,259 @@ internal sealed class ViewProbeViewConfiguration : IAggregateViewConfiguration<V
 
         view.Slot<ViewProbeOverviewSlot>(SerginViewSlot.DetailOverview);
     }
+}
+
+// ---- A versioned root with set-property commands in each edit mode ----
+
+internal sealed record EditProbeId(Guid Value);
+
+internal sealed record EditProbeName(string Value);
+
+internal sealed record EditProbeTitle(string Value);
+
+internal sealed class EditProbe : AggregateRoot<EditProbeId>;
+
+/// <summary>A choice an inline set-property command edits in place.</summary>
+public enum ProbeColor
+{
+    Red,
+    Green,
+}
+
+internal static class EditProbePermissions
+{
+    public static PermissionDefinition Read { get; } = PermissionDefinition.Create("permission.tst.edit-probes.read", "View edit probes");
+
+    public static PermissionDefinition Update { get; } = PermissionDefinition.Create("permission.tst.edit-probes.update", "Change edit probes");
+}
+
+public static class EditProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "EditProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Edit probe");
+
+    public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
+
+    public static FieldText Color { get; } = Category.Field(nameof(Color), "Color");
+
+    public static FieldText Title { get; } = Category.Field(nameof(Title), "Headline");
+
+    public static EnumTexts<ProbeColor> ColorValues { get; } =
+        Category.Values((ProbeColor.Red, "Crimson", null), (ProbeColor.Green, "Emerald", null));
+}
+
+internal sealed class EditProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<EditProbe>
+{
+    public void Configure(AggregateFeatureBuilder<EditProbe> builder) =>
+        builder.Versioned()
+            .Permissions(EditProbePermissions.Read, EditProbePermissions.Update)
+            .Texts(EditProbeTexts.Category)
+            .Named(EditProbeTexts.Singular);
+}
+
+internal sealed record EditProbeResponse(Guid Id, EditProbeName Name, ProbeColor Color, EditProbeTitle Title);
+
+internal sealed record GetEditProbeQuery(EditProbeId Id) : IQuery<EditProbeResponse>, IGetOneQuery<EditProbe, EditProbeId>;
+
+/// <summary>Inline with a text value: a form card in the detail body, its button labelled Rename.</summary>
+internal sealed record RenameProbeCommand(EditProbeId Id, EditProbeName Name) : ICommand, ISetPropertyCommand<EditProbe, EditProbeId>;
+
+/// <summary>Inline with a choice: the detail field itself becomes a select.</summary>
+internal sealed record SetProbeColorCommand(EditProbeId Id, ProbeColor Color) : ICommand, ISetPropertyCommand<EditProbe, EditProbeId>;
+
+/// <summary>Undeclared, so Dialog: an action on the detail bar labelled by its field.</summary>
+internal sealed record RetitleProbeCommand(EditProbeId Id, EditProbeTitle Title) : ICommand, ISetPropertyCommand<EditProbe, EditProbeId>;
+
+internal sealed class RenameProbeCommandConfiguration : ICommandConfiguration<RenameProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<RenameProbeCommand> builder) => builder.RequirePermissions(EditProbePermissions.Update);
+}
+
+internal sealed class SetProbeColorCommandConfiguration : ICommandConfiguration<SetProbeColorCommand>
+{
+    public void Configure(CommandConfigurationBuilder<SetProbeColorCommand> builder) => builder.RequirePermissions(EditProbePermissions.Update);
+}
+
+internal sealed class RetitleProbeCommandConfiguration : ICommandConfiguration<RetitleProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<RetitleProbeCommand> builder) => builder.RequirePermissions(EditProbePermissions.Update);
+}
+
+internal sealed class EditProbeViewConfiguration : IAggregateViewConfiguration<EditProbe>
+{
+    public void Configure(AggregateViewBuilder<EditProbe> view)
+    {
+        view.Command<RenameProbeCommand>().Label(CommonTexts.Rename).Edit(SerginEditMode.Inline);
+        view.Command<SetProbeColorCommand>().Edit(SerginEditMode.Inline);
+    }
+}
+
+// ---- A root with an IReverseOf pair and a link to another page ----
+
+internal sealed record PublishProbeId(Guid Value);
+
+internal sealed class PublishProbe : AggregateRoot<PublishProbeId>;
+
+public static class PublishProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "PublishProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Publish probe");
+
+    public static TextDefinition Title { get; } = Category.Text("Title", "Publish probes");
+
+    public static TextDefinition Publish { get; } = Category.Text("Publish", "Publish");
+
+    public static TextDefinition Unpublish { get; } = Category.Text("Unpublish", "Unpublish");
+
+    public static TextDefinition Translations { get; } = Category.Text("Translations", "Translations");
+
+    public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
+
+    public static FieldText Published { get; } = Category.Field(nameof(Published), "Published");
+}
+
+internal sealed class PublishProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<PublishProbe>
+{
+    public void Configure(AggregateFeatureBuilder<PublishProbe> builder) =>
+        builder.Texts(PublishProbeTexts.Category).Named(PublishProbeTexts.Singular);
+}
+
+internal sealed record PublishProbeResponse(Guid Id, string Name, bool Published);
+
+internal sealed record GetPublishProbeQuery(PublishProbeId Id) : IQuery<PublishProbeResponse>, IGetOneQuery<PublishProbe, PublishProbeId>;
+
+/// <summary>A row of a different type from the GetOne response: a list offers neither command of the pair.</summary>
+internal sealed record PublishProbeListItem(Guid Id, string Name, bool Published);
+
+internal sealed record ListPublishProbesQuery : ListQuery<PublishProbeListItem>, IListOf<PublishProbe>
+{
+    public ListPublishProbesQuery(Paggination paggination)
+        : base(paggination)
+    {
+    }
+}
+
+internal sealed record PublishProbeCommand(PublishProbeId Id) : ICommand, ITransitionCommand<PublishProbe, PublishProbeId>;
+
+internal sealed record UnpublishProbeCommand(PublishProbeId Id) : ICommand, ITransitionCommand<PublishProbe, PublishProbeId>, IReverseOf<PublishProbeCommand>;
+
+/// <summary>Publish declares when it applies; Unpublish, its reverse, applies exactly when it does not. One link.</summary>
+internal sealed class PublishProbeViewConfiguration : IAggregateViewConfiguration<PublishProbe>
+{
+    public void Configure(AggregateViewBuilder<PublishProbe> view)
+    {
+        view.Title(PublishProbeTexts.Title)
+            .Routes("/tst/publish-probes", id => $"/tst/publish-probes/{id}")
+            .Link(PublishProbeTexts.Translations, MudBlazor.Icons.Material.Outlined.Translate, id => $"/tst/publish-probes/{id}/translations");
+
+        view.Command<PublishProbeCommand>().Label(PublishProbeTexts.Publish).Kind(SerginActionKind.Primary)
+            .AppliesWhen<PublishProbeResponse>(record => !record.Published);
+        view.Command<UnpublishProbeCommand>().Label(PublishProbeTexts.Unpublish);
+    }
+}
+
+/// <summary>Refusal: a pair with AppliesWhen on neither command.</summary>
+internal sealed class PairWithoutAppliesWhenViewConfiguration : IAggregateViewConfiguration<PublishProbe>
+{
+    public void Configure(AggregateViewBuilder<PublishProbe> view)
+    {
+        view.Command<PublishProbeCommand>().Label(PublishProbeTexts.Publish);
+        view.Command<UnpublishProbeCommand>().Label(PublishProbeTexts.Unpublish);
+    }
+}
+
+/// <summary>Refusal: a pair with AppliesWhen on both commands.</summary>
+internal sealed class PairAppliesWhenOnBothViewConfiguration : IAggregateViewConfiguration<PublishProbe>
+{
+    public void Configure(AggregateViewBuilder<PublishProbe> view)
+    {
+        view.Command<PublishProbeCommand>().Label(PublishProbeTexts.Publish).AppliesWhen<PublishProbeResponse>(record => !record.Published);
+        view.Command<UnpublishProbeCommand>().Label(PublishProbeTexts.Unpublish).AppliesWhen<PublishProbeResponse>(record => record.Published);
+    }
+}
+
+/// <summary>Refusal: AppliesWhen reads a record none of the command's views holds.</summary>
+internal sealed class AppliesWhenUnknownRecordViewConfiguration : IAggregateViewConfiguration<PublishProbe>
+{
+    public void Configure(AggregateViewBuilder<PublishProbe> view)
+    {
+        view.Command<PublishProbeCommand>().Label(PublishProbeTexts.Publish).AppliesWhen<ViewProbeResponse>(record => record.Hits > 0);
+        view.Command<UnpublishProbeCommand>().Label(PublishProbeTexts.Unpublish);
+    }
+}
+
+/// <summary>Refusal: a link to a page no routable component declares.</summary>
+internal sealed class LinkToUnknownRouteViewConfiguration : IAggregateViewConfiguration<PublishProbe>
+{
+    public void Configure(AggregateViewBuilder<PublishProbe> view)
+    {
+        view.Link(PublishProbeTexts.Translations, MudBlazor.Icons.Material.Outlined.Translate, id => $"/tst/publish-probes/{id}/nowhere");
+        view.Command<PublishProbeCommand>().Label(PublishProbeTexts.Publish).AppliesWhen<PublishProbeResponse>(record => !record.Published);
+        view.Command<UnpublishProbeCommand>().Label(PublishProbeTexts.Unpublish);
+    }
+}
+
+// ---- A root listed under a parent record (the view probe), its list body a slot ----
+
+internal sealed record ViewProbeNoteId(Guid Value);
+
+internal sealed class ViewProbeNote : AggregateRoot<ViewProbeNoteId>;
+
+public static class ViewProbeNoteTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "ViewProbeNotes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "View probe note");
+
+    public static TextDefinition Title { get; } = Category.Text("Title", "Probe notes");
+
+    public static FieldText Text { get; } = Category.Field(nameof(Text), "Text");
+}
+
+internal sealed class ViewProbeNoteAggregateFeatureConfiguration : IAggregateFeatureConfiguration<ViewProbeNote>
+{
+    public void Configure(AggregateFeatureBuilder<ViewProbeNote> builder) =>
+        builder.Texts(ViewProbeNoteTexts.Category).Named(ViewProbeNoteTexts.Singular);
+}
+
+internal sealed record ViewProbeNoteListItem(Guid Id, string Text);
+
+/// <summary>The notes of one view probe: the parent's id comes first, as a parented list query takes it.</summary>
+internal sealed record ListViewProbeNotesQuery : ListQuery<ViewProbeNoteListItem>, IListOf<ViewProbeNote>, IUnderParent<ViewProbe, ViewProbeId>
+{
+    public ListViewProbeNotesQuery(ViewProbeId parentId, Paggination paggination, Term? term = default, string? tag = default, int limit = 7, DateTime since = default, Guid marker = default)
+        : base(paggination, term)
+    {
+        ParentId = parentId;
+        Tag = tag;
+        Limit = limit;
+        Since = since;
+        Marker = marker;
+    }
+
+    public ViewProbeId ParentId { get; init; }
+
+    /// <summary>A filter of the query's own, optional: a generated list sends its default.</summary>
+    public string? Tag { get; init; }
+
+    /// <summary>An optional value type with a declared default: a generated list sends 7.</summary>
+    public int Limit { get; init; }
+
+    /// <summary>Optional structs declared "= default", whose DefaultValue reads null: a generated list sends their default.</summary>
+    public DateTime Since { get; init; }
+
+    public Guid Marker { get; init; }
+}
+
+/// <summary>Listed under its probe, the table replaced by <see cref="ViewProbeNoteListSlot"/>.</summary>
+internal sealed class ViewProbeNoteViewConfiguration : IAggregateViewConfiguration<ViewProbeNote>
+{
+    public void Configure(AggregateViewBuilder<ViewProbeNote> view) =>
+        view.Title(ViewProbeNoteTexts.Title)
+            .ListUnder<ViewProbe>(probeId => $"/tst/view-probes/{probeId}/notes")
+            .Slot<ViewProbeNoteListSlot>(SerginViewSlot.ListBody);
 }
 
 // ---- Another root with a child: what pickers and filters point at ----
@@ -470,6 +724,9 @@ internal static class AggregateViewTestRegistry
         typeof(EditScheduledProbeAggregateFeatureConfiguration), typeof(CtorProbeAggregateFeatureConfiguration),
         typeof(BadOverviewProbeAggregateFeatureConfiguration), typeof(ChildHostAggregateFeatureConfiguration),
         typeof(BareChildHostAggregateFeatureConfiguration), typeof(SetProbeAggregateFeatureConfiguration),
+        typeof(EnumGapProbeAggregateFeatureConfiguration), typeof(EditProbeAggregateFeatureConfiguration),
+        typeof(PairSetProbeAggregateFeatureConfiguration), typeof(PublishProbeAggregateFeatureConfiguration),
+        typeof(ViewProbeNoteAggregateFeatureConfiguration),
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -486,7 +743,12 @@ internal static class AggregateViewTestRegistry
         typeof(AddViewProbeChildCommandConfiguration), typeof(RemoveViewProbeChildCommand), typeof(RemoveViewProbeChildCommandConfiguration),
         typeof(RenameViewProbeChildCommand), typeof(RenameViewProbeChildCommandConfiguration), typeof(ListBareChildrenQuery),
         typeof(ListBareChildrenQueryConfiguration),
-        typeof(RenameSetProbeCommand), typeof(RenameSetProbeCommandConfiguration),
+        typeof(RenameSetProbeCommand), typeof(RenameSetProbeCommandConfiguration), typeof(GetEnumGapProbeQuery),
+        typeof(GetSetProbeQuery), typeof(SetPairSetProbeCommand),
+        typeof(GetEditProbeQuery), typeof(RenameProbeCommand), typeof(RenameProbeCommandConfiguration), typeof(SetProbeColorCommand),
+        typeof(SetProbeColorCommandConfiguration), typeof(RetitleProbeCommand), typeof(RetitleProbeCommandConfiguration),
+        typeof(GetPublishProbeQuery), typeof(ListPublishProbesQuery), typeof(PublishProbeCommand), typeof(UnpublishProbeCommand),
+        typeof(ListViewProbeNotesQuery),
     ];
 
     public static AggregateViewRegistry Build(params Type[] viewConfigurations) =>
@@ -500,7 +762,8 @@ internal static class AggregateViewTestRegistry
                 TextSource.FromTypes("Tst", TextOrigin.Ui, typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
                     typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts), typeof(BadQueryProbeTexts),
                     typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts), typeof(BadOverviewProbeTexts),
-                    typeof(ChildHostTexts), typeof(ViewProbeChildTexts), typeof(BareChildHostTexts), typeof(SetProbeTexts)),
+                    typeof(ChildHostTexts), typeof(ViewProbeChildTexts), typeof(BareChildHostTexts), typeof(SetProbeTexts), typeof(EnumGapProbeTexts),
+                    typeof(EditProbeTexts), typeof(PairSetProbeTexts), typeof(PublishProbeTexts), typeof(ViewProbeNoteTexts)),
             ]));
 }
 
@@ -653,6 +916,41 @@ internal sealed record CreateCtorProbeCommand : ICommand, ICreateCommand<CtorPro
 internal sealed class CtorProbeViewConfiguration : IAggregateViewConfiguration<CtorProbe>
 {
     public void Configure(AggregateViewBuilder<CtorProbe> view)
+    {
+    }
+}
+
+// ---- Refusal: a shown enum field with a member that has no value text ----
+
+internal sealed record EnumGapProbeId(Guid Value);
+
+internal sealed class EnumGapProbe : AggregateRoot<EnumGapProbeId>;
+
+public static class EnumGapProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "EnumGapProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Enum gap probe");
+
+    public static FieldText Status { get; } = Category.Field(nameof(Status), "Status");
+
+    /// <summary>Declares the first member only.</summary>
+    public static EnumTexts<ProbeEnum> StatusValues { get; } = Category.Values((ProbeEnum.First, "Primary value", null));
+}
+
+internal sealed class EnumGapProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<EnumGapProbe>
+{
+    public void Configure(AggregateFeatureBuilder<EnumGapProbe> builder) =>
+        builder.Texts(EnumGapProbeTexts.Category).Named(EnumGapProbeTexts.Singular);
+}
+
+internal sealed record EnumGapProbeResponse(Guid Id, ProbeEnum Status);
+
+internal sealed record GetEnumGapProbeQuery(EnumGapProbeId Id) : IQuery<EnumGapProbeResponse>, IGetOneQuery<EnumGapProbe, EnumGapProbeId>;
+
+internal sealed class EnumGapProbeViewConfiguration : IAggregateViewConfiguration<EnumGapProbe>
+{
+    public void Configure(AggregateViewBuilder<EnumGapProbe> view)
     {
     }
 }
