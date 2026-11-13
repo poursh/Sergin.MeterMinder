@@ -3,8 +3,6 @@ using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.De
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.IntegrationTests.All.Lists;
-using Sergin.SharedKernel.Application.Concurrency;
-using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
@@ -58,21 +56,77 @@ public sealed class GeneratedDeviceModelViewTests(SerginWebApiFactory<Program> f
         string marker = CatalogSeed.Marker();
         ManufacturerId manufacturer = await CatalogSeed.ManufacturerAsync(dispatcher, $"maker-{marker}");
         DeviceModelInternalId model = await CatalogSeed.ModelAsync(dispatcher, manufacturer, $"model-{marker}");
-        ChildViewModel child = Assert.Single(
-            factory.Services.GetRequiredService<AggregateViewRegistry>().For<Manufacturer>().Children,
-            candidate => candidate.Child == typeof(DeviceModel));
+        AggregateViewModel root = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Manufacturer>();
+        CommandView remove = RemoveCommand(root);
+
+        // The version the view loads the root at, then another model's add moves it.
+        ViewSendResult loaded = await root.LoadRecordAsync(dispatcher, manufacturer.Value);
+        Assert.False(loaded.IsError);
+        await CatalogSeed.ModelAsync(dispatcher, manufacturer, $"other-{marker}");
+
+        ChildCommandOutcome outcome = await GeneratedChildCommands.SendAsync(dispatcher, remove, manufacturer.Value, model.Value, loaded.Version);
+
+        // Refused as stale (the view reads again), and the model is still there.
+        Assert.Equal(ChildCommandStatus.Refused, outcome.Status);
+        Assert.True(outcome.Stale);
+        Assert.True(await ModelExistsAsync(dispatcher, root, manufacturer, model));
+
+        // After the re-read the same remove goes through.
+        ViewSendResult reloaded = await root.LoadRecordAsync(dispatcher, manufacturer.Value);
+        Assert.Equal(
+            ChildCommandStatus.Sent, (await GeneratedChildCommands.SendAsync(dispatcher, remove, manufacturer.Value, model.Value, reloaded.Version)).Status);
+        Assert.False(await ModelExistsAsync(dispatcher, root, manufacturer, model));
+    }
+
+    [Fact]
+    public async Task DeviceModelDetail_RemoveWithNoRootVersion_SendsNothing()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        string marker = CatalogSeed.Marker();
+        ManufacturerId manufacturer = await CatalogSeed.ManufacturerAsync(dispatcher, $"maker-{marker}");
+        DeviceModelInternalId model = await CatalogSeed.ModelAsync(dispatcher, manufacturer, $"model-{marker}");
+        AggregateViewModel root = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Manufacturer>();
+
+        ChildCommandOutcome outcome = await GeneratedChildCommands.SendAsync(dispatcher, RemoveCommand(root), manufacturer.Value, model.Value, null);
+
+        Assert.Equal(ChildCommandStatus.NoVersion, outcome.Status);
+        Assert.True(await ModelExistsAsync(dispatcher, root, manufacturer, model));
+    }
+
+    [Fact]
+    public async Task DeviceModelDetail_RemoveAtCurrentVersion_SendsAndLeavesForTheManufacturer()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        string marker = CatalogSeed.Marker();
+        ManufacturerId manufacturer = await CatalogSeed.ManufacturerAsync(dispatcher, $"maker-{marker}");
+        DeviceModelInternalId model = await CatalogSeed.ModelAsync(dispatcher, manufacturer, $"model-{marker}");
+        AggregateViewModel root = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Manufacturer>();
+        ViewSendResult loaded = await root.LoadRecordAsync(dispatcher, manufacturer.Value);
+
+        ChildCommandOutcome outcome = await GeneratedChildCommands.SendAsync(dispatcher, RemoveCommand(root), manufacturer.Value, model.Value, loaded.Version);
+
+        Assert.Equal(ChildCommandStatus.Sent, outcome.Status);
+        Assert.Equal($"/dm/manufacturers/{manufacturer.Value}", GeneratedChildCommands.LeaveTarget(root, manufacturer.Value));
+        Assert.False(await ModelExistsAsync(dispatcher, root, manufacturer, model));
+    }
+
+    private static CommandView RemoveCommand(AggregateViewModel root)
+    {
+        ChildViewModel child = Assert.Single(root.Children, candidate => candidate.Child == typeof(DeviceModel));
         CommandView remove = Assert.Single(child.Commands, command => command.Role == CommandRole.RemoveChild);
         Assert.Equal(typeof(RemoveDeviceModelCommand), remove.Request);
 
-        // The detail view's remove is this send: at the version it loaded, which another model's add has since moved past.
-        ViewSendResult stale = await GeneratedChildBulk.SendAsync(dispatcher, remove, manufacturer.Value, model.Value, RowVersion.Create());
+        return remove;
+    }
 
-        Assert.True(stale.IsError);
-        Assert.Contains(stale.Errors, VersionErrors.IsStale);
+    private static async Task<bool> ModelExistsAsync(ISerginDispatcher dispatcher, AggregateViewModel root, ManufacturerId manufacturer, DeviceModelInternalId model)
+    {
+        ChildViewModel child = Assert.Single(root.Children, candidate => candidate.Child == typeof(DeviceModel));
+        ViewSendResult result = await child.GetOne!.Invoker.SendAsync(dispatcher, child.GetOne.Build(manufacturer.Value, model.Value));
 
-        // The view reads the model again and still finds it.
-        ViewSendResult reloaded = await child.GetOne!.Invoker.SendAsync(dispatcher, child.GetOne.Build(manufacturer.Value, model.Value));
-        Assert.False(reloaded.IsError);
+        return !result.IsError;
     }
 
     private async Task<string> GetAsync(string path)
