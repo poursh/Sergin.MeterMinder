@@ -192,3 +192,28 @@ internal sealed class RootSetPropertyViewConfiguration : IAggregateViewConfigura
     public void Configure(AggregateViewBuilder<SetProbe> view) =>
         view.Command<RenameSetProbeCommand>().Label(CommonTexts.Rename).Edit(SerginEditMode.Page);
 }
+
+/// <summary>A detail route that writes the child's id where the root's belongs.</summary>
+internal sealed class ChildRouteWithWrongIdViewConfiguration : IAggregateViewConfiguration<ChildHost>
+{
+    public void Configure(AggregateViewBuilder<ChildHost> view) =>
+        view.Child<ViewProbeChild>(child =>
+        {
+            child.Named(ViewProbeChildTexts.Singular).Routes(
+                detail: (_, id) => $"/tst/child-hosts/{id}/children/{id}",
+                edit: (hostId, id) => $"/tst/child-hosts/{hostId}/children/{id}/edit");
+            child.Command<RenameViewProbeChildCommand>().Label(CommonTexts.Rename).Edit(SerginEditMode.Page);
+        });
+}
+
+/// <summary>A child list that asks for a filter picker, which a child list section never shows.</summary>
+internal sealed class ChildListFilterViewConfiguration : IAggregateViewConfiguration<ChildHost>
+{
+    public void Configure(AggregateViewBuilder<ChildHost> view) =>
+        view.Child<ViewProbeChild>(child =>
+        {
+            child.Named(ViewProbeChildTexts.Singular).Routes(edit: (hostId, id) => $"/tst/child-hosts/{hostId}/children/{id}/edit");
+            child.Command<RenameViewProbeChildCommand>().Label(CommonTexts.Rename).Edit(SerginEditMode.Page);
+            child.List<ViewProbeChildListItem>(list => list.Filter("name", typeof(ViewProbeOverviewSlot)));
+        });
+}

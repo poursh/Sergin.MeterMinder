@@ -5,6 +5,8 @@ using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.ReadProfile;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Update;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Create;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Update;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Add;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetList;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetOne;
@@ -65,6 +67,40 @@ public sealed class RequestRuntimeTests(SerginWebApiFactory<Program> factory)
         Assert.Equal(
             new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId("MTR-9"), new DeviceModelInternalId(model)),
             built);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void RequestFactory_ForForm_BlankValueOfNullableParameterBecomesNull(string blank)
+    {
+        var id = Guid.CreateVersion7();
+        var values = new Dictionary<string, object?> { ["Name"] = "x", ["Address"] = blank };
+
+        UpdateManufacturerCommand update = Assert.IsType<UpdateManufacturerCommand>(RequestFactory.ForForm(typeof(UpdateManufacturerCommand))(id, values));
+        CreateManufacturerCommand create = Assert.IsType<CreateManufacturerCommand>(RequestFactory.ForForm(typeof(CreateManufacturerCommand))(Guid.Empty, values));
+
+        Assert.Null(update.Address);
+        Assert.Null(create.Address);
+        Assert.Equal("x", create.Name.Value);
+    }
+
+    [Fact]
+    public void RequestFactory_ForForm_AddressWithTextIsKept()
+    {
+        object built = RequestFactory.ForForm(typeof(CreateManufacturerCommand))(
+            Guid.Empty, new Dictionary<string, object?> { ["Name"] = "x", ["Address"] = "Tabriz" });
+
+        Assert.Equal("Tabriz", Assert.IsType<CreateManufacturerCommand>(built).Address!.Value);
+    }
+
+    [Fact]
+    public void RequestFactory_ForForm_BlankValueOfNonNullableParameterIsNotTurnedIntoNull()
+    {
+        object built = RequestFactory.ForForm(typeof(CreateDeviceCommand))(
+            Guid.Empty, new Dictionary<string, object?> { ["DeviceId"] = "  " });
+
+        Assert.Equal("  ", Assert.IsType<CreateDeviceCommand>(built).DeviceId.Value);
     }
 
     [Fact]

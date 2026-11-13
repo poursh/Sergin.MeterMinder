@@ -165,7 +165,7 @@ public sealed class AggregateViewGuardTests
     public void Guard_ChildCommandOfAnotherRoot_Refuses() =>
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(ChildCommandOfAnotherRootViewConfiguration)),
-            nameof(ChildCommandOfAnotherRootViewConfiguration), nameof(AddViewProbeChildCommand), nameof(ChildHost));
+            nameof(ChildCommandOfAnotherRootViewConfiguration), nameof(AddViewProbeChildCommand), typeof(ChildHost).FullName!);
 
     [Fact]
     public void Guard_ChildFieldOverrideOnUnknownProperty_Refuses() =>
@@ -214,6 +214,18 @@ public sealed class AggregateViewGuardTests
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(RootSetPropertyViewConfiguration)),
             nameof(RootSetPropertyViewConfiguration), nameof(RenameSetProbeCommand), nameof(SetProbe));
+
+    [Fact]
+    public void Guard_ChildRouteMissingAnId_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildRouteWithWrongIdViewConfiguration)),
+            nameof(ChildRouteWithWrongIdViewConfiguration), nameof(ViewProbeChild), "detail", "both");
+
+    [Fact]
+    public void Guard_ChildListFilter_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildListFilterViewConfiguration)),
+            nameof(ChildListFilterViewConfiguration), nameof(ViewProbeChild), "Filter(\"name\"");
 
     [Fact]
     public void Guard_ChildRouteNoComponentDeclares_Refuses()

@@ -212,7 +212,7 @@ public sealed class GeneratedManufacturerViewTests(SerginWebApiFactory<Program> 
     }
 
     [Fact]
-    public async Task ManufacturerDetail_StaleDelete_ReloadsAndKeepsManufacturer()
+    public async Task ManufacturerDetail_StaleModelRemove_IsRefusedAndKeepsModel()
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
@@ -235,6 +235,28 @@ public sealed class GeneratedManufacturerViewTests(SerginWebApiFactory<Program> 
         // A stale answer ends the run: the second send is not made.
         Assert.Equal(0, outcome.Succeeded);
         Assert.Equal(1, outcome.Skipped);
+    }
+
+    [Fact]
+    public async Task ManufacturerDetail_StaleDelete_IsRefusedAndKeepsManufacturer()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        string marker = CatalogSeed.Marker();
+        ManufacturerId manufacturer = await CatalogSeed.ManufacturerAsync(dispatcher, $"maker-{marker}");
+        AggregateViewModel root = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Manufacturer>();
+        CommandView delete = Assert.Single(root.Commands, command => command.Request == typeof(DeleteManufacturerCommand));
+
+        // The version the detail view loaded, then a model added elsewhere moves the manufacturer past it.
+        ViewSendResult loaded = await root.LoadRecordAsync(dispatcher, manufacturer.Value);
+        Assert.False(loaded.IsError);
+        await CatalogSeed.ModelAsync(dispatcher, manufacturer, $"model-{marker}");
+
+        ViewSendResult stale = await GeneratedViewSupport.SendFromIdAsync(dispatcher, delete, manufacturer.Value, loaded.Version);
+
+        Assert.True(stale.IsError);
+        Assert.Contains(stale.Errors, VersionErrors.IsStale);
+        Assert.False((await dispatcher.SendVersionedAsync(new GetManufacturerByIdQueryCommand(manufacturer))).IsError);
     }
 
     private ChildViewModel ModelChild() =>

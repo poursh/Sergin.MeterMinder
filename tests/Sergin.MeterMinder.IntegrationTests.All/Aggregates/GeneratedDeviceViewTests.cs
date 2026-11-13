@@ -92,7 +92,8 @@ public sealed class GeneratedDeviceViewTests(SerginWebApiFactory<Program> factor
 
         // The slot got what the view loaded: "of {Total}" shows only for a loaded overview.
         string html = await response.Content.ReadAsStringAsync();
-        Assert.Matches(@"of \d+", html);
+        // Anchored to the overview card's own caption element, not to any "of N" a pager might print.
+        Assert.Matches(@"mud-typography-caption[^>]*>\s*of \d+\s*<", html);
     }
 
     [Fact]
