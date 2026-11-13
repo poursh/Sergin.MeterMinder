@@ -42,6 +42,17 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     }
 
     [Fact]
+    public void Registry_ProbeEntityOverview_IsIdOnly()
+    {
+        ViewRequest<Func<Guid, object>> overview = Assert.IsType<ViewRequest<Func<Guid, object>>>(Probe().EntityOverview);
+        var id = Guid.CreateVersion7();
+
+        Assert.Equal(typeof(GetViewProbeOverviewQuery), overview.Type);
+        Assert.Equal(new GetViewProbeOverviewQuery(new ViewProbeId(id)), overview.Build(id));
+        Assert.False(Probe().DetailOverviewCollapsed);
+    }
+
+    [Fact]
     public void Registry_DeleteGetsDefaultLabelKindAndIcon()
     {
         CommandView delete = Probe().Commands.Single(command => command.Request == typeof(DeleteViewProbeCommand));

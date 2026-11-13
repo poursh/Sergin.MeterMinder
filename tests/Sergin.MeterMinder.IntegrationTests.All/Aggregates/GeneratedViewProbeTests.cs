@@ -67,6 +67,17 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
     }
 
     [Fact]
+    public async Task ProbeDetail_OverviewSlot_ReceivesLoadedOverview()
+    {
+        Guid probe = store.Add("Probe overview");
+        await GrantAsync(ViewProbePermissions.Read);
+
+        string html = await GetAsync($"/tst/view-probes/{probe}");
+
+        Assert.Contains($"probe-figure:{GetViewProbeOverviewQueryHandler.Figure}", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task ProbeDetail_SchedulableCommand_RendersSplitButtonWithScheduleItems()
     {
         Guid probe = store.Add("Probe beta");

@@ -62,6 +62,11 @@ internal sealed record ViewProbeResponse(Guid Id, ViewProbeName Name, int Hits);
 
 internal sealed record GetViewProbeQuery(ViewProbeId Id) : IQuery<ViewProbeResponse>, IGetOneQuery<ViewProbe, ViewProbeId>;
 
+/// <summary>What the probe's entity overview shows: one figure.</summary>
+internal sealed record ViewProbeOverview(int Figure);
+
+internal sealed record GetViewProbeOverviewQuery(ViewProbeId Id) : IQuery<ViewProbeOverview>, IEntityOverviewQuery<ViewProbe, ViewProbeId>;
+
 internal sealed record GetViewProbeAuditQuery(ViewProbeId Id) : IQuery<AuditInfo>, IAuditQuery<ViewProbe, ViewProbeId>;
 
 internal sealed record ViewProbeListItem(Guid Id, string Name);
@@ -104,6 +109,8 @@ internal sealed class ViewProbeViewConfiguration : IAggregateViewConfiguration<V
             .Routes("/tst/view-probes", id => $"/tst/view-probes/{id}");
 
         view.Command<RunViewProbeCommand>().Label(ViewProbeTexts.Run);
+
+        view.Slot<ViewProbeOverviewSlot>(SerginViewSlot.DetailOverview);
     }
 }
 
@@ -329,7 +336,7 @@ internal static class AggregateViewTestRegistry
     private static readonly Type[] requestAndConfigurationTypes =
     [
         .. aggregateConfigurationTypes, typeof(RunViewProbeCommandConfiguration),
-        typeof(GetViewProbeQuery), typeof(GetViewProbeAuditQuery), typeof(ListViewProbesQuery), typeof(CreateViewProbeCommand), typeof(RunViewProbeCommand),
+        typeof(GetViewProbeQuery), typeof(GetViewProbeOverviewQuery), typeof(GetViewProbeAuditQuery), typeof(ListViewProbesQuery), typeof(CreateViewProbeCommand), typeof(RunViewProbeCommand),
         typeof(DeleteViewProbeCommand), typeof(GetViewOwnerQuery), typeof(ListViewPartsQuery), typeof(RenameViewOwnerCommand),
         typeof(CreatePartHolderCommand), typeof(DeleteQuerylessProbeCommand), typeof(RunWithNoteNoteProbeCommand), typeof(GetBadQueryProbeQuery), typeof(ListFilterProbesQuery),
         typeof(ListViewOwnersQuery), typeof(ListUnlistedProbesQuery), typeof(CreateUnlistedProbeCommand), typeof(GetUnlistedThingQuery),

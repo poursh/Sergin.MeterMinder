@@ -49,6 +49,14 @@ internal sealed class GetViewProbeQueryHandler(ViewProbeStore store, Concurrency
             store.Find(request.Id.Value) is { } found ? new Versioned<ViewProbeResponse>(found.Record, found.Version) : Error.NotFound());
 }
 
+internal sealed class GetViewProbeOverviewQueryHandler : IRequestHandler<GetViewProbeOverviewQuery, ErrorOr<ViewProbeOverview>>
+{
+    public const int Figure = 4242;
+
+    public Task<ErrorOr<ViewProbeOverview>> Handle(GetViewProbeOverviewQuery request, CancellationToken cancellationToken) =>
+        Task.FromResult<ErrorOr<ViewProbeOverview>>(new ViewProbeOverview(Figure));
+}
+
 internal sealed class GetViewProbeAuditQueryHandler(ViewProbeStore store) : IRequestHandler<GetViewProbeAuditQuery, ErrorOr<AuditInfo>>
 {
     public Task<ErrorOr<AuditInfo>> Handle(GetViewProbeAuditQuery request, CancellationToken cancellationToken) =>
@@ -105,6 +113,7 @@ internal static class ViewProbeTestHost
             typeof(ViewProbeAggregateFeatureConfiguration),
             typeof(HostedRunViewProbeCommandConfiguration),
             typeof(GetViewProbeQuery),
+            typeof(GetViewProbeOverviewQuery),
             typeof(GetViewProbeAuditQuery),
             typeof(ListViewProbesQuery),
             typeof(ListViewOwnersQuery),
@@ -124,6 +133,7 @@ internal static class ViewProbeTestHost
 
         services.AddSingleton<ViewProbeStore>();
         services.AddTransient<IRequestHandler<GetViewProbeQuery, ErrorOr<ViewProbeResponse>>, GetViewProbeQueryHandler>();
+        services.AddTransient<IRequestHandler<GetViewProbeOverviewQuery, ErrorOr<ViewProbeOverview>>, GetViewProbeOverviewQueryHandler>();
         services.AddTransient<IRequestHandler<GetViewProbeAuditQuery, ErrorOr<AuditInfo>>, GetViewProbeAuditQueryHandler>();
         services.AddTransient<IRequestHandler<RunViewProbeCommand, ErrorOr<Success>>, RunViewProbeCommandHandler>();
         services.AddTransient<IRequestHandler<DeleteViewProbeCommand, ErrorOr<Success>>, DeleteViewProbeCommandHandler>();
