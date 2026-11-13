@@ -1,0 +1,5 @@
+@* The manufacturer detail's overview cards: the generated detail view's DetailOverview slot. *@
+<SerginOverviewCards>
+    <SerginOverviewCard LabelText="ManufacturerUiTexts.OverviewModels" ValueData="@Count(Overview?.Models)" CaptionData="@Localizer.Text(ManufacturerUiTexts.OverviewOfManufacturer)" />
+    <SerginOverviewCard LabelText="ManufacturerUiTexts.OverviewDevices" ValueData="@Count(Overview?.Devices)" CaptionData="@Localizer.Text(ManufacturerUiTexts.OverviewInEveryScope)" />
+</SerginOverviewCards>
