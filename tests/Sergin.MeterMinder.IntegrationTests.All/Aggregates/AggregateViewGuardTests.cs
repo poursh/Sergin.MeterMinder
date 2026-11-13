@@ -255,6 +255,34 @@ public sealed class AggregateViewGuardTests
             () => AggregateViewTestRegistry.Build(typeof(EnumGapProbeViewConfiguration)),
             nameof(EnumGapProbeViewConfiguration), $"{nameof(EnumGapProbeResponse)}.{nameof(EnumGapProbeResponse.Status)}", $"{nameof(ProbeEnum)}.{nameof(ProbeEnum.Second)}");
 
+    [Fact]
+    public void Guard_ReversePairWithoutAppliesWhen_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(PairWithoutAppliesWhenViewConfiguration)),
+            nameof(PairWithoutAppliesWhenViewConfiguration), nameof(PublishProbeCommand), nameof(UnpublishProbeCommand), "neither");
+
+    [Fact]
+    public void Guard_ReversePairAppliesWhenOnBoth_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(PairAppliesWhenOnBothViewConfiguration)),
+            nameof(PairAppliesWhenOnBothViewConfiguration), nameof(PublishProbeCommand), nameof(UnpublishProbeCommand), "both");
+
+    [Fact]
+    public void Guard_AppliesWhenOnUnknownRecord_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(AppliesWhenUnknownRecordViewConfiguration)),
+            nameof(AppliesWhenUnknownRecordViewConfiguration), nameof(PublishProbeCommand), nameof(ViewProbeResponse), "AppliesWhen");
+
+    [Fact]
+    public void Guard_LinkToUnknownRoute_Refuses()
+    {
+        AggregateViewRegistry registry = AggregateViewTestRegistry.Build(typeof(LinkToUnknownRouteViewConfiguration));
+
+        AssertRefused(
+            () => AggregateViewGuard.Ensure(registry, [typeof(AggregateViewGuardTests).Assembly]),
+            nameof(LinkToUnknownRouteViewConfiguration), "link", "/nowhere");
+    }
+
     private static InvalidOperationException AssertRefused(Action build, params string[] named)
     {
         InvalidOperationException refused = Assert.Throws<InvalidOperationException>(build);

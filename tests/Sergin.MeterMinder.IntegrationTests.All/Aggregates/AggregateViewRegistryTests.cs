@@ -241,6 +241,47 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     }
 
     [Fact]
+    public void ViewModel_ReversePair_PartnerIsNegation()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(PublishProbeViewConfiguration)).For<PublishProbe>();
+        CommandView publish = model.Commands.Single(command => command.Request == typeof(PublishProbeCommand));
+        CommandView unpublish = model.Commands.Single(command => command.Request == typeof(UnpublishProbeCommand));
+        var draft = new PublishProbeResponse(Guid.CreateVersion7(), "Draft", Published: false);
+        PublishProbeResponse live = draft with { Published = true };
+
+        Assert.True(publish.AppliesWhen!(draft));
+        Assert.False(publish.AppliesWhen(live));
+        Assert.False(unpublish.AppliesWhen!(draft));
+        Assert.True(unpublish.AppliesWhen(live));
+
+        // A record that is not the declared one (a list row) satisfies neither side.
+        var row = new PublishProbeListItem(draft.Id, "Draft", Published: false);
+        Assert.False(publish.AppliesWhen(row));
+        Assert.False(unpublish.AppliesWhen(row));
+    }
+
+    [Fact]
+    public void ViewModel_Kind_ReplacesTheRolesDefault()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(PublishProbeViewConfiguration)).For<PublishProbe>();
+
+        Assert.Equal(SerginActionKind.Primary, model.Commands.Single(command => command.Request == typeof(PublishProbeCommand)).Kind);
+        Assert.Equal(SerginActionKind.Secondary, model.Commands.Single(command => command.Request == typeof(UnpublishProbeCommand)).Kind);
+    }
+
+    [Fact]
+    public void ViewModel_Link_IsCollected()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(PublishProbeViewConfiguration)).For<PublishProbe>();
+        var id = Guid.CreateVersion7();
+
+        ViewLinkView link = Assert.Single(model.Links!);
+        Assert.Equal(PublishProbeTexts.Translations, link.Label);
+        Assert.Equal(MudBlazor.Icons.Material.Outlined.Translate, link.Icon);
+        Assert.Equal($"/tst/publish-probes/{id}/translations", link.Href(id));
+    }
+
+    [Fact]
     public void Registry_RealHost_BuildsDeviceModel()
     {
         AggregateViewModel device = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Device>();

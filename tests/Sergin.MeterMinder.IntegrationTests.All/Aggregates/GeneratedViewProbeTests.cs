@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -10,6 +11,8 @@ using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
+using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
@@ -30,6 +33,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
     private ViewProbeStore store = default!;
     private PlainProbeStore plainStore = default!;
     private EditProbeStore editStore = default!;
+    private PublishProbeStore publishStore = default!;
 
     public async Task InitializeAsync()
     {
@@ -41,6 +45,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
             ViewProbeTestHost.AddTo(services);
             PlainProbeTestHost.AddTo(services);
             EditProbeTestHost.AddTo(services);
+            PublishProbeTestHost.AddTo(services);
             services.Replace(ServiceDescriptor.Scoped<IUiTimeZoneStore, FixedTimeZoneStore>());
         }));
 
@@ -48,6 +53,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         store = host.Services.GetRequiredService<ViewProbeStore>();
         plainStore = host.Services.GetRequiredService<PlainProbeStore>();
         editStore = host.Services.GetRequiredService<EditProbeStore>();
+        publishStore = host.Services.GetRequiredService<PublishProbeStore>();
         await ScheduledTaskTestHost.ResetSchemaAsync(host);
         tree = await RbacScenario.BuildAsync(host);
     }
@@ -304,6 +310,78 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         // The field's caption shows to both; the Headline action (Retitle's default label) only to a holder of Update.
         Assert.Contains("Headline Dialog probe", reader, StringComparison.Ordinal);
         Assert.Equal(CountOf(reader, ">Headline<") + 1, CountOf(manager, ">Headline<"));
+    }
+
+    [Fact]
+    public async Task Detail_ReversePair_ShowsOnlyTheOneThatApplies()
+    {
+        Guid draft = publishStore.Add("Draft probe", published: false);
+        Guid live = publishStore.Add("Live probe", published: true);
+
+        string draftHtml = await GetAsync($"/tst/publish-probes/{draft}");
+        string liveHtml = await GetAsync($"/tst/publish-probes/{live}");
+
+        Assert.Contains(">Publish<", draftHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Unpublish", draftHtml, StringComparison.Ordinal);
+        Assert.Contains(">Unpublish<", liveHtml, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Publish<", liveHtml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void List_ReversePair_NotOffered()
+    {
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<PublishProbe>();
+        var item = new PublishProbeListItem(Guid.CreateVersion7(), "Row", Published: false);
+
+        // The row is not the record the pair reads, so the menu (where a transition goes) holds neither command.
+        IReadOnlyList<SerginPageAction> menu = RowActions(model, item.Id, GeneratedLists.Menu, item, ViewLinkPlacement.None);
+
+        Assert.Empty(menu);
+    }
+
+    [Fact]
+    public async Task Detail_Link_IsSecondaryActionWithHref()
+    {
+        Guid probe = publishStore.Add("Linked probe", published: false);
+
+        string html = await GetAsync($"/tst/publish-probes/{probe}");
+
+        Assert.Contains($"href=\"/tst/publish-probes/{probe}/translations\"", html, StringComparison.Ordinal);
+        Assert.Contains("Translations", html, StringComparison.Ordinal);
+
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<PublishProbe>();
+        IReadOnlyList<SerginPageAction> actions = RowActions(model, probe, null, publishStore.Find(probe), ViewLinkPlacement.AfterCommands);
+
+        // Publish (Primary), then the link, which carries no permission.
+        Assert.Equal([PublishProbeTexts.Publish, PublishProbeTexts.Translations], actions.Select(action => action.Label));
+        SerginPageAction link = actions[^1];
+        Assert.Equal(SerginActionKind.Secondary, link.Kind);
+        Assert.Equal($"/tst/publish-probes/{probe}/translations", link.Href);
+        Assert.Null(link.Permission);
+    }
+
+    [Fact]
+    public void List_Link_IsRowIcon()
+    {
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<PublishProbe>();
+        var item = new PublishProbeListItem(Guid.CreateVersion7(), "Row", Published: false);
+
+        IReadOnlyList<SerginPageAction> icons = RowActions(model, item.Id, GeneratedLists.Icons, item, ViewLinkPlacement.BeforeCommands);
+
+        SerginPageAction link = Assert.Single(icons);
+        Assert.Equal(PublishProbeTexts.Translations, link.Label);
+        Assert.Equal(MudBlazor.Icons.Material.Outlined.Translate, link.Icon);
+        Assert.Equal($"/tst/publish-probes/{item.Id}/translations", link.Href);
+    }
+
+    private static IReadOnlyList<SerginPageAction> RowActions(
+        AggregateViewModel model, Guid id, IReadOnlySet<CommandRole>? roles, object? record, ViewLinkPlacement links) =>
+        new GeneratedCommandActions(new NoopReceiver(), _ => Task.CompletedTask, _ => Task.CompletedTask)
+            .For(model, id, _ => [], roles, record: record, links: links);
+
+    private sealed class NoopReceiver : IHandleEvent
+    {
+        public Task HandleEventAsync(EventCallbackWorkItem item, object? arg) => Task.CompletedTask;
     }
 
     private static int CountOf(string html, string text) =>

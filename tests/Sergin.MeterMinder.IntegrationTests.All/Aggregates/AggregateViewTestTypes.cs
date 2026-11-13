@@ -12,6 +12,7 @@ using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
@@ -200,6 +201,112 @@ internal sealed class EditProbeViewConfiguration : IAggregateViewConfiguration<E
     {
         view.Command<RenameProbeCommand>().Label(CommonTexts.Rename).Edit(SerginEditMode.Inline);
         view.Command<SetProbeColorCommand>().Edit(SerginEditMode.Inline);
+    }
+}
+
+// ---- A root with an IReverseOf pair and a link to another page ----
+
+internal sealed record PublishProbeId(Guid Value);
+
+internal sealed class PublishProbe : AggregateRoot<PublishProbeId>;
+
+public static class PublishProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "PublishProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Publish probe");
+
+    public static TextDefinition Title { get; } = Category.Text("Title", "Publish probes");
+
+    public static TextDefinition Publish { get; } = Category.Text("Publish", "Publish");
+
+    public static TextDefinition Unpublish { get; } = Category.Text("Unpublish", "Unpublish");
+
+    public static TextDefinition Translations { get; } = Category.Text("Translations", "Translations");
+
+    public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
+
+    public static FieldText Published { get; } = Category.Field(nameof(Published), "Published");
+}
+
+internal sealed class PublishProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<PublishProbe>
+{
+    public void Configure(AggregateFeatureBuilder<PublishProbe> builder) =>
+        builder.Texts(PublishProbeTexts.Category).Named(PublishProbeTexts.Singular);
+}
+
+internal sealed record PublishProbeResponse(Guid Id, string Name, bool Published);
+
+internal sealed record GetPublishProbeQuery(PublishProbeId Id) : IQuery<PublishProbeResponse>, IGetOneQuery<PublishProbe, PublishProbeId>;
+
+/// <summary>A row of a different type from the GetOne response: a list offers neither command of the pair.</summary>
+internal sealed record PublishProbeListItem(Guid Id, string Name, bool Published);
+
+internal sealed record ListPublishProbesQuery : ListQuery<PublishProbeListItem>, IListOf<PublishProbe>
+{
+    public ListPublishProbesQuery(Paggination paggination)
+        : base(paggination)
+    {
+    }
+}
+
+internal sealed record PublishProbeCommand(PublishProbeId Id) : ICommand, ITransitionCommand<PublishProbe, PublishProbeId>;
+
+internal sealed record UnpublishProbeCommand(PublishProbeId Id) : ICommand, ITransitionCommand<PublishProbe, PublishProbeId>, IReverseOf<PublishProbeCommand>;
+
+/// <summary>Publish declares when it applies; Unpublish, its reverse, applies exactly when it does not. One link.</summary>
+internal sealed class PublishProbeViewConfiguration : IAggregateViewConfiguration<PublishProbe>
+{
+    public void Configure(AggregateViewBuilder<PublishProbe> view)
+    {
+        view.Title(PublishProbeTexts.Title)
+            .Routes("/tst/publish-probes", id => $"/tst/publish-probes/{id}")
+            .Link(PublishProbeTexts.Translations, MudBlazor.Icons.Material.Outlined.Translate, id => $"/tst/publish-probes/{id}/translations");
+
+        view.Command<PublishProbeCommand>().Label(PublishProbeTexts.Publish).Kind(SerginActionKind.Primary)
+            .AppliesWhen<PublishProbeResponse>(record => !record.Published);
+        view.Command<UnpublishProbeCommand>().Label(PublishProbeTexts.Unpublish);
+    }
+}
+
+/// <summary>Refusal: a pair with AppliesWhen on neither command.</summary>
+internal sealed class PairWithoutAppliesWhenViewConfiguration : IAggregateViewConfiguration<PublishProbe>
+{
+    public void Configure(AggregateViewBuilder<PublishProbe> view)
+    {
+        view.Command<PublishProbeCommand>().Label(PublishProbeTexts.Publish);
+        view.Command<UnpublishProbeCommand>().Label(PublishProbeTexts.Unpublish);
+    }
+}
+
+/// <summary>Refusal: a pair with AppliesWhen on both commands.</summary>
+internal sealed class PairAppliesWhenOnBothViewConfiguration : IAggregateViewConfiguration<PublishProbe>
+{
+    public void Configure(AggregateViewBuilder<PublishProbe> view)
+    {
+        view.Command<PublishProbeCommand>().Label(PublishProbeTexts.Publish).AppliesWhen<PublishProbeResponse>(record => !record.Published);
+        view.Command<UnpublishProbeCommand>().Label(PublishProbeTexts.Unpublish).AppliesWhen<PublishProbeResponse>(record => record.Published);
+    }
+}
+
+/// <summary>Refusal: AppliesWhen reads a record none of the command's views holds.</summary>
+internal sealed class AppliesWhenUnknownRecordViewConfiguration : IAggregateViewConfiguration<PublishProbe>
+{
+    public void Configure(AggregateViewBuilder<PublishProbe> view)
+    {
+        view.Command<PublishProbeCommand>().Label(PublishProbeTexts.Publish).AppliesWhen<ViewProbeResponse>(record => record.Hits > 0);
+        view.Command<UnpublishProbeCommand>().Label(PublishProbeTexts.Unpublish);
+    }
+}
+
+/// <summary>Refusal: a link to a page no routable component declares.</summary>
+internal sealed class LinkToUnknownRouteViewConfiguration : IAggregateViewConfiguration<PublishProbe>
+{
+    public void Configure(AggregateViewBuilder<PublishProbe> view)
+    {
+        view.Link(PublishProbeTexts.Translations, MudBlazor.Icons.Material.Outlined.Translate, id => $"/tst/publish-probes/{id}/nowhere");
+        view.Command<PublishProbeCommand>().Label(PublishProbeTexts.Publish).AppliesWhen<PublishProbeResponse>(record => !record.Published);
+        view.Command<UnpublishProbeCommand>().Label(PublishProbeTexts.Unpublish);
     }
 }
 
@@ -557,7 +664,7 @@ internal static class AggregateViewTestRegistry
         typeof(BadOverviewProbeAggregateFeatureConfiguration), typeof(ChildHostAggregateFeatureConfiguration),
         typeof(BareChildHostAggregateFeatureConfiguration), typeof(SetProbeAggregateFeatureConfiguration),
         typeof(EnumGapProbeAggregateFeatureConfiguration), typeof(EditProbeAggregateFeatureConfiguration),
-        typeof(PairSetProbeAggregateFeatureConfiguration),
+        typeof(PairSetProbeAggregateFeatureConfiguration), typeof(PublishProbeAggregateFeatureConfiguration),
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -578,6 +685,7 @@ internal static class AggregateViewTestRegistry
         typeof(GetSetProbeQuery), typeof(SetPairSetProbeCommand),
         typeof(GetEditProbeQuery), typeof(RenameProbeCommand), typeof(RenameProbeCommandConfiguration), typeof(SetProbeColorCommand),
         typeof(SetProbeColorCommandConfiguration), typeof(RetitleProbeCommand), typeof(RetitleProbeCommandConfiguration),
+        typeof(GetPublishProbeQuery), typeof(ListPublishProbesQuery), typeof(PublishProbeCommand), typeof(UnpublishProbeCommand),
     ];
 
     public static AggregateViewRegistry Build(params Type[] viewConfigurations) =>
@@ -592,7 +700,7 @@ internal static class AggregateViewTestRegistry
                     typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts), typeof(BadQueryProbeTexts),
                     typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts), typeof(BadOverviewProbeTexts),
                     typeof(ChildHostTexts), typeof(ViewProbeChildTexts), typeof(BareChildHostTexts), typeof(SetProbeTexts), typeof(EnumGapProbeTexts),
-                    typeof(EditProbeTexts), typeof(PairSetProbeTexts)),
+                    typeof(EditProbeTexts), typeof(PairSetProbeTexts), typeof(PublishProbeTexts)),
             ]));
 }
 
