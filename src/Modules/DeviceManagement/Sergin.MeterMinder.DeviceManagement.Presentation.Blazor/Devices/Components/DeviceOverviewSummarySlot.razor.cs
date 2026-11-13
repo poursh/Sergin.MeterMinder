@@ -6,13 +6,11 @@ namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Compon
 
 /// <summary>
 /// The device list's overview line while collapsed, in the generated list view's <c>ListOverviewSummary</c> slot: the
-/// device and model-in-use counts. It renders only while the overview is collapsed, and loads its own figures then.
+/// device and model-in-use counts. It renders only while the overview is collapsed.
 /// </summary>
 public sealed partial class DeviceOverviewSummarySlot
 {
-    private DeviceOverview? overview;
-
-    /// <summary>What the generated view hands a slot; the summary reads nothing from it.</summary>
+    /// <summary>What the generated view hands a slot: the device overview it loaded, in <c>Overview</c>.</summary>
     [Parameter]
     public AggregateViewContext? Context { get; set; }
 
@@ -22,10 +20,8 @@ public sealed partial class DeviceOverviewSummarySlot
     [Inject]
     private ICultureFormatter Formatter { get; set; } = default!;
 
-    [Inject]
-    private ISerginDispatcher Dispatcher { get; set; } = default!;
-
-    protected override async Task OnInitializedAsync() => overview = await DeviceOverviewLoad.LoadAsync(Dispatcher);
+    // The generated view loads the overview once and hands it to both slots; a failed read leaves it null.
+    private DeviceOverview? Overview => Context?.Overview as DeviceOverview;
 
     private string Count(int? value) => value is { } number ? Formatter.Number(number) : "–";
 }

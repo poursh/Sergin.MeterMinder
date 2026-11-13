@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Pages;
 
-/// <summary>The route for <see cref="Components.ManufacturerEditView"/>, shown as a page.</summary>
+/// <summary>The route for generated form, shown as a page.</summary>
 public sealed partial class ManufacturerEditPage
 {
     [Parameter]

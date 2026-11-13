@@ -5,6 +5,12 @@ using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.ReadProfile;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Update;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Create;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.Commands.Update;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Add;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetList;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Rename;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
@@ -61,6 +67,40 @@ public sealed class RequestRuntimeTests(SerginWebApiFactory<Program> factory)
         Assert.Equal(
             new UpdateDeviceCommand(new DeviceIntenralId(id), new DeviceId("MTR-9"), new DeviceModelInternalId(model)),
             built);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void RequestFactory_ForForm_BlankValueOfNullableParameterBecomesNull(string blank)
+    {
+        var id = Guid.CreateVersion7();
+        var values = new Dictionary<string, object?> { ["Name"] = "x", ["Address"] = blank };
+
+        UpdateManufacturerCommand update = Assert.IsType<UpdateManufacturerCommand>(RequestFactory.ForForm(typeof(UpdateManufacturerCommand))(id, values));
+        CreateManufacturerCommand create = Assert.IsType<CreateManufacturerCommand>(RequestFactory.ForForm(typeof(CreateManufacturerCommand))(Guid.Empty, values));
+
+        Assert.Null(update.Address);
+        Assert.Null(create.Address);
+        Assert.Equal("x", create.Name.Value);
+    }
+
+    [Fact]
+    public void RequestFactory_ForForm_AddressWithTextIsKept()
+    {
+        object built = RequestFactory.ForForm(typeof(CreateManufacturerCommand))(
+            Guid.Empty, new Dictionary<string, object?> { ["Name"] = "x", ["Address"] = "Tabriz" });
+
+        Assert.Equal("Tabriz", Assert.IsType<CreateManufacturerCommand>(built).Address!.Value);
+    }
+
+    [Fact]
+    public void RequestFactory_ForForm_BlankValueOfNonNullableParameterIsNotTurnedIntoNull()
+    {
+        object built = RequestFactory.ForForm(typeof(CreateDeviceCommand))(
+            Guid.Empty, new Dictionary<string, object?> { ["DeviceId"] = "  " });
+
+        Assert.Equal("  ", Assert.IsType<CreateDeviceCommand>(built).DeviceId.Value);
     }
 
     [Fact]
@@ -134,5 +174,39 @@ public sealed class RequestRuntimeTests(SerginWebApiFactory<Program> factory)
 
         Assert.True(result.IsError);
         Assert.Equal(ErrorType.NotFound, result.Errors[0].Type);
+    }
+
+    [Fact]
+    public void Runtime_ChildBuilders_BuildFromRootAndChildIds()
+    {
+        var manufacturer = Guid.CreateVersion7();
+        var model = Guid.CreateVersion7();
+
+        Assert.Equal(
+            new GetDeviceModelByIdQueryCommand(new ManufacturerId(manufacturer), new DeviceModelInternalId(model)),
+            RequestFactory.ForChildId(typeof(GetDeviceModelByIdQueryCommand))(manufacturer, model));
+
+        var rename = (RenameDeviceModelCommand)RequestFactory.ForChildForm(typeof(RenameDeviceModelCommand))(
+            manufacturer, model, new Dictionary<string, object?> { ["Name"] = "N" });
+
+        Assert.Equal("N", rename.Name.Value);
+        Assert.Equal(manufacturer, rename.RootId.Value);
+        Assert.Equal(model, rename.Id.Value);
+
+        var add = (AddDeviceModelCommand)RequestFactory.ForRootForm(typeof(AddDeviceModelCommand))(
+            manufacturer, new Dictionary<string, object?> { ["Name"] = "A" });
+
+        Assert.Equal("A", add.Name.Value);
+        Assert.Equal(manufacturer, add.RootId.Value);
+    }
+
+    [Fact]
+    public void Runtime_ChildListBuilder_TakesTheRootsId()
+    {
+        var manufacturer = Guid.CreateVersion7();
+        var query = (GetDeviceModelListQueryCommand)RequestFactory.ForChildList(typeof(GetDeviceModelListQueryCommand), typeof(ManufacturerId))(
+            manufacturer, new ListQueryInput(Paggination.Create(10, 1), null, [], []));
+
+        Assert.Equal(manufacturer, query.RootId.Value);
     }
 }

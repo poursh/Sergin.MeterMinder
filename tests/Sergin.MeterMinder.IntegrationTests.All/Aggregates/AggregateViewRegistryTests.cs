@@ -3,6 +3,16 @@ using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.Delete;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.ReadProfile;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Manufacturers.DeviceModels;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Add;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetList;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Remove;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Manufacturers.DeviceModels.Commands.Rename;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
+using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
+using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices;
 using Sergin.SharedKernel.IntegrationTests;
@@ -42,6 +52,17 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     }
 
     [Fact]
+    public void Registry_ProbeEntityOverview_IsIdOnly()
+    {
+        ViewRequest<Func<Guid, object>> overview = Assert.IsType<ViewRequest<Func<Guid, object>>>(Probe().EntityOverview);
+        var id = Guid.CreateVersion7();
+
+        Assert.Equal(typeof(GetViewProbeOverviewQuery), overview.Type);
+        Assert.Equal(new GetViewProbeOverviewQuery(new ViewProbeId(id)), overview.Build(id));
+        Assert.False(Probe().DetailOverviewCollapsed);
+    }
+
+    [Fact]
     public void Registry_DeleteGetsDefaultLabelKindAndIcon()
     {
         CommandView delete = Probe().Commands.Single(command => command.Request == typeof(DeleteViewProbeCommand));
@@ -71,7 +92,7 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
         AggregateViewModel probe = Probe();
 
         Assert.Equal(["Name"], probe.DetailFields.Where(field => !field.Hidden).Select(field => field.Name));
-        Assert.Equal(ViewProbeTexts.Name, probe.DetailFields.Single().Label);
+        Assert.Equal(ViewProbeTexts.Name.Label, probe.DetailFields.Single().Label);
         Assert.Equal("Name", probe.DetailTitleField);
         Assert.Equal("probe", probe.DetailFields.Single().Get(new ViewProbeResponse(Guid.Empty, new ViewProbeName("probe"), 3)));
     }
@@ -105,9 +126,9 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     {
         AggregateViewModel probe = Probe();
 
-        Assert.Equal(typeof(GetViewProbeQuery), probe.GetOne);
-        Assert.Equal(typeof(ListViewProbesQuery), probe.List);
-        Assert.Equal(typeof(CreateViewProbeCommand), probe.Create);
+        Assert.Equal(typeof(GetViewProbeQuery), probe.GetOne!.Type);
+        Assert.Equal(typeof(ListViewProbesQuery), probe.List!.Type);
+        Assert.Equal(typeof(CreateViewProbeCommand), probe.Create!.Type);
         Assert.Null(probe.Update);
         Assert.Equal(ViewProbeTexts.Title, probe.Title);
         Assert.Equal(ViewProbeTexts.Singular, probe.Singular);
@@ -182,7 +203,7 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
         Assert.Contains(device.Commands, command => command.Request == typeof(ReadDeviceProfileCommand));
         Assert.Contains(device.Commands, command => command.Request == typeof(DeleteDeviceCommand));
         Assert.True(device.HasSchedulableCommand);
-        Assert.Equal(typeof(GetDeviceByIdQueryCommand), device.GetOne);
+        Assert.Equal(typeof(GetDeviceByIdQueryCommand), device.GetOne!.Type);
     }
 
     [Fact]
@@ -192,5 +213,88 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
 
         Assert.Null(registry.Find(typeof(ViewOwner)));
         Assert.Single(registry.All);
+    }
+
+    [Fact]
+    public void Registry_Manufacturer_HasDeviceModelChild()
+    {
+        ChildViewModel model = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Manufacturer>().Children.Single();
+
+        Assert.Equal(typeof(DeviceModel), model.Child);
+        Assert.Equal(DeviceModelTexts.Singular, model.Singular);
+        Assert.Equal(DeviceModelUiTexts.Title, model.Title);
+        Assert.Equal(typeof(GetDeviceModelListQueryCommand), model.List!.Type);
+        Assert.Equal(typeof(GetDeviceModelByIdQueryCommand), model.GetOne!.Type);
+        Assert.Equal(typeof(AddDeviceModelCommand), model.Add!.Type);
+        Assert.Equal(typeof(RenameDeviceModelCommand), model.Edit!.Type);
+        Assert.Equal(typeof(RenameDeviceModelCommand), model.EditCommand!.Request);
+        Assert.Equal(SerginEditMode.Page, model.EditCommand.EditMode);
+        Assert.Equal(DeviceModelUiTexts.Empty, model.EmptyText);
+        Assert.Equal(DeviceModelUiTexts.SearchPlaceholder, model.ListSearchPlaceholder);
+        Assert.Equal(DeviceModelUiTexts.New, model.AddTitle);
+        Assert.Equal(DeviceModelUiTexts.RenameTitle, model.EditTitle);
+        Assert.Equal("Name", model.ListTitleField);
+        Assert.Equal(["Name"], model.AddFields.Select(field => field.Name));
+        Assert.Equal(["Name"], model.EditFields.Select(field => field.Name));
+
+        var manufacturer = Guid.CreateVersion7();
+        var id = Guid.CreateVersion7();
+
+        Assert.Equal($"/dm/manufacturers/{manufacturer}/models/{id}", model.Routes.Detail!(manufacturer, id));
+    }
+
+    [Fact]
+    public void Registry_DeviceModelCommands_ReadPolicyFromConfiguration()
+    {
+        ChildViewModel model = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Manufacturer>().Children.Single();
+        CommandView add = model.Commands.Single(command => command.Request == typeof(AddDeviceModelCommand));
+        CommandView remove = model.Commands.Single(command => command.Request == typeof(RemoveDeviceModelCommand));
+        CommandView rename = model.Commands.Single(command => command.Request == typeof(RenameDeviceModelCommand));
+
+        Assert.All([add, remove, rename], command =>
+        {
+            Assert.Equal([ManufacturerPermissions.Update], command.Permissions);
+            Assert.True(command.AnyScope);
+            Assert.True(command.RequiresVersion);
+        });
+        Assert.True(remove.Selectable);
+        Assert.Equal(CommandRole.AddChild, add.Role);
+        Assert.Equal(CommandRole.RemoveChild, remove.Role);
+        Assert.Equal(CommandRole.SetProperty, rename.Role);
+        Assert.Equal(DeviceModelUiTexts.Add, add.Label);
+        Assert.Equal(CommonTexts.Remove, remove.Label);
+        Assert.Equal(Icons.Material.Outlined.Delete, remove.Icon);
+        Assert.Equal(SerginActionKind.Danger, remove.Kind);
+        Assert.Equal(CommonTexts.Rename, rename.Label);
+        Assert.Equal(Icons.Material.Outlined.Edit, rename.Icon);
+        Assert.NotNull(remove.BuildFromIds);
+        Assert.Equal(DeviceModelUiTexts.InUseTooltip, remove.DisabledReason);
+        Assert.True(remove.DisabledWhen!(new GetDeviceModelListItem(Guid.Empty, "x", 1)));
+        Assert.False(remove.DisabledWhen(new GetDeviceModelListItem(Guid.Empty, "x", 0)));
+        Assert.Null(add.DisabledWhen);
+    }
+
+    [Fact]
+    public void Registry_DeviceModelList_HasCountColumnWithFormat()
+    {
+        ChildViewModel model = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Manufacturer>().Children.Single();
+        FieldView count = model.ListFields.Single(field => field.Name == nameof(GetDeviceModelListItem.DeviceCount));
+
+        Assert.Equal(DeviceModelUiTexts.DevicesColumn, count.Label);
+        Assert.Equal(DeviceModelUiTexts.DeviceCount, count.Format);
+        Assert.Equal("Count", count.FormatPlaceholder);
+        Assert.Equal(DeviceModelTexts.Name.Label, model.ListFields.Single(field => field.Name == nameof(GetDeviceModelListItem.Name)).Label);
+        Assert.Equal(DeviceModelUiTexts.Identifier, model.DetailFields.Single(field => field.Name == nameof(DeviceModelQueryResponse.Id)).Label);
+    }
+
+    [Fact]
+    public void Registry_ChildHostProbe_BuildsItsChild()
+    {
+        ChildViewModel model = AggregateViewTestRegistry.Build(typeof(ChildHostViewConfiguration)).For<ChildHost>().Children.Single();
+
+        Assert.Equal(typeof(ViewProbeChild), model.Child);
+        Assert.Equal(typeof(ListViewProbeChildrenQuery), model.List!.Type);
+        Assert.Equal(typeof(RenameViewProbeChildCommand), model.Edit!.Type);
+        Assert.Equal(ViewProbeChildTexts.Add, model.Commands.Single(command => command.Role == CommandRole.AddChild).Label);
     }
 }

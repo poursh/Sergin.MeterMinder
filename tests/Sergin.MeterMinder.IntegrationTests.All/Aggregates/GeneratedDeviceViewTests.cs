@@ -1,6 +1,9 @@
 using System.Net;
 using ErrorOr;
+using MediatR;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOverview;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.ReadProfile;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
@@ -17,6 +20,30 @@ using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
+
+/// <summary>How many times the device overview query went through the MediatR pipeline.</summary>
+internal sealed class OverviewSendCounter
+{
+    private int sends;
+
+    public int Sends => Volatile.Read(ref sends);
+
+    public void Count() => Interlocked.Increment(ref sends);
+}
+
+internal sealed class OverviewCountingBehavior<TRequest, TResponse>(OverviewSendCounter counter) : IPipelineBehavior<TRequest, TResponse>
+    where TRequest : notnull
+{
+    public Task<TResponse> Handle(TRequest request, RequestHandlerDelegate<TResponse> next, CancellationToken cancellationToken)
+    {
+        if (request is GetDeviceOverviewQueryCommand)
+        {
+            counter.Count();
+        }
+
+        return next(cancellationToken);
+    }
+}
 
 /// <summary>
 /// What the generated Device views send, checked at the dispatcher (a component cannot be driven server-side), and what the
@@ -45,6 +72,28 @@ public sealed class GeneratedDeviceViewTests(SerginWebApiFactory<Program> factor
         Assert.True(stale.IsError);
         Assert.Equal(VersionErrors.Stale.Code, stale.FirstError.Code);
         Assert.False((await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(device)))).IsError);
+    }
+
+    [Fact]
+    public async Task DeviceList_OverviewQuery_SentOncePerLoad()
+    {
+        OverviewSendCounter counter = new();
+        using WebApplicationFactory<Program> counted = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
+        {
+            services.AddSingleton(counter);
+            services.AddTransient(typeof(IPipelineBehavior<,>), typeof(OverviewCountingBehavior<,>));
+        }));
+        using HttpClient client = counted.CreateClient();
+
+        using HttpResponseMessage response = await client.GetAsync(new Uri("/dm/devices", UriKind.Relative));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(1, counter.Sends);
+
+        // The slot got what the view loaded: "of {Total}" shows only for a loaded overview.
+        string html = await response.Content.ReadAsStringAsync();
+        // Anchored to the overview card's own caption element, not to any "of N" a pager might print.
+        Assert.Matches(@"mud-typography-caption[^>]*>\s*of \d+\s*<", html);
     }
 
     [Fact]
@@ -168,7 +217,7 @@ public sealed class GeneratedDeviceViewTests(SerginWebApiFactory<Program> factor
             [nameof(UpdateDeviceCommand.DeviceModelId)] = deviceModel.Value,
         };
 
-        ViewSendResult stale = await model.UpdateInvoker!.SendVersionedAsync(dispatcher, model.BuildUpdate!(device, values), RowVersion.Create());
+        ViewSendResult stale = await model.Update!.Invoker.SendVersionedAsync(dispatcher, model.Update.Build(device, values), RowVersion.Create());
 
         Assert.True(stale.IsError);
         Assert.Equal(VersionErrors.Stale.Code, stale.Errors[0].Code);
@@ -196,8 +245,8 @@ public sealed class GeneratedDeviceViewTests(SerginWebApiFactory<Program> factor
             [nameof(CreateDeviceCommand.DeviceModelId)] = deviceModel.Value,
         };
 
-        IReadOnlyCollection<string> messages = await model.CreateInvoker!.ValidateAsync(
-            validator, model.BuildCreate!(Guid.Empty, values), nameof(CreateDeviceCommand.DeviceId));
+        IReadOnlyCollection<string> messages = await model.Create!.Invoker.ValidateAsync(
+            validator, model.Create.Build(Guid.Empty, values), nameof(CreateDeviceCommand.DeviceId));
 
         Assert.Contains("'Device ID' is already in use.", messages);
     }
