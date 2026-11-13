@@ -70,6 +70,27 @@ public sealed class FieldTextGuardTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public void FieldTextGuard_EnumMemberWithoutValueText_Refuses()
+    {
+        InvalidOperationException refused = Assert.Throws<InvalidOperationException>(() =>
+            Check(typeof(EnumCommand), typeof(EnumCommandConfiguration)));
+
+        Assert.Contains($"{typeof(EnumCommand).FullName}.{nameof(EnumCommand.Kind)} ({nameof(ProbeEnum)}.{nameof(ProbeEnum.Second)})", refused.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain($"({nameof(ProbeEnum)}.{nameof(ProbeEnum.First)})", refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FieldTextGuard_NullableEnumIsChecked_AndRealHostPasses()
+    {
+        InvalidOperationException refused = Assert.Throws<InvalidOperationException>(() =>
+            Check(typeof(NullableEnumCommand), typeof(NullableEnumCommandConfiguration)));
+
+        Assert.Contains($"{nameof(NullableEnumCommand.Kind)} ({nameof(ProbeEnum)}.{nameof(ProbeEnum.Second)})", refused.Message, StringComparison.Ordinal);
+
+        Guard_PassesForRealHost();
+    }
+
+    [Fact]
     public void Guard_HonoursNotShown()
     {
         InvalidOperationException refused = Assert.Throws<InvalidOperationException>(() =>
@@ -115,11 +136,37 @@ public sealed class FieldTextGuardTests(SerginWebApiFactory<Program> factory)
             CommandConfigurationRegistry.FromConfigurationTypes([configurationType]),
             TextCatalog.FromSources([TextSource.FromTypes("DeviceManagement", TextOrigin.Application, typeof(GuardTestTexts))]));
 
+#pragma warning disable S2344 // The name is the one the guard message is asserted against.
+    public enum ProbeEnum
+#pragma warning restore S2344
+    {
+        First,
+        Second,
+    }
+
+    internal sealed record EnumCommand(ProbeEnum Kind) : ICommand<Guid>;
+
+    internal sealed class EnumCommandConfiguration : ICommandConfiguration<EnumCommand>
+    {
+        public void Configure(CommandConfigurationBuilder<EnumCommand> builder) => builder.Texts(GuardTestTexts.Category);
+    }
+
+    internal sealed record NullableEnumCommand(ProbeEnum? Kind) : ICommand<Guid>;
+
+    internal sealed class NullableEnumCommandConfiguration : ICommandConfiguration<NullableEnumCommand>
+    {
+        public void Configure(CommandConfigurationBuilder<NullableEnumCommand> builder) => builder.Texts(GuardTestTexts.Category);
+    }
+
     public static class GuardTestTexts
     {
         public static TextCategory Category { get; } = TextCategory.Create("DeviceManagement", "FieldTextGuardTests");
 
         public static FieldText Name { get; } = Category.Field(nameof(UnlabelledCommand.Name), "Name");
+
+        public static EnumTexts<ProbeEnum> KindValues { get; } = Category.Values((ProbeEnum.First, "First", null));
+
+        public static FieldText Kind { get; } = Category.Field(nameof(EnumCommand.Kind), "Kind");
     }
 
     internal sealed record UnlabelledCommand(string Name, string Extra) : ICommand<Guid>;

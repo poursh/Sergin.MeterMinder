@@ -38,7 +38,7 @@ public sealed class UiTextPlacementTests(SerginWebApiFactory<Program> factory)
         { "user-access.roles.delete-confirm", typeof(RoleUiTexts) },
         { "user-access.scopes.tree-root", typeof(ScopeUiTexts) },
         { "settings.languages.publish", typeof(LanguageUiTexts) },
-        { "settings.translations.statuses.orphaned", typeof(TranslationUiTexts) },
+        { "settings.translations.delete-confirm", typeof(TranslationUiTexts) },
         { "device-management.menu-title", typeof(DeviceManagementUiTexts) },
         { "device-management.devices.delete-confirm", typeof(DeviceUiTexts) },
         { "device-management.manufacturers.overview.models", typeof(ManufacturerUiTexts) },
