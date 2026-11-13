@@ -154,6 +154,10 @@ public sealed class GeneratedManufacturerViewTests(SerginWebApiFactory<Program> 
         Assert.Contains("Add model", admin, StringComparison.Ordinal);
         Assert.Contains($"href=\"/dm/manufacturers/{manufacturer.Value}/edit\"", admin, StringComparison.Ordinal);
         Assert.Contains(">Delete", admin, StringComparison.Ordinal);
+        Assert.Contains("mud-checkbox", admin, StringComparison.Ordinal);
+
+        // No bulk action the reader may run, so the table has no selection column (its header checkbox is in the prerender).
+        Assert.DoesNotContain("mud-checkbox", html, StringComparison.Ordinal);
 
         Assert.Contains($"maker-{marker}", html, StringComparison.Ordinal);
         Assert.Contains("Device models", html, StringComparison.Ordinal);
