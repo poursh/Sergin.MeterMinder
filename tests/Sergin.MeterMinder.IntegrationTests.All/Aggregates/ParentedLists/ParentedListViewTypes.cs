@@ -1,3 +1,5 @@
+using Sergin.SharedKernel.Application.Commands.Queries;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates.ParentedLists;
@@ -27,4 +29,19 @@ internal sealed class ListUnderViewProbeViewConfiguration : IAggregateViewConfig
         view.ListUnder<ViewOwner>(ownerId => $"/tst/view-owners/{ownerId}/probes");
         view.Command<RunViewProbeCommand>().Label(ViewProbeTexts.Run);
     }
+}
+
+/// <summary>Refused by the list builder: a parameter of its own that is required, so a generated list has no value to send.</summary>
+internal sealed record ListTaggedViewProbeNotesQuery : ListQuery<ViewProbeNoteListItem>, IListOf<ViewProbeNote>, IUnderParent<ViewProbe, ViewProbeId>
+{
+    public ListTaggedViewProbeNotesQuery(ViewProbeId parentId, Paggination paggination, string tag)
+        : base(paggination)
+    {
+        ParentId = parentId;
+        Tag = tag;
+    }
+
+    public ViewProbeId ParentId { get; init; }
+
+    public string Tag { get; init; }
 }

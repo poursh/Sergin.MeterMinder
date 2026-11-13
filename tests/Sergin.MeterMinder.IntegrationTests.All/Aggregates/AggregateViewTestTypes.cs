@@ -338,11 +338,21 @@ internal sealed record ViewProbeNoteListItem(Guid Id, string Text);
 /// <summary>The notes of one view probe: the parent's id comes first, as a parented list query takes it.</summary>
 internal sealed record ListViewProbeNotesQuery : ListQuery<ViewProbeNoteListItem>, IListOf<ViewProbeNote>, IUnderParent<ViewProbe, ViewProbeId>
 {
-    public ListViewProbeNotesQuery(ViewProbeId parentId, Paggination paggination, Term? term = default)
-        : base(paggination, term) =>
+    public ListViewProbeNotesQuery(ViewProbeId parentId, Paggination paggination, Term? term = default, string? tag = default, int limit = 7)
+        : base(paggination, term)
+    {
         ParentId = parentId;
+        Tag = tag;
+        Limit = limit;
+    }
 
     public ViewProbeId ParentId { get; init; }
+
+    /// <summary>A filter of the query's own, optional: a generated list sends its default.</summary>
+    public string? Tag { get; init; }
+
+    /// <summary>An optional value type with a declared default: a generated list sends 7.</summary>
+    public int Limit { get; init; }
 }
 
 /// <summary>Listed under its probe, the table replaced by <see cref="ViewProbeNoteListSlot"/>.</summary>

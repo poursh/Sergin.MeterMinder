@@ -222,4 +222,14 @@ public sealed class RequestRuntimeTests(SerginWebApiFactory<Program> factory)
 
         Assert.Equal(manufacturer, query.RootId.Value);
     }
+
+    [Fact]
+    public void ListBuilder_RequiredParameterOfItsOwn_IsRefused()
+    {
+        InvalidOperationException refused = Assert.Throws<InvalidOperationException>(
+            () => RequestFactory.ForList(typeof(ParentedLists.ListTaggedViewProbeNotesQuery)));
+
+        Assert.Contains("is not a list query a view can build", refused.Message, StringComparison.Ordinal);
+        Assert.Contains("String tag", refused.Message, StringComparison.Ordinal);
+    }
 }
