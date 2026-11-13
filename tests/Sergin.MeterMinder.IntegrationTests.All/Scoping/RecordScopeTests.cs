@@ -158,9 +158,11 @@ public sealed class RecordScopeTests(SerginWebApiFactory<Program> factory)
     }
 
     // Typed on Manufacturer, which is not scoped, so the pipeline asks only that the permission is held somewhere. A
-    // creation on its collection, so the type names the root without an id and requires no version.
+    // target on its collection, so the type names the root without an id and requires no version. It carries no effect
+    // interface on purpose: an ICreateCommand<Manufacturer, …> would be a second create beside the manufacturer's own,
+    // which its generated views refuse.
     internal sealed record CreateDeviceUnderManufacturerCommand(DeviceModelInternalId ModelId, DeviceId DeviceId)
-        : ICreateCommand<Manufacturer, ManufacturerId>, ICommand<Success>;
+        : ICollectionTarget<Manufacturer>, ICommand<Success>;
 
     internal sealed class CreateDeviceUnderManufacturerCommandConfiguration
         : ICommandConfiguration<CreateDeviceUnderManufacturerCommand>

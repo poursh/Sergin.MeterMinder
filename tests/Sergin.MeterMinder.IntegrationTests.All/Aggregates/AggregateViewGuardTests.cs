@@ -1,4 +1,5 @@
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BrokenChildViews;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -147,6 +148,82 @@ public sealed class AggregateViewGuardTests
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(CtorProbeViewConfiguration)),
             nameof(CtorProbeViewConfiguration), nameof(CreateCtorProbeCommand), "public constructor");
+
+    [Fact]
+    public void Guard_ChildWithoutName_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildWithoutNameViewConfiguration)),
+            nameof(ChildWithoutNameViewConfiguration), nameof(ViewProbeChild), "Named");
+
+    [Fact]
+    public void Guard_ChildOfNoRequest_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(NotAChildViewConfiguration)),
+            nameof(NotAChildViewConfiguration), nameof(ViewProbeChild), nameof(ViewProbe));
+
+    [Fact]
+    public void Guard_ChildCommandOfAnotherRoot_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildCommandOfAnotherRootViewConfiguration)),
+            nameof(ChildCommandOfAnotherRootViewConfiguration), nameof(AddViewProbeChildCommand), nameof(ChildHost));
+
+    [Fact]
+    public void Guard_ChildFieldOverrideOnUnknownProperty_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildUnknownFieldViewConfiguration)),
+            nameof(ChildUnknownFieldViewConfiguration), nameof(ViewProbeChildResponse), "Length");
+
+    [Fact]
+    public void Guard_ChildSetPropertyWithoutPageMode_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildSetPropertyWithoutPageModeViewConfiguration)),
+            nameof(ChildSetPropertyWithoutPageModeViewConfiguration), nameof(RenameViewProbeChildCommand), "Edit(SerginEditMode.Page)");
+
+    [Fact]
+    public void Guard_ChildPageModeWithoutEditRoute_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildPageModeWithoutEditRouteViewConfiguration)),
+            nameof(ChildPageModeWithoutEditRouteViewConfiguration), nameof(RenameViewProbeChildCommand), "edit route");
+
+    [Fact]
+    public void Guard_ChildTwoPageModeCommands_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildTwoPageModeCommandsViewConfiguration)),
+            nameof(ChildTwoPageModeCommandsViewConfiguration), nameof(RenameViewProbeChildCommand), nameof(RemoveViewProbeChildCommand));
+
+    [Fact]
+    public void Guard_ChildCreateRouteWithoutAddCommand_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildCreateRouteWithoutAddCommandViewConfiguration)),
+            nameof(ChildCreateRouteWithoutAddCommandViewConfiguration), $"IAddChildCommand<{nameof(BareChildHost)}");
+
+    [Fact]
+    public void Guard_ChildDetailRouteWithoutQuery_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildDetailRouteWithoutQueryViewConfiguration)),
+            nameof(ChildDetailRouteWithoutQueryViewConfiguration), $"IChildGetOneQuery<{nameof(BareChildHost)}");
+
+    [Fact]
+    public void Guard_DisabledWhenOnForeignRecord_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildDisabledWhenOnForeignRecordViewConfiguration)),
+            nameof(ChildDisabledWhenOnForeignRecordViewConfiguration), nameof(RemoveViewProbeChildCommand), nameof(ViewProbeResponse));
+
+    [Fact]
+    public void Guard_RootSetPropertyCommand_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(RootSetPropertyViewConfiguration)),
+            nameof(RootSetPropertyViewConfiguration), nameof(RenameSetProbeCommand), nameof(SetProbe));
+
+    [Fact]
+    public void Guard_ChildRouteNoComponentDeclares_Refuses()
+    {
+        AggregateViewRegistry registry = AggregateViewTestRegistry.Build(typeof(ChildHostViewConfiguration));
+
+        AssertRefused(
+            () => AggregateViewGuard.Ensure(registry, [typeof(AggregateViewGuardTests).Assembly]),
+            nameof(ChildHostViewConfiguration), nameof(ViewProbeChild), "/tst/child-hosts/");
+    }
 
     private static InvalidOperationException AssertRefused(Action build, params string[] named)
     {

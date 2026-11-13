@@ -1,4 +1,5 @@
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BrokenChildViews;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
 using Sergin.SharedKernel.Application.Aggregates;
@@ -7,6 +8,7 @@ using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -322,6 +324,140 @@ internal sealed class UnknownFilterViewProbeViewConfiguration : IAggregateViewCo
     }
 }
 
+// ---- A root whose only requests are a child entity's: the good child probe ----
+
+internal sealed record ChildHostId(Guid Value);
+
+internal sealed class ChildHost : AggregateRoot<ChildHostId>;
+
+internal sealed record ViewProbeChildId(Guid Value);
+
+internal sealed record ViewProbeChildName(string Value);
+
+internal sealed class ViewProbeChild : Entity<ViewProbeChildId>;
+
+internal static class ChildHostPermissions
+{
+    public static PermissionDefinition Update { get; } = PermissionDefinition.Create("permission.tst.child-hosts.update", "Change child hosts");
+}
+
+public static class ChildHostTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "ChildHosts");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Child host");
+}
+
+public static class ViewProbeChildTexts
+{
+    public static TextCategory Category { get; } = ChildHostTexts.Category.Child("Children");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Probe child");
+
+    public static TextDefinition Title { get; } = Category.Text("Title", "Probe children");
+
+    public static TextDefinition Add { get; } = Category.Text("Add", "Add child");
+
+    public static TextDefinition Empty { get; } = Category.Text("Empty", "No children yet.");
+
+    public static TextDefinition UsesColumn { get; } = Category.Text("UsesColumn", "Uses");
+
+    public static TextDefinition UsesFormat { get; } = Category.Text("UsesFormat", "{Count} uses");
+
+    public static TextDefinition InUse { get; } = Category.Text("InUse", "In use");
+
+    public static TextDefinition NewTitle { get; } = Category.Text("NewTitle", "New child");
+
+    public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
+}
+
+internal sealed class ChildHostAggregateFeatureConfiguration : IAggregateFeatureConfiguration<ChildHost>
+{
+    public void Configure(AggregateFeatureBuilder<ChildHost> builder) =>
+        builder.Versioned()
+            .Permissions(ChildHostPermissions.Update)
+            .Texts(ChildHostTexts.Category)
+            .Named(ChildHostTexts.Singular);
+}
+
+internal sealed record ViewProbeChildResponse(Guid Id, string Name);
+
+internal sealed record GetViewProbeChildQuery(ChildHostId RootId, ViewProbeChildId Id)
+    : IQuery<ViewProbeChildResponse>, IChildGetOneQuery<ChildHost, ChildHostId, ViewProbeChild, ViewProbeChildId>;
+
+internal sealed record ViewProbeChildListItem(Guid Id, string Name, int Uses);
+
+internal sealed record ListViewProbeChildrenQuery : ListQuery<ViewProbeChildListItem>, IChildListOf<ChildHost, ChildHostId, ViewProbeChild>
+{
+    public ListViewProbeChildrenQuery(ChildHostId rootId, Paggination paggination)
+        : base(paggination) => RootId = rootId;
+
+    public ChildHostId RootId { get; }
+}
+
+internal sealed record AddViewProbeChildCommand(ChildHostId RootId, ViewProbeChildName Name)
+    : ICommand, IAddChildCommand<ChildHost, ChildHostId, ViewProbeChild, ViewProbeChildId>;
+
+internal sealed record RemoveViewProbeChildCommand(ChildHostId RootId, ViewProbeChildId Id)
+    : ICommand, IRemoveChildCommand<ChildHost, ChildHostId, ViewProbeChild, ViewProbeChildId>, ISelectable;
+
+internal sealed record RenameViewProbeChildCommand(ChildHostId RootId, ViewProbeChildId Id, ViewProbeChildName Name)
+    : ICommand, ISetPropertyCommand<ChildHost, ChildHostId, ViewProbeChild, ViewProbeChildId>;
+
+internal sealed class GetViewProbeChildQueryConfiguration : ICommandConfiguration<GetViewProbeChildQuery>
+{
+    public void Configure(CommandConfigurationBuilder<GetViewProbeChildQuery> builder) => builder.Texts(ViewProbeChildTexts.Category);
+}
+
+internal sealed class ListViewProbeChildrenQueryConfiguration : ICommandConfiguration<ListViewProbeChildrenQuery>
+{
+    public void Configure(CommandConfigurationBuilder<ListViewProbeChildrenQuery> builder) => builder.Texts(ViewProbeChildTexts.Category);
+}
+
+internal sealed class AddViewProbeChildCommandConfiguration : ICommandConfiguration<AddViewProbeChildCommand>
+{
+    public void Configure(CommandConfigurationBuilder<AddViewProbeChildCommand> builder) =>
+        builder.RequirePermissions(ChildHostPermissions.Update).Texts(ViewProbeChildTexts.Category);
+}
+
+internal sealed class RemoveViewProbeChildCommandConfiguration : ICommandConfiguration<RemoveViewProbeChildCommand>
+{
+    public void Configure(CommandConfigurationBuilder<RemoveViewProbeChildCommand> builder) =>
+        builder.RequirePermissions(ChildHostPermissions.Update).Texts(ViewProbeChildTexts.Category);
+}
+
+internal sealed class RenameViewProbeChildCommandConfiguration : ICommandConfiguration<RenameViewProbeChildCommand>
+{
+    public void Configure(CommandConfigurationBuilder<RenameViewProbeChildCommand> builder) =>
+        builder.RequirePermissions(ChildHostPermissions.Update).Texts(ViewProbeChildTexts.Category);
+}
+
+/// <summary>The valid child configuration the broken ones in <c>BrokenChildViews</c> each spoil in one way.</summary>
+internal sealed class ChildHostViewConfiguration : IAggregateViewConfiguration<ChildHost>
+{
+    public void Configure(AggregateViewBuilder<ChildHost> view) =>
+        view.Child<ViewProbeChild>(child =>
+        {
+            child.Named(ViewProbeChildTexts.Singular).Title(ViewProbeChildTexts.Title)
+                .Routes(
+                    detail: (hostId, id) => $"/tst/child-hosts/{hostId}/children/{id}",
+                    create: hostId => $"/tst/child-hosts/{hostId}/children/new",
+                    edit: (hostId, id) => $"/tst/child-hosts/{hostId}/children/{id}/edit");
+
+            child.Command<AddViewProbeChildCommand>().Label(ViewProbeChildTexts.Add);
+            child.Command<RenameViewProbeChildCommand>().Label(CommonTexts.Rename).Edit(SerginEditMode.Page);
+            child.Command<RemoveViewProbeChildCommand>().DisabledWhen<ViewProbeChildListItem>(x => x.Uses > 0, ViewProbeChildTexts.InUse);
+
+            child.List<ViewProbeChildListItem>(list =>
+            {
+                list.Title(x => x.Name).Empty(ViewProbeChildTexts.Empty);
+                list.Field(x => x.Uses).Label(ViewProbeChildTexts.UsesColumn).Format(ViewProbeChildTexts.UsesFormat, "Count");
+            });
+            child.Detail<ViewProbeChildResponse>(detail => detail.Title(x => x.Name));
+            child.Form<AddViewProbeChildCommand>(form => form.Title(ViewProbeChildTexts.NewTitle));
+        });
+}
+
 /// <summary>The registry every view test builds against: the probe types above, in one test catalog.</summary>
 internal static class AggregateViewTestRegistry
 {
@@ -332,7 +468,8 @@ internal static class AggregateViewTestRegistry
         typeof(UnlistedProbeAggregateFeatureConfiguration), typeof(NoteProbeAggregateFeatureConfiguration),
         typeof(BadQueryProbeAggregateFeatureConfiguration), typeof(PlainProbeAggregateFeatureConfiguration),
         typeof(EditScheduledProbeAggregateFeatureConfiguration), typeof(CtorProbeAggregateFeatureConfiguration),
-        typeof(BadOverviewProbeAggregateFeatureConfiguration),
+        typeof(BadOverviewProbeAggregateFeatureConfiguration), typeof(ChildHostAggregateFeatureConfiguration),
+        typeof(BareChildHostAggregateFeatureConfiguration), typeof(SetProbeAggregateFeatureConfiguration),
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -344,7 +481,12 @@ internal static class AggregateViewTestRegistry
         typeof(ListViewOwnersQuery), typeof(ListUnlistedProbesQuery), typeof(CreateUnlistedProbeCommand), typeof(GetUnlistedThingQuery),
         typeof(GetPlainProbeQuery), typeof(ListPlainProbesQuery), typeof(UpdatePlainProbeCommand),
         typeof(UpdateEditScheduledProbeCommand), typeof(UpdateEditScheduledProbeCommandConfiguration), typeof(CreateCtorProbeCommand),
-        typeof(GetBadOverviewProbeOverviewQuery),
+        typeof(GetBadOverviewProbeOverviewQuery), typeof(GetViewProbeChildQuery), typeof(GetViewProbeChildQueryConfiguration),
+        typeof(ListViewProbeChildrenQuery), typeof(ListViewProbeChildrenQueryConfiguration), typeof(AddViewProbeChildCommand),
+        typeof(AddViewProbeChildCommandConfiguration), typeof(RemoveViewProbeChildCommand), typeof(RemoveViewProbeChildCommandConfiguration),
+        typeof(RenameViewProbeChildCommand), typeof(RenameViewProbeChildCommandConfiguration), typeof(ListBareChildrenQuery),
+        typeof(ListBareChildrenQueryConfiguration),
+        typeof(RenameSetProbeCommand), typeof(RenameSetProbeCommandConfiguration),
     ];
 
     public static AggregateViewRegistry Build(params Type[] viewConfigurations) =>
@@ -357,7 +499,8 @@ internal static class AggregateViewTestRegistry
                 TextSource.Common,
                 TextSource.FromTypes("Tst", TextOrigin.Ui, typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
                     typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts), typeof(BadQueryProbeTexts),
-                    typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts), typeof(BadOverviewProbeTexts)),
+                    typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts), typeof(BadOverviewProbeTexts),
+                    typeof(ChildHostTexts), typeof(ViewProbeChildTexts), typeof(BareChildHostTexts), typeof(SetProbeTexts)),
             ]));
 }
 
