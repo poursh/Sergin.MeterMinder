@@ -168,7 +168,7 @@ public sealed class GeneratedDeviceViewTests(SerginWebApiFactory<Program> factor
             [nameof(UpdateDeviceCommand.DeviceModelId)] = deviceModel.Value,
         };
 
-        ViewSendResult stale = await model.UpdateInvoker!.SendVersionedAsync(dispatcher, model.BuildUpdate!(device, values), RowVersion.Create());
+        ViewSendResult stale = await model.Update!.Invoker.SendVersionedAsync(dispatcher, model.Update.Build(device, values), RowVersion.Create());
 
         Assert.True(stale.IsError);
         Assert.Equal(VersionErrors.Stale.Code, stale.Errors[0].Code);
@@ -196,8 +196,8 @@ public sealed class GeneratedDeviceViewTests(SerginWebApiFactory<Program> factor
             [nameof(CreateDeviceCommand.DeviceModelId)] = deviceModel.Value,
         };
 
-        IReadOnlyCollection<string> messages = await model.CreateInvoker!.ValidateAsync(
-            validator, model.BuildCreate!(Guid.Empty, values), nameof(CreateDeviceCommand.DeviceId));
+        IReadOnlyCollection<string> messages = await model.Create!.Invoker.ValidateAsync(
+            validator, model.Create.Build(Guid.Empty, values), nameof(CreateDeviceCommand.DeviceId));
 
         Assert.Contains("'Device ID' is already in use.", messages);
     }

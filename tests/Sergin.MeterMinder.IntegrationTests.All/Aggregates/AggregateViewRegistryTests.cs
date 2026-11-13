@@ -105,9 +105,9 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     {
         AggregateViewModel probe = Probe();
 
-        Assert.Equal(typeof(GetViewProbeQuery), probe.GetOne);
-        Assert.Equal(typeof(ListViewProbesQuery), probe.List);
-        Assert.Equal(typeof(CreateViewProbeCommand), probe.Create);
+        Assert.Equal(typeof(GetViewProbeQuery), probe.GetOne!.Type);
+        Assert.Equal(typeof(ListViewProbesQuery), probe.List!.Type);
+        Assert.Equal(typeof(CreateViewProbeCommand), probe.Create!.Type);
         Assert.Null(probe.Update);
         Assert.Equal(ViewProbeTexts.Title, probe.Title);
         Assert.Equal(ViewProbeTexts.Singular, probe.Singular);
@@ -182,7 +182,7 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
         Assert.Contains(device.Commands, command => command.Request == typeof(ReadDeviceProfileCommand));
         Assert.Contains(device.Commands, command => command.Request == typeof(DeleteDeviceCommand));
         Assert.True(device.HasSchedulableCommand);
-        Assert.Equal(typeof(GetDeviceByIdQueryCommand), device.GetOne);
+        Assert.Equal(typeof(GetDeviceByIdQueryCommand), device.GetOne!.Type);
     }
 
     [Fact]
