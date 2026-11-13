@@ -22,6 +22,15 @@ internal sealed record PlainProbeName(string Value);
 
 internal sealed class PlainProbe : AggregateRoot<PlainProbeId>;
 
+/// <summary>An enum a generated view shows through its declared value texts, never by member name.</summary>
+#pragma warning disable S2344 // The name is the one the guard message is asserted against.
+public enum ProbeEnum
+#pragma warning restore S2344
+{
+    First,
+    Second,
+}
+
 public static class PlainProbeTexts
 {
     public static TextCategory Category { get; } = TextCategory.Create("Tst", "PlainProbes");
@@ -30,7 +39,20 @@ public static class PlainProbeTexts
 
     public static TextDefinition Title { get; } = Category.Text("Title", "Plain probes");
 
-    public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
+    public static FieldText Name { get; } = Category.Field(nameof(Name), "Name", hint: "Probe hint text");
+
+    public static FieldText Status { get; } = Category.Field(nameof(Status), "Status");
+
+    public static FieldText Active { get; } = Category.Field(nameof(Active), "Active");
+
+    public static FieldText Enabled { get; } = Category.Field(nameof(Enabled), "Enabled");
+
+    public static EnumTexts<ProbeEnum> StatusValues { get; } =
+        Category.Values((ProbeEnum.First, "Primary value", null), (ProbeEnum.Second, "Runner-up value", null));
+
+    public static TextDefinition EnabledOn { get; } = Category.Text("EnabledOn", "Switched on");
+
+    public static TextDefinition EnabledOff { get; } = Category.Text("EnabledOff", "Switched off");
 }
 
 internal sealed class PlainProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<PlainProbe>
@@ -39,11 +61,11 @@ internal sealed class PlainProbeAggregateFeatureConfiguration : IAggregateFeatur
         builder.Texts(PlainProbeTexts.Category).Named(PlainProbeTexts.Singular);
 }
 
-internal sealed record PlainProbeResponse(Guid Id, PlainProbeName Name);
+internal sealed record PlainProbeResponse(Guid Id, PlainProbeName Name, ProbeEnum Status, bool Active, bool Enabled);
 
 internal sealed record GetPlainProbeQuery(PlainProbeId Id) : IQuery<PlainProbeResponse>, IGetOneQuery<PlainProbe, PlainProbeId>;
 
-internal sealed record PlainProbeListItem(Guid Id, string Name);
+internal sealed record PlainProbeListItem(Guid Id, string Name, ProbeEnum Status);
 
 internal sealed record ListPlainProbesQuery : ListQuery<PlainProbeListItem>, IListOf<PlainProbe>
 {
@@ -57,9 +79,12 @@ internal sealed record UpdatePlainProbeCommand(PlainProbeId Id, PlainProbeName N
 
 internal sealed class PlainProbeViewConfiguration : IAggregateViewConfiguration<PlainProbe>
 {
-    public void Configure(AggregateViewBuilder<PlainProbe> view) =>
+    public void Configure(AggregateViewBuilder<PlainProbe> view)
+    {
         view.Title(PlainProbeTexts.Title)
             .Routes("/tst/plain-probes", id => $"/tst/plain-probes/{id}", edit: id => $"/tst/plain-probes/{id}/edit");
+        view.Detail<PlainProbeResponse>(detail => detail.Field(record => record.Enabled).BoolTexts(PlainProbeTexts.EnabledOn, PlainProbeTexts.EnabledOff));
+    }
 }
 
 /// <summary>The plain probes the handlers below read and write, by id; nothing reaches a database.</summary>
@@ -70,7 +95,7 @@ internal sealed class PlainProbeStore
     public Guid Add(string name)
     {
         var id = Guid.CreateVersion7();
-        records[id] = new PlainProbeResponse(id, new PlainProbeName(name));
+        records[id] = new PlainProbeResponse(id, new PlainProbeName(name), ProbeEnum.Second, true, false);
         return id;
     }
 
@@ -78,12 +103,12 @@ internal sealed class PlainProbeStore
 
     public bool Rename(Guid id, string name)
     {
-        if (!records.ContainsKey(id))
+        if (!records.TryGetValue(id, out PlainProbeResponse? current))
         {
             return false;
         }
 
-        records[id] = new PlainProbeResponse(id, new PlainProbeName(name));
+        records[id] = current with { Name = new PlainProbeName(name) };
         return true;
     }
 }

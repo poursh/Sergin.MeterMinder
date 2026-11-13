@@ -139,6 +139,28 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
     }
 
     [Fact]
+    public async Task Detail_RendersEnumValueText_NotMemberName()
+    {
+        Guid probe = plainStore.Add("Plain enum");
+
+        string html = await GetAsync($"/tst/plain-probes/{probe}");
+
+        Assert.Contains("Runner-up value", html, StringComparison.Ordinal);
+        Assert.DoesNotContain($">{nameof(ProbeEnum.Second)}<", html, StringComparison.Ordinal);
+        Assert.Contains("Switched off", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Form_ShowsFieldHint()
+    {
+        Guid probe = plainStore.Add("Plain hint");
+
+        string html = await GetAsync($"/tst/plain-probes/{probe}/edit");
+
+        Assert.Contains("Probe hint text", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task PlainProbeEdit_NotVersioned_RendersPrefilledForm()
     {
         Guid probe = plainStore.Add("Plain beta");

@@ -237,6 +237,12 @@ public sealed class AggregateViewGuardTests
             nameof(ChildHostViewConfiguration), nameof(ViewProbeChild), "/tst/child-hosts/");
     }
 
+    [Fact]
+    public void Guard_DetailEnumFieldWithoutValueText_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(EnumGapProbeViewConfiguration)),
+            nameof(EnumGapProbeViewConfiguration), $"{nameof(EnumGapProbeResponse)}.{nameof(EnumGapProbeResponse.Status)}", $"{nameof(ProbeEnum)}.{nameof(ProbeEnum.Second)}");
+
     private static InvalidOperationException AssertRefused(Action build, params string[] named)
     {
         InvalidOperationException refused = Assert.Throws<InvalidOperationException>(build);

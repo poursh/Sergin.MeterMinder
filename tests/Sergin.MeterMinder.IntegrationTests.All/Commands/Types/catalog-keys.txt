@@ -364,6 +364,8 @@ common.validation.null-validator
 common.validation.predicate-validator
 common.validation.regular-expression-validator
 common.validation.scale-precision-validator
+common.values.no
+common.values.yes
 common.welcome.prompt
 device-management.devices.bulk-read-profile-done
 device-management.devices.delete-confirm

@@ -470,6 +470,7 @@ internal static class AggregateViewTestRegistry
         typeof(EditScheduledProbeAggregateFeatureConfiguration), typeof(CtorProbeAggregateFeatureConfiguration),
         typeof(BadOverviewProbeAggregateFeatureConfiguration), typeof(ChildHostAggregateFeatureConfiguration),
         typeof(BareChildHostAggregateFeatureConfiguration), typeof(SetProbeAggregateFeatureConfiguration),
+        typeof(EnumGapProbeAggregateFeatureConfiguration),
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -486,7 +487,7 @@ internal static class AggregateViewTestRegistry
         typeof(AddViewProbeChildCommandConfiguration), typeof(RemoveViewProbeChildCommand), typeof(RemoveViewProbeChildCommandConfiguration),
         typeof(RenameViewProbeChildCommand), typeof(RenameViewProbeChildCommandConfiguration), typeof(ListBareChildrenQuery),
         typeof(ListBareChildrenQueryConfiguration),
-        typeof(RenameSetProbeCommand), typeof(RenameSetProbeCommandConfiguration),
+        typeof(RenameSetProbeCommand), typeof(RenameSetProbeCommandConfiguration), typeof(GetEnumGapProbeQuery),
     ];
 
     public static AggregateViewRegistry Build(params Type[] viewConfigurations) =>
@@ -500,7 +501,7 @@ internal static class AggregateViewTestRegistry
                 TextSource.FromTypes("Tst", TextOrigin.Ui, typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
                     typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts), typeof(BadQueryProbeTexts),
                     typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts), typeof(BadOverviewProbeTexts),
-                    typeof(ChildHostTexts), typeof(ViewProbeChildTexts), typeof(BareChildHostTexts), typeof(SetProbeTexts)),
+                    typeof(ChildHostTexts), typeof(ViewProbeChildTexts), typeof(BareChildHostTexts), typeof(SetProbeTexts), typeof(EnumGapProbeTexts)),
             ]));
 }
 
@@ -653,6 +654,41 @@ internal sealed record CreateCtorProbeCommand : ICommand, ICreateCommand<CtorPro
 internal sealed class CtorProbeViewConfiguration : IAggregateViewConfiguration<CtorProbe>
 {
     public void Configure(AggregateViewBuilder<CtorProbe> view)
+    {
+    }
+}
+
+// ---- Refusal: a shown enum field with a member that has no value text ----
+
+internal sealed record EnumGapProbeId(Guid Value);
+
+internal sealed class EnumGapProbe : AggregateRoot<EnumGapProbeId>;
+
+public static class EnumGapProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "EnumGapProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Enum gap probe");
+
+    public static FieldText Status { get; } = Category.Field(nameof(Status), "Status");
+
+    /// <summary>Declares the first member only.</summary>
+    public static EnumTexts<ProbeEnum> StatusValues { get; } = Category.Values((ProbeEnum.First, "Primary value", null));
+}
+
+internal sealed class EnumGapProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<EnumGapProbe>
+{
+    public void Configure(AggregateFeatureBuilder<EnumGapProbe> builder) =>
+        builder.Texts(EnumGapProbeTexts.Category).Named(EnumGapProbeTexts.Singular);
+}
+
+internal sealed record EnumGapProbeResponse(Guid Id, ProbeEnum Status);
+
+internal sealed record GetEnumGapProbeQuery(EnumGapProbeId Id) : IQuery<EnumGapProbeResponse>, IGetOneQuery<EnumGapProbe, EnumGapProbeId>;
+
+internal sealed class EnumGapProbeViewConfiguration : IAggregateViewConfiguration<EnumGapProbe>
+{
+    public void Configure(AggregateViewBuilder<EnumGapProbe> view)
     {
     }
 }

@@ -111,6 +111,34 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     }
 
     [Fact]
+    public void ViewModel_EnumField_HasValueTexts()
+    {
+        FieldView status = PlainProbe().DetailFields.Single(field => field.Name == nameof(PlainProbeResponse.Status));
+
+        Assert.NotNull(status.ValueTexts);
+        Assert.Equal(PlainProbeTexts.StatusValues.For(ProbeEnum.First), status.ValueTexts[ProbeEnum.First]);
+        Assert.Equal(PlainProbeTexts.StatusValues.For(ProbeEnum.Second), status.ValueTexts[ProbeEnum.Second]);
+        Assert.NotNull(PlainProbe().ListFields.Single(field => field.Name == nameof(PlainProbeListItem.Status)).ValueTexts);
+    }
+
+    [Fact]
+    public void ViewModel_BoolField_DefaultsToYesNo_OrDeclaredTexts()
+    {
+        IReadOnlyList<FieldView> fields = PlainProbe().DetailFields;
+
+        IReadOnlyDictionary<object, TextDefinition> byDefault = fields.Single(field => field.Name == nameof(PlainProbeResponse.Active)).ValueTexts!;
+        Assert.Equal(ShellTexts.Values.Yes, byDefault[true]);
+        Assert.Equal(ShellTexts.Values.No, byDefault[false]);
+
+        IReadOnlyDictionary<object, TextDefinition> declared = fields.Single(field => field.Name == nameof(PlainProbeResponse.Enabled)).ValueTexts!;
+        Assert.Equal(PlainProbeTexts.EnabledOn, declared[true]);
+        Assert.Equal(PlainProbeTexts.EnabledOff, declared[false]);
+    }
+
+    private static AggregateViewModel PlainProbe() =>
+        AggregateViewTestRegistry.Build(typeof(PlainProbeViewConfiguration)).For<PlainProbe>();
+
+    [Fact]
     public void Registry_FieldOverride_HidesALabelledField() =>
         Assert.All(Probe(typeof(HiddenNameViewProbeViewConfiguration)).DetailFields, field => Assert.True(field.Hidden));
 

@@ -444,6 +444,8 @@ FROM (VALUES
  ('fa','common.validation.predicate-validator','شرط مشخص‌شده برای «{PropertyName}» برقرار نیست.','The specified condition was not met for ''{PropertyName}''.'),
  ('fa','common.validation.regular-expression-validator','«{PropertyName}» در قالب درست نیست.','''{PropertyName}'' is not in the correct format.'),
  ('fa','common.validation.scale-precision-validator','«{PropertyName}» نباید در مجموع بیش از {ExpectedPrecision} رقم داشته باشد و {ExpectedScale} رقم اعشار مجاز است. {Digits} رقم و {ActualScale} رقم اعشار یافت شد.','''{PropertyName}'' must not be more than {ExpectedPrecision} digits in total, with allowance for {ExpectedScale} decimals. {Digits} digits and {ActualScale} decimals were found.'),
+ ('fa','common.values.no','خیر','No'),
+ ('fa','common.values.yes','بله','Yes'),
  ('fa','common.welcome.prompt','برای شروع، یک بخش را از منو انتخاب کنید.','Choose a section from the menu to get started.'),
  ('fa','device-management.devices.bulk-read-profile-done','پروفایل {Count} دستگاه خوانده شد.','Profile read for {Count} devices.'),
  ('fa','device-management.devices.delete-confirm','{DeviceId} حذف شود؟ از همهٔ فهرست‌ها و صفحه‌ها ناپدید می‌شود.','Delete {DeviceId}? It disappears from every list and page.'),
