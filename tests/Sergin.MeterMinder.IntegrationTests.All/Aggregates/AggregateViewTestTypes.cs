@@ -117,6 +117,92 @@ internal sealed class ViewProbeViewConfiguration : IAggregateViewConfiguration<V
     }
 }
 
+// ---- A versioned root with set-property commands in each edit mode ----
+
+internal sealed record EditProbeId(Guid Value);
+
+internal sealed record EditProbeName(string Value);
+
+internal sealed record EditProbeTitle(string Value);
+
+internal sealed class EditProbe : AggregateRoot<EditProbeId>;
+
+/// <summary>A choice an inline set-property command edits in place.</summary>
+public enum ProbeColor
+{
+    Red,
+    Green,
+}
+
+internal static class EditProbePermissions
+{
+    public static PermissionDefinition Read { get; } = PermissionDefinition.Create("permission.tst.edit-probes.read", "View edit probes");
+
+    public static PermissionDefinition Update { get; } = PermissionDefinition.Create("permission.tst.edit-probes.update", "Change edit probes");
+}
+
+public static class EditProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "EditProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Edit probe");
+
+    public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
+
+    public static FieldText Color { get; } = Category.Field(nameof(Color), "Color");
+
+    public static FieldText Title { get; } = Category.Field(nameof(Title), "Headline");
+
+    public static EnumTexts<ProbeColor> ColorValues { get; } =
+        Category.Values((ProbeColor.Red, "Crimson", null), (ProbeColor.Green, "Emerald", null));
+}
+
+internal sealed class EditProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<EditProbe>
+{
+    public void Configure(AggregateFeatureBuilder<EditProbe> builder) =>
+        builder.Versioned()
+            .Permissions(EditProbePermissions.Read, EditProbePermissions.Update)
+            .Texts(EditProbeTexts.Category)
+            .Named(EditProbeTexts.Singular);
+}
+
+internal sealed record EditProbeResponse(Guid Id, EditProbeName Name, ProbeColor Color, EditProbeTitle Title);
+
+internal sealed record GetEditProbeQuery(EditProbeId Id) : IQuery<EditProbeResponse>, IGetOneQuery<EditProbe, EditProbeId>;
+
+/// <summary>Inline with a text value: a form card in the detail body, its button labelled Rename.</summary>
+internal sealed record RenameProbeCommand(EditProbeId Id, EditProbeName Name) : ICommand, ISetPropertyCommand<EditProbe, EditProbeId>;
+
+/// <summary>Inline with a choice: the detail field itself becomes a select.</summary>
+internal sealed record SetProbeColorCommand(EditProbeId Id, ProbeColor Color) : ICommand, ISetPropertyCommand<EditProbe, EditProbeId>;
+
+/// <summary>Undeclared, so Dialog: an action on the detail bar labelled by its field.</summary>
+internal sealed record RetitleProbeCommand(EditProbeId Id, EditProbeTitle Title) : ICommand, ISetPropertyCommand<EditProbe, EditProbeId>;
+
+internal sealed class RenameProbeCommandConfiguration : ICommandConfiguration<RenameProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<RenameProbeCommand> builder) => builder.RequirePermissions(EditProbePermissions.Update);
+}
+
+internal sealed class SetProbeColorCommandConfiguration : ICommandConfiguration<SetProbeColorCommand>
+{
+    public void Configure(CommandConfigurationBuilder<SetProbeColorCommand> builder) => builder.RequirePermissions(EditProbePermissions.Update);
+}
+
+internal sealed class RetitleProbeCommandConfiguration : ICommandConfiguration<RetitleProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<RetitleProbeCommand> builder) => builder.RequirePermissions(EditProbePermissions.Update);
+}
+
+internal sealed class EditProbeViewConfiguration : IAggregateViewConfiguration<EditProbe>
+{
+    public void Configure(AggregateViewBuilder<EditProbe> view)
+    {
+        view.Command<RenameProbeCommand>().Label(CommonTexts.Rename).Edit(SerginEditMode.Inline);
+        view.Command<SetProbeColorCommand>().Edit(SerginEditMode.Inline);
+    }
+}
+
 // ---- Another root with a child: what pickers and filters point at ----
 
 internal sealed record ViewOwnerId(Guid Value);
@@ -470,7 +556,8 @@ internal static class AggregateViewTestRegistry
         typeof(EditScheduledProbeAggregateFeatureConfiguration), typeof(CtorProbeAggregateFeatureConfiguration),
         typeof(BadOverviewProbeAggregateFeatureConfiguration), typeof(ChildHostAggregateFeatureConfiguration),
         typeof(BareChildHostAggregateFeatureConfiguration), typeof(SetProbeAggregateFeatureConfiguration),
-        typeof(EnumGapProbeAggregateFeatureConfiguration),
+        typeof(EnumGapProbeAggregateFeatureConfiguration), typeof(EditProbeAggregateFeatureConfiguration),
+        typeof(PairSetProbeAggregateFeatureConfiguration),
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -488,6 +575,9 @@ internal static class AggregateViewTestRegistry
         typeof(RenameViewProbeChildCommand), typeof(RenameViewProbeChildCommandConfiguration), typeof(ListBareChildrenQuery),
         typeof(ListBareChildrenQueryConfiguration),
         typeof(RenameSetProbeCommand), typeof(RenameSetProbeCommandConfiguration), typeof(GetEnumGapProbeQuery),
+        typeof(GetSetProbeQuery), typeof(SetPairSetProbeCommand),
+        typeof(GetEditProbeQuery), typeof(RenameProbeCommand), typeof(RenameProbeCommandConfiguration), typeof(SetProbeColorCommand),
+        typeof(SetProbeColorCommandConfiguration), typeof(RetitleProbeCommand), typeof(RetitleProbeCommandConfiguration),
     ];
 
     public static AggregateViewRegistry Build(params Type[] viewConfigurations) =>
@@ -501,7 +591,8 @@ internal static class AggregateViewTestRegistry
                 TextSource.FromTypes("Tst", TextOrigin.Ui, typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
                     typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts), typeof(BadQueryProbeTexts),
                     typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts), typeof(BadOverviewProbeTexts),
-                    typeof(ChildHostTexts), typeof(ViewProbeChildTexts), typeof(BareChildHostTexts), typeof(SetProbeTexts), typeof(EnumGapProbeTexts)),
+                    typeof(ChildHostTexts), typeof(ViewProbeChildTexts), typeof(BareChildHostTexts), typeof(SetProbeTexts), typeof(EnumGapProbeTexts),
+                    typeof(EditProbeTexts), typeof(PairSetProbeTexts)),
             ]));
 }
 

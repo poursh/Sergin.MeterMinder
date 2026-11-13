@@ -221,6 +221,26 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     }
 
     [Fact]
+    public void ViewModel_SetPropertyLabel_DefaultsToFieldLabel()
+    {
+        IReadOnlyList<CommandView> commands = AggregateViewTestRegistry.Build(typeof(EditProbeViewConfiguration)).For<EditProbe>().Commands;
+        CommandView retitle = commands.Single(command => command.Request == typeof(RetitleProbeCommand));
+        CommandView color = commands.Single(command => command.Request == typeof(SetProbeColorCommand));
+        CommandView rename = commands.Single(command => command.Request == typeof(RenameProbeCommand));
+
+        Assert.Equal(EditProbeTexts.Title.Label, retitle.Label);
+        Assert.Equal(SerginEditMode.Dialog, retitle.EditMode);
+        Assert.Equal(SerginActionKind.Secondary, retitle.Kind);
+        Assert.Equal(EditProbeTexts.Color.Label, color.Label);
+        Assert.Equal(FormInputKind.Select, color.ValueField!.Kind);
+        Assert.Equal(CommonTexts.Rename, rename.Label);
+        Assert.Equal(SerginEditMode.Inline, rename.EditMode);
+        Assert.Equal(FormInputKind.Text, rename.ValueField!.Kind);
+        Assert.Equal([EditProbePermissions.Update], rename.Permissions);
+        Assert.True(rename.RequiresVersion);
+    }
+
+    [Fact]
     public void Registry_RealHost_BuildsDeviceModel()
     {
         AggregateViewModel device = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Device>();

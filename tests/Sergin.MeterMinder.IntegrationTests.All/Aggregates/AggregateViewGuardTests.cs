@@ -210,10 +210,22 @@ public sealed class AggregateViewGuardTests
             nameof(ChildDisabledWhenOnForeignRecordViewConfiguration), nameof(RemoveViewProbeChildCommand), nameof(ViewProbeResponse));
 
     [Fact]
-    public void Guard_RootSetPropertyCommand_Refuses() =>
+    public void Guard_RootSetPropertyPage_Refuses() =>
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(RootSetPropertyViewConfiguration)),
-            nameof(RootSetPropertyViewConfiguration), nameof(RenameSetProbeCommand), nameof(SetProbe));
+            nameof(RootSetPropertyViewConfiguration), nameof(RenameSetProbeCommand), nameof(SerginEditMode.Page));
+
+    [Fact]
+    public void Guard_RootSetPropertyNotIdAndOneValue_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(PairSetPropertyViewConfiguration)),
+            nameof(PairSetPropertyViewConfiguration), nameof(SetPairSetProbeCommand), "(Id, value)");
+
+    [Fact]
+    public void Guard_InlineWithoutResponseProperty_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(InlineWithoutResponsePropertyViewConfiguration)),
+            nameof(InlineWithoutResponsePropertyViewConfiguration), nameof(RenameSetProbeCommand), nameof(SetProbeResponse), "Name");
 
     [Fact]
     public void Guard_ChildRouteMissingAnId_Refuses() =>

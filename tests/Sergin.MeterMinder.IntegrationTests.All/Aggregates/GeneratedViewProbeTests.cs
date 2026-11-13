@@ -5,12 +5,14 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Sergin.Administration.UserAccess.Domain.Scopes;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
+using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
+using Sergin.SharedKernel.Presentation.Blazor.Validation;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
@@ -27,6 +29,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
     private RbacScenario tree = default!;
     private ViewProbeStore store = default!;
     private PlainProbeStore plainStore = default!;
+    private EditProbeStore editStore = default!;
 
     public async Task InitializeAsync()
     {
@@ -37,12 +40,14 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
             ProbeUserContextFactory.AddTo(services);
             ViewProbeTestHost.AddTo(services);
             PlainProbeTestHost.AddTo(services);
+            EditProbeTestHost.AddTo(services);
             services.Replace(ServiceDescriptor.Scoped<IUiTimeZoneStore, FixedTimeZoneStore>());
         }));
 
         users = host.Services.GetRequiredService<ProbeUserContextFactory>();
         store = host.Services.GetRequiredService<ViewProbeStore>();
         plainStore = host.Services.GetRequiredService<PlainProbeStore>();
+        editStore = host.Services.GetRequiredService<EditProbeStore>();
         await ScheduledTaskTestHost.ResetSchemaAsync(host);
         tree = await RbacScenario.BuildAsync(host);
     }
@@ -194,8 +199,122 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         Assert.Equal("Plain delta", plainStore.Find(probe)!.Name.Value);
     }
 
-    private async Task GrantAsync(params PermissionDefinition[] permissions) =>
+    [Fact]
+    public async Task GeneratedSetProperty_Stale_ReportsStaleAndSendsOnce()
+    {
+        Guid probe = editStore.Add("Stale probe");
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<EditProbe>();
+        CommandView retitle = model.Commands.Single(command => command.Request == typeof(RetitleProbeCommand));
+
+        using IServiceScope scope = host.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        GeneratedSetProperty setProperty = new(scope.ServiceProvider.GetRequiredService<ISerginFormValidator>());
+
+        ViewSendResult loaded = await model.LoadRecordAsync(dispatcher, probe);
+        Assert.NotNull(loaded.Version);
+        editStore.Touch(probe);
+        int before = editStore.Sends;
+
+        SetPropertyStatus status = await setProperty.SubmitAsync(dispatcher, retitle, probe, "Too late", loaded.Version);
+
+        Assert.Equal(SetPropertyStatus.Stale, status);
+        Assert.Contains(setProperty.Errors, VersionErrors.IsStale);
+        Assert.Equal(before + 1, editStore.Sends);
+        Assert.Equal("Headline Stale probe", editStore.Find(probe)!.Value.Record.Title.Value);
+    }
+
+    [Fact]
+    public async Task GeneratedSetProperty_AtTheCurrentVersion_Sends()
+    {
+        Guid probe = editStore.Add("Sent probe");
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<EditProbe>();
+        CommandView color = model.Commands.Single(command => command.Request == typeof(SetProbeColorCommand));
+
+        using IServiceScope scope = host.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        GeneratedSetProperty setProperty = new(scope.ServiceProvider.GetRequiredService<ISerginFormValidator>());
+
+        ViewSendResult loaded = await model.LoadRecordAsync(dispatcher, probe);
+        SetPropertyStatus status = await setProperty.SubmitAsync(dispatcher, color, probe, ProbeColor.Red, loaded.Version);
+
+        Assert.Equal(SetPropertyStatus.Sent, status);
+        Assert.Empty(setProperty.Errors);
+        Assert.Equal(ProbeColor.Red, editStore.Find(probe)!.Value.Record.Color);
+    }
+
+    [Fact]
+    public async Task InlineEdit_InvalidValue_SendsNothing()
+    {
+        Guid probe = editStore.Add("Valid probe");
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<EditProbe>();
+        CommandView rename = model.Commands.Single(command => command.Request == typeof(RenameProbeCommand));
+
+        using IServiceScope scope = host.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        GeneratedSetProperty setProperty = new(scope.ServiceProvider.GetRequiredService<ISerginFormValidator>());
+        ViewSendResult loaded = await model.LoadRecordAsync(dispatcher, probe);
+        int before = editStore.Sends;
+
+        // What the value form's field validation shows, then what a submit of that value does.
+        IReadOnlyCollection<string> messages = await setProperty.ValidateAsync(rename, probe, string.Empty);
+        SetPropertyStatus status = await setProperty.SubmitAsync(dispatcher, rename, probe, string.Empty, loaded.Version);
+
+        string message = Assert.Single(messages);
+        Assert.Contains("Name", message, StringComparison.Ordinal);
+        Assert.Equal(SetPropertyStatus.Failed, status);
+        Assert.Equal(message, Assert.Single(setProperty.Errors).Description);
+        Assert.Equal(before, editStore.Sends);
+        Assert.Equal("Valid probe", editStore.Find(probe)!.Value.Record.Name.Value);
+    }
+
+    [Fact]
+    public async Task Detail_InlineCardAndChoice_ShownToManager_HiddenFromReader()
+    {
+        Guid probe = editStore.Add("Inline probe");
+
+        await GrantAsync(EditProbePermissions.Read, EditProbePermissions.Update);
+        string manager = await GetAsync($"/tst/edit-probes/{probe}");
+
+        Assert.Contains(">Rename<", manager, StringComparison.Ordinal);
+        Assert.Contains("value=\"Inline probe\"", manager, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Color\"", manager, StringComparison.Ordinal);
+        Assert.Contains("Emerald", manager, StringComparison.Ordinal);
+
+        await GrantAsync(EditProbePermissions.Read);
+        string reader = await GetAsync($"/tst/edit-probes/{probe}");
+
+        Assert.Contains("Inline probe", reader, StringComparison.Ordinal);
+        Assert.Contains("Emerald", reader, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Rename<", reader, StringComparison.Ordinal);
+        Assert.DoesNotContain("value=\"Inline probe\"", reader, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-label=\"Color\"", reader, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Detail_DialogCommand_IsABarAction()
+    {
+        Guid probe = editStore.Add("Dialog probe");
+
+        await GrantAsync(EditProbePermissions.Read, EditProbePermissions.Update);
+        string manager = await GetAsync($"/tst/edit-probes/{probe}");
+
+        await GrantAsync(EditProbePermissions.Read);
+        string reader = await GetAsync($"/tst/edit-probes/{probe}");
+
+        // The field's caption shows to both; the Headline action (Retitle's default label) only to a holder of Update.
+        Assert.Contains("Headline Dialog probe", reader, StringComparison.Ordinal);
+        Assert.Equal(CountOf(reader, ">Headline<") + 1, CountOf(manager, ">Headline<"));
+    }
+
+    private static int CountOf(string html, string text) =>
+        (html.Length - html.Replace(text, string.Empty, StringComparison.Ordinal).Length) / text.Length;
+
+    // The grant is made as the host's own user, so a second grant in one test is not made by the caller of the first.
+    private async Task GrantAsync(params PermissionDefinition[] permissions)
+    {
+        users.Current = null;
         users.Current = await tree.CreateGrantedCallerAsync(Scope.RootId.Value, [.. permissions.Select(permission => permission.Permission)]);
+    }
 
     private async Task<string> GetAsync(string path)
     {
