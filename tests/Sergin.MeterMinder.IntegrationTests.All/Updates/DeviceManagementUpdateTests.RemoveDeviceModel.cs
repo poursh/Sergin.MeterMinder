@@ -34,7 +34,7 @@ public sealed partial class DeviceManagementUpdateTests
         Assert.False((await dispatcher.SendAsync(new GetManufacturerByIdQueryCommand(manufacturerId))).IsError);
     }
 
-    // DeviceModelListView's bulk Remove: the child command carries the root's version, so each send must carry the
+    // The device model section's bulk Remove: the child command carries the root's version, so each send must carry the
     // version the one before it returned; the first version is stale by the second send.
     [Fact]
     public async Task RemoveDeviceModel_InARun_ChainsTheManufacturersVersion()

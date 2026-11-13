@@ -33,7 +33,7 @@ public class DeviceModel : Entity<DeviceModelInternalId>
 
 public sealed record DeviceModelInternalId(Guid Value);
 
-// MaxLength: the one number AddDeviceModelCommandValidator and NewDeviceModelFormModel's [StringLength] both
+// MaxLength: the one number AddDeviceModelCommandValidator and the generated form's length limit both
 // read, so the limit is never repeated as a literal.
 public sealed record DeviceModelName(string Value)
 {
