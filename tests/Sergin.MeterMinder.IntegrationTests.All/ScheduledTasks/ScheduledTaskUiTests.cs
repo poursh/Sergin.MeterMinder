@@ -76,6 +76,55 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
     public async Task DisposeAsync() => await host.DisposeAsync();
 
     [Fact]
+    public async Task Section_CommandFilter_WithLabel_NamesTheCommandByItsLabel()
+    {
+        Guid probe = await CreateProbeAsync();
+        await CreateTaskAsync(probe);
+        await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
+
+        string filtered = await GetAsync($"/tst/probes/{probe}?schedules={TouchName}&label=true");
+
+        Assert.Contains($"Showing {ScheduleProbeUiTexts.CommandTitle.Default}", filtered, StringComparison.Ordinal);
+        Assert.DoesNotContain($"Showing {TouchName}", filtered, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Section_CommandFilter_ShowsOnlyThatCommand_AndClears()
+    {
+        Guid probe = await CreateProbeAsync();
+        await CreateTaskAsync(probe);
+        await CreateTaskAsync(probe);
+        await CreateTaskAsync(probe, "tst.probes.touch-one");
+        await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
+
+        string filtered = await GetAsync($"/tst/probes/{probe}?schedules={TouchName}");
+
+        Assert.Contains($"Showing {TouchName}", filtered, StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Count(filtered, "<td[^>]*>" + Regex.Escape(TouchName) + "</td>"));
+        Assert.DoesNotContain("tst.probes.touch-one", filtered, StringComparison.Ordinal);
+
+        string all = await GetAsync($"/tst/probes/{probe}");
+
+        Assert.DoesNotContain("Showing", all, StringComparison.Ordinal);
+        Assert.Contains("tst.probes.touch-one", all, StringComparison.Ordinal);
+        Assert.Equal(2, Regex.Count(all, "<td[^>]*>" + Regex.Escape(TouchName) + "</td>"));
+    }
+
+    [Fact]
+    public async Task Section_CountOf_CountsScheduledTasksPerCommand()
+    {
+        Guid probe = await CreateProbeAsync();
+        await CreateTaskAsync(probe);
+        await CreateTaskAsync(probe);
+        await CreateTaskAsync(probe, "tst.probes.touch-one");
+        await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
+
+        // Counted from the full load, so a filter on the display does not change it.
+        Assert.Contains("data-count=\"2\"", await GetAsync($"/tst/probes/{probe}"), StringComparison.Ordinal);
+        Assert.Contains("data-count=\"2\"", await GetAsync($"/tst/probes/{probe}?schedules=tst.probes.touch-one"), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Section_Prerenders_TasksForTheRecord()
     {
         Guid probe = await CreateProbeAsync();
@@ -410,7 +459,7 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
             current.Value.Version);
     }
 
-    private async Task<ScheduledTaskId> CreateTaskAsync(Guid probe)
+    private async Task<ScheduledTaskId> CreateTaskAsync(Guid probe, string commandName = TouchName)
     {
         TestCaller delegating = await tree.CreateGrantedCallerAsync(Scope.RootId.Value, ScheduleProbePermissions.Touch.Permission);
         string arguments = ScheduledCommandFactory.ToArguments(new TouchProbeCommand(new(Guid.Empty), new ProbeNote("hello")));
@@ -418,7 +467,7 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
         using IServiceScope scope = host.Services.CreateScope();
         scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(Scope.RootId.Value);
 
-        var task = ScheduledTask.Create(TouchName, arguments, [new ScheduledTaskTarget(probe, null)], Cron, "UTC", delegating.Id);
+        var task = ScheduledTask.Create(commandName, arguments, [new ScheduledTaskTarget(probe, null)], Cron, "UTC", delegating.Id);
         IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema);
         store.AddTask(task);
         await store.SaveAsync(CancellationToken.None);

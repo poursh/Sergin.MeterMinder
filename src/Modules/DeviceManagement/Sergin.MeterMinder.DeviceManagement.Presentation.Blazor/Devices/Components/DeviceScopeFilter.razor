@@ -1,0 +1,7 @@
+<MudSelect T="Guid?" Label="@Localizer.Text(DeviceTexts.ScopeId.Label)" Value="Value" ValueChanged="ValueChanged" Clearable="true"
+           Variant="Variant.Outlined" Margin="Margin.Dense">
+    @foreach (ScopeOption scope in scopes)
+    {
+        <MudSelectItem T="Guid?" Value="@scope.Id">@(new string('·', Math.Max(0, scope.Depth - 1)) + " " + scope.Name)</MudSelectItem>
+    }
+</MudSelect>

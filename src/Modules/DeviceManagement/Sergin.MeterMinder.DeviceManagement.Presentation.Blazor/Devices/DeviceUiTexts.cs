@@ -23,14 +23,6 @@ public static class DeviceUiTexts
 
     public static readonly TextDefinition SearchPlaceholder = category.Text("SearchPlaceholder", "Search device ID or model…");
 
-    public static readonly TextDefinition CreatedBetween = category.Text("CreatedBetween", "Created between");
-
-    public static readonly TextDefinition FilterChip =
-        category.Text("FilterChip", "{Field}: {Value}", "An applied filter: the field's label, then the chosen value.");
-
-    public static readonly TextDefinition DateRange =
-        category.Text("DateRange", "{From} – {To}", "The created-between filter's chosen days.");
-
     public static readonly TextDefinition DeleteTitle = category.Text("DeleteTitle", "Delete device");
 
     public static readonly TextDefinition DeleteConfirm =
