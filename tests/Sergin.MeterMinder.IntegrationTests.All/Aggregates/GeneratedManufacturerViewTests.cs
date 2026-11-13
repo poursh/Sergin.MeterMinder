@@ -242,6 +242,31 @@ public sealed class GeneratedManufacturerViewTests(SerginWebApiFactory<Program> 
             factory.Services.GetRequiredService<AggregateViewRegistry>().For<Manufacturer>().Children,
             child => child.Child == typeof(DeviceModel));
 
+    [Fact]
+    public async Task ManufacturerForms_RenderCreateAndPrefilledEdit()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        string marker = CatalogSeed.Marker();
+        ManufacturerId manufacturer = await CatalogSeed.ManufacturerAsync(dispatcher, $"maker-{marker}", $"addr-{marker}");
+
+        string create = await GetAsync("/dm/manufacturers/new");
+
+        Assert.Contains("New manufacturer", create, StringComparison.Ordinal);
+        Assert.Contains("Name", create, StringComparison.Ordinal);
+        Assert.Contains("Address", create, StringComparison.Ordinal);
+        Assert.Contains(">Create<", create, StringComparison.Ordinal);
+        Assert.Contains("href=\"/dm/manufacturers\"", create, StringComparison.Ordinal);
+
+        string edit = await GetAsync($"/dm/manufacturers/{manufacturer.Value}/edit");
+
+        Assert.Contains($"value=\"maker-{marker}\"", edit, StringComparison.Ordinal);
+        Assert.Contains($"value=\"addr-{marker}\"", edit, StringComparison.Ordinal);
+        Assert.Contains(">Edit<", edit, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/dm/manufacturers/{manufacturer.Value}\"", edit, StringComparison.Ordinal);
+        Assert.Contains(">Save<", edit, StringComparison.Ordinal);
+    }
+
     private async Task<string> GetAsync(string path)
     {
         using HttpClient client = factory.CreateClient();
