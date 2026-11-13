@@ -1,5 +1,7 @@
 using ErrorOr;
 using MediatR;
+using Sergin.Administration.Settings.Application.Contracts.Languages.Commands.GetOne;
+using Sergin.Administration.Settings.Domain.Languages;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.SharedKernel.Application.Concurrency;
@@ -31,6 +33,16 @@ internal static class VersionedDispatch
     {
         ErrorOr<Versioned<DeviceQueryResponse>> loaded =
             await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(new DeviceIntenralId(deviceId)));
+
+        return (await dispatcher.SendVersionedAsync(command, loaded.IsError ? RowVersion.Create() : loaded.Value.Version))
+            .Then(sent => sent.Value);
+    }
+
+    public static async Task<ErrorOr<TResponse>> SendAtLanguageVersionAsync<TResponse>(
+        this ISerginDispatcher dispatcher, Guid languageId, IRequest<ErrorOr<TResponse>> command)
+    {
+        ErrorOr<Versioned<LanguageQueryResponse>> loaded =
+            await dispatcher.SendVersionedAsync(new GetLanguageByIdQueryCommand(new LanguageId(languageId)));
 
         return (await dispatcher.SendVersionedAsync(command, loaded.IsError ? RowVersion.Create() : loaded.Value.Version))
             .Then(sent => sent.Value);
