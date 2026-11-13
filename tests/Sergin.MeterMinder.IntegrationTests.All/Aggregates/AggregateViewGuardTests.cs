@@ -1,5 +1,6 @@
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BrokenChildViews;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ParentedLists;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -282,6 +283,30 @@ public sealed class AggregateViewGuardTests
             () => AggregateViewGuard.Ensure(registry, [typeof(AggregateViewGuardTests).Assembly]),
             nameof(LinkToUnknownRouteViewConfiguration), "link", "/nowhere");
     }
+
+    [Fact]
+    public void Guard_ParentedListWithoutListUnder_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ViewProbeViewConfiguration), typeof(RoutedViewProbeNoteViewConfiguration)),
+            nameof(RoutedViewProbeNoteViewConfiguration), nameof(ListViewProbeNotesQuery), "ListUnder<ViewProbe>");
+
+    [Fact]
+    public void Guard_ListUnderWrongParent_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ViewProbeViewConfiguration), typeof(WrongParentViewProbeNoteViewConfiguration)),
+            nameof(WrongParentViewProbeNoteViewConfiguration), $"ListUnder<{nameof(ViewOwner)}>", nameof(ViewProbe));
+
+    [Fact]
+    public void Guard_ListUnderWithoutParentQuery_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ListUnderViewProbeViewConfiguration)),
+            nameof(ListUnderViewProbeViewConfiguration), $"ListUnder<{nameof(ViewOwner)}>", nameof(ListViewProbesQuery));
+
+    [Fact]
+    public void Guard_ListUnderParentWithoutView_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ViewProbeNoteViewConfiguration)),
+            nameof(ViewProbeNoteViewConfiguration), typeof(ViewProbe).FullName!, "view configuration");
 
     private static InvalidOperationException AssertRefused(Action build, params string[] named)
     {

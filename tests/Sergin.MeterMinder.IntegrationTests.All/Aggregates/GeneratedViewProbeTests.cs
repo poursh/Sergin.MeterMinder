@@ -46,6 +46,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
             PlainProbeTestHost.AddTo(services);
             EditProbeTestHost.AddTo(services);
             PublishProbeTestHost.AddTo(services);
+            ViewProbeNoteTestHost.AddTo(services);
             services.Replace(ServiceDescriptor.Scoped<IUiTimeZoneStore, FixedTimeZoneStore>());
         }));
 
@@ -372,6 +373,49 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         Assert.Equal(PublishProbeTexts.Translations, link.Label);
         Assert.Equal(MudBlazor.Icons.Material.Outlined.Translate, link.Icon);
         Assert.Equal($"/tst/publish-probes/{item.Id}/translations", link.Href);
+    }
+
+    [Fact]
+    public async Task List_UnderParent_TrailHasParentRecordStep()
+    {
+        Guid probe = store.Add("Noted probe");
+
+        string html = await GetAsync($"/tst/view-probes/{probe}/notes");
+
+        Assert.Contains("<title>Probe notes</title>", html, StringComparison.Ordinal);
+
+        // The parent's list step, the parent as stored linking to its detail, then this list's title.
+        Assert.Contains("href=\"/tst/view-probes\"", html, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/tst/view-probes/{probe}\"", html, StringComparison.Ordinal);
+        Assert.Contains(">Noted probe<", html, StringComparison.Ordinal);
+        Assert.Contains(">Probe notes<", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task List_UnderParent_UnknownParent_KeepsPlaceholderStep()
+    {
+        var unknown = Guid.CreateVersion7();
+
+        string html = await GetAsync($"/tst/view-probes/{unknown}/notes");
+
+        // The parent's singular, still linking to where the parent would be; the page renders.
+        Assert.Contains($"href=\"/tst/view-probes/{unknown}\"", html, StringComparison.Ordinal);
+        Assert.Contains(">View probe<", html, StringComparison.Ordinal);
+        Assert.Contains($"note-parent-id:{unknown}", html, StringComparison.Ordinal);
+        Assert.Contains("note-parent-name:<", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task List_BodySlot_ReplacesTableAndGetsParent()
+    {
+        Guid probe = store.Add("Slotted probe");
+
+        string html = await GetAsync($"/tst/view-probes/{probe}/notes");
+
+        Assert.Contains($"note-parent-id:{probe}", html, StringComparison.Ordinal);
+        Assert.Contains("note-parent-name:Slotted probe", html, StringComparison.Ordinal);
+        Assert.Contains("note-generation:0", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("<table", html, StringComparison.Ordinal);
     }
 
     private static IReadOnlyList<SerginPageAction> RowActions(

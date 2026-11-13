@@ -310,6 +310,50 @@ internal sealed class LinkToUnknownRouteViewConfiguration : IAggregateViewConfig
     }
 }
 
+// ---- A root listed under a parent record (the view probe), its list body a slot ----
+
+internal sealed record ViewProbeNoteId(Guid Value);
+
+internal sealed class ViewProbeNote : AggregateRoot<ViewProbeNoteId>;
+
+public static class ViewProbeNoteTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "ViewProbeNotes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "View probe note");
+
+    public static TextDefinition Title { get; } = Category.Text("Title", "Probe notes");
+
+    public static FieldText Text { get; } = Category.Field(nameof(Text), "Text");
+}
+
+internal sealed class ViewProbeNoteAggregateFeatureConfiguration : IAggregateFeatureConfiguration<ViewProbeNote>
+{
+    public void Configure(AggregateFeatureBuilder<ViewProbeNote> builder) =>
+        builder.Texts(ViewProbeNoteTexts.Category).Named(ViewProbeNoteTexts.Singular);
+}
+
+internal sealed record ViewProbeNoteListItem(Guid Id, string Text);
+
+/// <summary>The notes of one view probe: the parent's id comes first, as a parented list query takes it.</summary>
+internal sealed record ListViewProbeNotesQuery : ListQuery<ViewProbeNoteListItem>, IListOf<ViewProbeNote>, IUnderParent<ViewProbe, ViewProbeId>
+{
+    public ListViewProbeNotesQuery(ViewProbeId parentId, Paggination paggination, Term? term = default)
+        : base(paggination, term) =>
+        ParentId = parentId;
+
+    public ViewProbeId ParentId { get; init; }
+}
+
+/// <summary>Listed under its probe, the table replaced by <see cref="ViewProbeNoteListSlot"/>.</summary>
+internal sealed class ViewProbeNoteViewConfiguration : IAggregateViewConfiguration<ViewProbeNote>
+{
+    public void Configure(AggregateViewBuilder<ViewProbeNote> view) =>
+        view.Title(ViewProbeNoteTexts.Title)
+            .ListUnder<ViewProbe>(probeId => $"/tst/view-probes/{probeId}/notes")
+            .Slot<ViewProbeNoteListSlot>(SerginViewSlot.ListBody);
+}
+
 // ---- Another root with a child: what pickers and filters point at ----
 
 internal sealed record ViewOwnerId(Guid Value);
@@ -665,6 +709,7 @@ internal static class AggregateViewTestRegistry
         typeof(BareChildHostAggregateFeatureConfiguration), typeof(SetProbeAggregateFeatureConfiguration),
         typeof(EnumGapProbeAggregateFeatureConfiguration), typeof(EditProbeAggregateFeatureConfiguration),
         typeof(PairSetProbeAggregateFeatureConfiguration), typeof(PublishProbeAggregateFeatureConfiguration),
+        typeof(ViewProbeNoteAggregateFeatureConfiguration),
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -686,6 +731,7 @@ internal static class AggregateViewTestRegistry
         typeof(GetEditProbeQuery), typeof(RenameProbeCommand), typeof(RenameProbeCommandConfiguration), typeof(SetProbeColorCommand),
         typeof(SetProbeColorCommandConfiguration), typeof(RetitleProbeCommand), typeof(RetitleProbeCommandConfiguration),
         typeof(GetPublishProbeQuery), typeof(ListPublishProbesQuery), typeof(PublishProbeCommand), typeof(UnpublishProbeCommand),
+        typeof(ListViewProbeNotesQuery),
     ];
 
     public static AggregateViewRegistry Build(params Type[] viewConfigurations) =>
@@ -700,7 +746,7 @@ internal static class AggregateViewTestRegistry
                     typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts), typeof(BadQueryProbeTexts),
                     typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts), typeof(BadOverviewProbeTexts),
                     typeof(ChildHostTexts), typeof(ViewProbeChildTexts), typeof(BareChildHostTexts), typeof(SetProbeTexts), typeof(EnumGapProbeTexts),
-                    typeof(EditProbeTexts), typeof(PairSetProbeTexts), typeof(PublishProbeTexts)),
+                    typeof(EditProbeTexts), typeof(PairSetProbeTexts), typeof(PublishProbeTexts), typeof(ViewProbeNoteTexts)),
             ]));
 }
 

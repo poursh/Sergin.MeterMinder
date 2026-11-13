@@ -17,6 +17,7 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices;
 using Sergin.SharedKernel.IntegrationTests;
 using MudBlazor;
+using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -35,6 +36,26 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     private static AggregateViewModel Probe(Type configuration) => AggregateViewTestRegistry.Build(configuration).For<ViewProbe>();
 
     private static AggregateViewModel Probe() => Probe(typeof(ViewProbeViewConfiguration));
+
+    [Fact]
+    public void ViewModel_ListUnder_HasParentAndRoute()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry
+            .Build(typeof(ViewProbeViewConfiguration), typeof(ViewProbeNoteViewConfiguration))
+            .For<ViewProbeNote>();
+        var probe = Guid.CreateVersion7();
+
+        Assert.Equal(typeof(ViewProbe), model.Parent);
+        Assert.Null(model.Routes.List);
+        Assert.Equal($"/tst/view-probes/{probe}/notes", model.Routes.ListUnderParent!(probe));
+        Assert.Equal(typeof(ViewProbeNoteListSlot), model.Slots[SerginViewSlot.ListBody]);
+
+        // Every list query the view sends carries the parent's id.
+        var query = (ListViewProbeNotesQuery)model.List!.Build(new ListQueryInput(Paggination.Create(10, 1), "note", [], [], probe));
+
+        Assert.Equal(new ViewProbeId(probe), query.ParentId);
+        Assert.Equal("note", query.Term?.Value);
+    }
 
     [Fact]
     public void Registry_ReadsPermissionScopeVersionAndSchedule_FromCommandConfiguration()
