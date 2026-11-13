@@ -89,6 +89,10 @@ public sealed class GeneratedDeviceViewTests(SerginWebApiFactory<Program> factor
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal(1, counter.Sends);
+
+        // The slot got what the view loaded: "of {Total}" shows only for a loaded overview.
+        string html = await response.Content.ReadAsStringAsync();
+        Assert.Matches(@"of \d+", html);
     }
 
     [Fact]

@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
 using Sergin.SharedKernel.Application.Aggregates;
@@ -331,6 +332,7 @@ internal static class AggregateViewTestRegistry
         typeof(UnlistedProbeAggregateFeatureConfiguration), typeof(NoteProbeAggregateFeatureConfiguration),
         typeof(BadQueryProbeAggregateFeatureConfiguration), typeof(PlainProbeAggregateFeatureConfiguration),
         typeof(EditScheduledProbeAggregateFeatureConfiguration), typeof(CtorProbeAggregateFeatureConfiguration),
+        typeof(BadOverviewProbeAggregateFeatureConfiguration),
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -342,6 +344,7 @@ internal static class AggregateViewTestRegistry
         typeof(ListViewOwnersQuery), typeof(ListUnlistedProbesQuery), typeof(CreateUnlistedProbeCommand), typeof(GetUnlistedThingQuery),
         typeof(GetPlainProbeQuery), typeof(ListPlainProbesQuery), typeof(UpdatePlainProbeCommand),
         typeof(UpdateEditScheduledProbeCommand), typeof(UpdateEditScheduledProbeCommandConfiguration), typeof(CreateCtorProbeCommand),
+        typeof(GetBadOverviewProbeOverviewQuery),
     ];
 
     public static AggregateViewRegistry Build(params Type[] viewConfigurations) =>
@@ -354,7 +357,7 @@ internal static class AggregateViewTestRegistry
                 TextSource.Common,
                 TextSource.FromTypes("Tst", TextOrigin.Ui, typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
                     typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts), typeof(BadQueryProbeTexts),
-                    typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts)),
+                    typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts), typeof(BadOverviewProbeTexts)),
             ]));
 }
 

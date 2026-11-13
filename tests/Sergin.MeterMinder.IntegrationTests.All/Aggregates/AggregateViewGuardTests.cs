@@ -1,3 +1,4 @@
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -43,6 +44,12 @@ public sealed class AggregateViewGuardTests
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(BadQueryProbeViewConfiguration)),
             nameof(BadQueryProbeViewConfiguration), nameof(GetBadQueryProbeQuery), "id");
+
+    [Fact]
+    public void Guard_EntityOverviewWhoseConstructorIsNotIdOnly_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(BadOverviewProbeViewConfiguration)),
+            nameof(BadOverviewProbeViewConfiguration), nameof(GetBadOverviewProbeOverviewQuery), "id");
 
     [Fact]
     public void Guard_DetailOfAnotherResponse_Refuses() =>

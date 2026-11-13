@@ -21,7 +21,7 @@ public sealed partial class DeviceOverviewSummarySlot
     private ICultureFormatter Formatter { get; set; } = default!;
 
     // The generated view loads the overview once and hands it to both slots; a failed read leaves it null.
-    private DeviceOverview? Overview => (DeviceOverview?)Context?.Overview;
+    private DeviceOverview? Overview => Context?.Overview as DeviceOverview;
 
     private string Count(int? value) => value is { } number ? Formatter.Number(number) : "–";
 }
