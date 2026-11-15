@@ -933,6 +933,99 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         Assert.Contains("ITreeQuery", refused.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task Detail_Move_SendsTheChosenParentAndCallsHostChanged()
+    {
+        Guid top = parentStore.AddParent("Move root");
+        Guid alpha = parentStore.AddParent("Alpha", top);
+        Guid alphaOne = parentStore.AddParent("Alpha one", alpha);
+        Guid beta = parentStore.AddParent("Beta", top);
+        await GrantAsync(ParentProbePermissions.Read, ParentProbePermissions.Move);
+        CommandView move = host.Services.GetRequiredService<AggregateViewRegistry>().For<ParentProbe>().Commands
+            .Single(command => command.Request == typeof(MoveParentProbeCommand));
+
+        await RenderDetailAsync<ParentProbe>(ParentProbeRoutes.Detail(alpha), alpha, async (root, view, viewHost) =>
+        {
+            // The tree is read as the dialog opens, not with the record.
+            int reads = parentStore.TreeReads;
+            Assert.Equal(0, reads);
+
+            IDialogReference asking = await view.AskParentAsync(move);
+            var dialog = (SerginMoveDialog)asking.Dialog!;
+            Assert.Equal(reads + 1, parentStore.TreeReads);
+
+            // Neither the record nor what is below it; nothing picked, so the move button waits.
+            Assert.Equal([(top, "Move root", 0), (beta, "Beta", 1)], dialog.Candidates);
+            Assert.DoesNotContain(dialog.Candidates, candidate => candidate.Id == alphaOne);
+            Assert.False(dialog.CanConfirm);
+            string html = WebUtility.HtmlDecode(root.ToHtmlString());
+            Assert.Contains(ParentProbeTexts.NewParentId.Label.Default, html, StringComparison.Ordinal);
+
+            dialog.Pick(beta);
+            Assert.True(dialog.CanConfirm);
+            dialog.Confirm();
+
+            DialogResult answered = (await asking.Result)!;
+            Assert.False(answered.Canceled);
+            Assert.Equal(beta, answered.Data);
+
+            // Sent plainly (the probe parent is not versioned): moved, a new generation and the host told.
+            int generation = view.Generation;
+            await view.MoveToAsync(move, beta);
+
+            MoveParentProbeCommand sent = Assert.Single(parentStore.Moved);
+            Assert.Equal(beta, sent.NewParentId.Value);
+            Assert.Equal(beta, parentStore.FindParent(alpha)!.ParentId);
+            Assert.Equal(1, viewHost.Changes);
+            Assert.Equal(generation + 1, view.Generation);
+
+            // Refused (under itself): the error shown once and the record read again; no generation, no host change.
+            notified.Clear();
+            await view.MoveToAsync(move, alpha);
+
+            Assert.Single(parentStore.Moved);
+            Assert.Equal(MoveParentProbeCommandHandler.Cycle.Code, Assert.Single(notified.Errors).Code);
+            Assert.Equal(1, viewHost.Changes);
+            Assert.Equal(generation + 1, view.Generation);
+        });
+    }
+
+    [Fact]
+    public async Task Detail_Move_AppliesWhen_HidesIt()
+    {
+        Guid top = parentStore.AddParent("Unmovable root");
+        Guid nested = parentStore.AddParent("Movable child", top);
+        await GrantAsync(ParentProbePermissions.Read, ParentProbePermissions.Move);
+
+        // AppliesWhen (a parent): a top-level record offers no move, one under a parent does.
+        string topLevel = await GetAsync(ParentProbeRoutes.Detail(top));
+        string underParent = await GetAsync(ParentProbeRoutes.Detail(nested));
+
+        Assert.DoesNotContain(ParentProbeTexts.Move.Default, topLevel, StringComparison.Ordinal);
+        Assert.Contains(ParentProbeTexts.Move.Default, underParent, StringComparison.Ordinal);
+
+        // Without the move permission it is hidden too.
+        await GrantAsync(ParentProbePermissions.Read);
+        Assert.DoesNotContain(ParentProbeTexts.Move.Default, await GetAsync(ParentProbeRoutes.Detail(nested)), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Detail_ChildSection_RendersTheComponentWithContext()
+    {
+        Guid parent = parentStore.AddParent("Section owner");
+        await GrantAsync(ParentProbePermissions.Read);
+
+        await RenderDetailAsync<ParentProbe>(ParentProbeRoutes.Detail(parent), parent, async (root, view, _) =>
+        {
+            // The component in place of a generated section, given the root's record and generation.
+            Assert.Contains("tags of Section owner at generation 0", WebUtility.HtmlDecode(root.ToHtmlString()), StringComparison.Ordinal);
+
+            await view.HeaderReloadAsync();
+
+            Assert.Contains("tags of Section owner at generation 1", WebUtility.HtmlDecode(root.ToHtmlString()), StringComparison.Ordinal);
+        });
+    }
+
     private static IReadOnlyList<SerginPageAction> RowActions(
         AggregateViewModel model, Guid id, IReadOnlySet<CommandRole>? roles, object? record, ViewLinkPlacement links) =>
         new GeneratedCommandActions(new NoopReceiver(), _ => Task.CompletedTask, _ => Task.CompletedTask)

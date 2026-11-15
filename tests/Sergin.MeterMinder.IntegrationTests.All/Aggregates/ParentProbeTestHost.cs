@@ -18,6 +18,13 @@ internal sealed class ParentProbeStore
 
     public ConcurrentQueue<object> Created { get; } = new();
 
+    public ConcurrentQueue<MoveParentProbeCommand> Moved { get; } = new();
+
+    /// <summary>How often the tree was read: the Move dialog reads it as it opens, not with the record.</summary>
+    public int TreeReads => treeReads;
+
+    private int treeReads;
+
     public Guid AddParent(string name, Guid? parentId = null)
     {
         var id = Guid.CreateVersion7();
@@ -39,6 +46,24 @@ internal sealed class ParentProbeStore
 
     public bool RemoveParent(Guid id) => parents.TryRemove(id, out _);
 
+    public IReadOnlyList<ParentProbeTreeItem> Tree()
+    {
+        Interlocked.Increment(ref treeReads);
+        return [.. parents.Values.Select(parent => new ParentProbeTreeItem(parent.Id, parent.ParentId, parent.Name))];
+    }
+
+    /// <summary>Puts the parent under another; refused under itself, as the server's cycle check would.</summary>
+    public bool Move(Guid id, Guid newParentId)
+    {
+        if (id == newParentId || !parents.TryGetValue(id, out ParentProbeResponse? moved) || !parents.TryGetValue(newParentId, out ParentProbeResponse? under))
+        {
+            return false;
+        }
+
+        parents[id] = moved with { ParentId = newParentId, ParentName = under.Name };
+        return true;
+    }
+
     public bool RemoveChild(Guid id) => children.TryRemove(id, out _);
 }
 
@@ -46,6 +71,29 @@ internal sealed class GetParentProbeQueryHandler(ParentProbeStore store) : IRequ
 {
     public Task<ErrorOr<ParentProbeResponse>> Handle(GetParentProbeQuery request, CancellationToken cancellationToken) =>
         Task.FromResult<ErrorOr<ParentProbeResponse>>(store.FindParent(request.Id.Value) is { } found ? found : Error.NotFound());
+}
+
+internal sealed class GetParentProbeTreeQueryHandler(ParentProbeStore store)
+    : IRequestHandler<GetParentProbeTreeQuery, ErrorOr<IReadOnlyList<ParentProbeTreeItem>>>
+{
+    public Task<ErrorOr<IReadOnlyList<ParentProbeTreeItem>>> Handle(GetParentProbeTreeQuery request, CancellationToken cancellationToken) =>
+        Task.FromResult<ErrorOr<IReadOnlyList<ParentProbeTreeItem>>>(ErrorOrFactory.From(store.Tree()));
+}
+
+internal sealed class MoveParentProbeCommandHandler(ParentProbeStore store) : IRequestHandler<MoveParentProbeCommand, ErrorOr<Success>>
+{
+    public static Error Cycle { get; } = Error.Validation(nameof(MoveParentProbeCommand.NewParentId), "A parent cannot move under itself.");
+
+    public Task<ErrorOr<Success>> Handle(MoveParentProbeCommand request, CancellationToken cancellationToken)
+    {
+        if (!store.Move(request.Id.Value, request.NewParentId.Value))
+        {
+            return Task.FromResult<ErrorOr<Success>>(Cycle);
+        }
+
+        store.Moved.Enqueue(request);
+        return Task.FromResult<ErrorOr<Success>>(Result.Success);
+    }
 }
 
 internal sealed class GetChildProbeQueryHandler(ParentProbeStore store) : IRequestHandler<GetChildProbeQuery, ErrorOr<ChildProbeResponse>>
@@ -103,7 +151,11 @@ internal static class ParentProbeTestHost
             typeof(DeleteParentProbeCommand),
             typeof(GetChildProbeQuery),
             typeof(CreateChildProbeCommand),
-            typeof(DeleteChildProbeCommand)));
+            typeof(DeleteChildProbeCommand),
+            typeof(MoveParentProbeCommand),
+            typeof(MoveParentProbeCommandConfiguration),
+            typeof(GetParentProbeTagsQuery),
+            typeof(AddParentProbeTagCommand)));
         services.AddSingleton(TextSource.FromTypes("Tst", TextOrigin.Ui, typeof(ParentProbeTexts), typeof(ChildProbeTexts)));
         services.AddSingleton(AggregateViewSource.FromTypes("tst", typeof(ParentProbeViewConfiguration), typeof(ChildProbeViewConfiguration)));
 
@@ -114,5 +166,7 @@ internal static class ParentProbeTestHost
         services.AddTransient<IRequestHandler<CreateChildProbeCommand, ErrorOr<ProbeCreatedResponse>>, CreateChildProbeCommandHandler>();
         services.AddTransient<IRequestHandler<DeleteParentProbeCommand, ErrorOr<Success>>, DeleteParentProbeCommandHandler>();
         services.AddTransient<IRequestHandler<DeleteChildProbeCommand, ErrorOr<Success>>, DeleteChildProbeCommandHandler>();
+        services.AddTransient<IRequestHandler<GetParentProbeTreeQuery, ErrorOr<IReadOnlyList<ParentProbeTreeItem>>>, GetParentProbeTreeQueryHandler>();
+        services.AddTransient<IRequestHandler<MoveParentProbeCommand, ErrorOr<Success>>, MoveParentProbeCommandHandler>();
     }
 }

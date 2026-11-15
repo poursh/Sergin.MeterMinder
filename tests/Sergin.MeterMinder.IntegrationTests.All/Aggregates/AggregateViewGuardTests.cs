@@ -3,6 +3,7 @@ using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BelongsToGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BrokenChildViews;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ConfirmGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.HardenedGuards;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.MoveGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ParentedLists;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
@@ -417,6 +418,35 @@ public sealed class AggregateViewGuardTests
             () => AggregateViewTestRegistry.Build(typeof(ParentOnUnknownViewConfiguration)),
             nameof(ParentOnUnknownViewConfiguration), $"Parent(x => x.{nameof(CreateExtraParentProbeCommand.Extra)})", "no parameter");
     }
+
+    [Fact]
+    public void Guard_MoveWithoutTreeQuery_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(MoveWithoutTreeQueryViewConfiguration)),
+            nameof(MoveWithoutTreeQueryViewConfiguration), nameof(MoveTreelessProbeCommand), $"ITreeQuery<{nameof(TreelessProbe)}>");
+
+    [Fact]
+    public void Guard_MoveTreeItemWithoutParentId_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(MoveTreeItemWithoutParentIdViewConfiguration)),
+            nameof(MoveTreeItemWithoutParentIdViewConfiguration), nameof(MoveFlatTreeProbeCommand), nameof(FlatTreeItem), "ParentId");
+
+    [Fact]
+    public void Guard_MoveWithoutLabel_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(MoveWithoutLabelViewConfiguration)),
+            nameof(MoveWithoutLabelViewConfiguration), nameof(MoveParentProbeCommand), "Move command with no default label");
+
+    [Theory]
+    [InlineData(typeof(SectionWithRoutesViewConfiguration), "Routes(...)")]
+    [InlineData(typeof(SectionWithListViewConfiguration), "List(...)")]
+    [InlineData(typeof(SectionWithDetailViewConfiguration), "Detail(...)")]
+    [InlineData(typeof(SectionWithFormViewConfiguration), "Form<AddParentProbeTagCommand>(...)")]
+    [InlineData(typeof(SectionWithCommandViewConfiguration), "Command<AddParentProbeTagCommand>()")]
+    public void Guard_ChildSectionWithRoutesOrList_Refuses(Type configuration, string declaration) =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(configuration),
+            configuration.Name, $"Child<{nameof(ParentProbeTag)}>()", $"Section<{nameof(ParentProbeTagsSection)}>()", declaration);
 
     private static InvalidOperationException AssertRefused(Action build, params string[] named)
     {

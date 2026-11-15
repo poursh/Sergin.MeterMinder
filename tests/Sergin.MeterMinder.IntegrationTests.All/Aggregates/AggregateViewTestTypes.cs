@@ -1,5 +1,6 @@
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BelongsToGuards;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.MoveGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BrokenChildViews;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ConfirmGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.HardenedGuards;
@@ -326,11 +327,18 @@ internal sealed record ChildProbeId(Guid Value);
 
 internal sealed class ChildProbe : AggregateRoot<ChildProbeId>;
 
+internal sealed record ParentProbeTagId(Guid Value);
+
+/// <summary>A child entity of the probe parent drawn by its own component (Section&lt;T&gt;()), read as one unpaged list.</summary>
+internal sealed class ParentProbeTag : Entity<ParentProbeTagId>;
+
 internal static class ParentProbePermissions
 {
     public static PermissionDefinition Read { get; } = PermissionDefinition.Create("permission.tst.probe-parents.read", "View probe parents");
 
     public static PermissionDefinition Create { get; } = PermissionDefinition.Create("permission.tst.probe-parents.create", "Create probe parents");
+
+    public static PermissionDefinition Move { get; } = PermissionDefinition.Create("permission.tst.probe-parents.move", "Move probe parents");
 }
 
 public static class ParentProbeTexts
@@ -343,7 +351,13 @@ public static class ParentProbeTexts
 
     public static TextDefinition NewChild { get; } = Category.Text("NewChild", "New child parent");
 
+    public static TextDefinition Move { get; } = Category.Text("Move", "Move probe");
+
+    public static TextDefinition Tag { get; } = Category.Text("Tag", "Probe tag");
+
     public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
+
+    public static FieldText NewParentId { get; } = Category.Field(nameof(NewParentId), "Move under");
 }
 
 public static class ChildProbeTexts
@@ -367,7 +381,7 @@ public static class ChildProbeTexts
 internal sealed class ParentProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<ParentProbe>
 {
     public void Configure(AggregateFeatureBuilder<ParentProbe> builder) =>
-        builder.Permissions(ParentProbePermissions.Read, ParentProbePermissions.Create)
+        builder.Permissions(ParentProbePermissions.Read, ParentProbePermissions.Create, ParentProbePermissions.Move)
             .Texts(ParentProbeTexts.Category)
             .Named(ParentProbeTexts.Singular);
 }
@@ -385,8 +399,26 @@ internal sealed record GetParentProbeQuery(ParentProbeId Id) : IQuery<ParentProb
 
 internal sealed record ParentProbeTreeItem(Guid Id, Guid? ParentId, string Name);
 
-/// <summary>The parents are read as a tree, not listed: their list route names the tree's page. Nothing here sends it.</summary>
+/// <summary>The parents are read as a tree, not listed: their list route names the tree's page, and the Move dialog reads it.</summary>
 internal sealed record GetParentProbeTreeQuery : IQuery<IReadOnlyList<ParentProbeTreeItem>>, ITreeQuery<ParentProbe>;
+
+/// <summary>Moves a parent under another: the dialog picks the new parent from the tree.</summary>
+internal sealed record MoveParentProbeCommand(ParentProbeId Id, ParentProbeId NewParentId) : ICommand, IMoveCommand<ParentProbe, ParentProbeId>;
+
+internal sealed class MoveParentProbeCommandConfiguration : ICommandConfiguration<MoveParentProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<MoveParentProbeCommand> builder) => builder.RequirePermissions(ParentProbePermissions.Move);
+}
+
+internal sealed record ParentProbeTagItem(Guid Id, string Label);
+
+/// <summary>Unpaged, which no generated child list could send: only a Section child may have one.</summary>
+internal sealed record GetParentProbeTagsQuery(ParentProbeId RootId)
+    : IQuery<IReadOnlyCollection<ParentProbeTagItem>>, IChildListOf<ParentProbe, ParentProbeId, ParentProbeTag>;
+
+/// <summary>A Label with no field text: a generated add form would be refused, a Section child's is never built.</summary>
+internal sealed record AddParentProbeTagCommand(ParentProbeId RootId, string Label)
+    : ICommand, IAddChildCommand<ParentProbe, ParentProbeId, ParentProbeTag, ParentProbeTagId>;
 
 internal sealed record ProbeCreatedResponse(Guid Id) : ICreatedResponse;
 
@@ -436,6 +468,9 @@ internal sealed class ParentProbeViewConfiguration : IAggregateViewConfiguration
         view.Routes(ParentProbeRoutes.List, ParentProbeRoutes.Detail, ParentProbeRoutes.Create);
         view.BelongsTo<ParentProbe, ParentProbeResponse>(parent => parent.ParentId, parent => parent.ParentName);
         view.Command<CreateParentProbeCommand>().Label(ParentProbeTexts.NewChild);
+        view.Tree<ParentProbeTreeItem>(tree => tree.Title(item => item.Name));
+        view.Command<MoveParentProbeCommand>().Label(ParentProbeTexts.Move).AppliesWhen<ParentProbeResponse>(parent => parent.ParentId is not null);
+        view.Child<ParentProbeTag>(child => child.Named(ParentProbeTexts.Tag).Section<ParentProbeTagsSection>());
     }
 }
 
@@ -979,6 +1014,7 @@ internal static class AggregateViewTestRegistry
         typeof(ViewProbeNoteAggregateFeatureConfiguration), typeof(ConfirmProbeAggregateFeatureConfiguration),
         typeof(ParentProbeAggregateFeatureConfiguration), typeof(ChildProbeAggregateFeatureConfiguration),
         .. HardenedGuardTypes.AggregateConfigurations, .. ConfirmGuardTypes.AggregateConfigurations, .. BelongsToGuardTypes.AggregateConfigurations,
+        .. MoveGuardTypes.AggregateConfigurations,
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -1004,7 +1040,9 @@ internal static class AggregateViewTestRegistry
         typeof(RetitleConfirmProbeCommand), typeof(RetitleConfirmProbeCommandConfiguration), typeof(DeleteConfirmProbeCommand),
         typeof(DeleteConfirmProbeCommandConfiguration), typeof(GetParentProbeQuery), typeof(GetParentProbeTreeQuery), typeof(CreateParentProbeCommand),
         typeof(CreateParentProbeCommandConfiguration), typeof(DeleteParentProbeCommand), typeof(GetChildProbeQuery), typeof(CreateChildProbeCommand),
-        typeof(DeleteChildProbeCommand), .. HardenedGuardTypes.Requests, .. ConfirmGuardTypes.Requests, .. BelongsToGuardTypes.Requests,
+        typeof(DeleteChildProbeCommand), typeof(MoveParentProbeCommand), typeof(MoveParentProbeCommandConfiguration), typeof(GetParentProbeTagsQuery),
+        typeof(AddParentProbeTagCommand), .. HardenedGuardTypes.Requests, .. ConfirmGuardTypes.Requests, .. BelongsToGuardTypes.Requests,
+        .. MoveGuardTypes.Requests,
     ];
 
     public static AggregateViewRegistry Build(params Type[] viewConfigurations) =>
@@ -1020,7 +1058,8 @@ internal static class AggregateViewTestRegistry
                     typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts), typeof(BadOverviewProbeTexts),
                     typeof(ChildHostTexts), typeof(ViewProbeChildTexts), typeof(BareChildHostTexts), typeof(SetProbeTexts), typeof(EnumGapProbeTexts),
                     typeof(EditProbeTexts), typeof(PairSetProbeTexts), typeof(PublishProbeTexts), typeof(ViewProbeNoteTexts), typeof(ConfirmProbeTexts),
-                    typeof(ParentProbeTexts), typeof(ChildProbeTexts), .. HardenedGuardTypes.Texts, .. ConfirmGuardTypes.Texts, .. BelongsToGuardTypes.Texts]),
+                    typeof(ParentProbeTexts), typeof(ChildProbeTexts), .. HardenedGuardTypes.Texts, .. ConfirmGuardTypes.Texts, .. BelongsToGuardTypes.Texts,
+                    .. MoveGuardTypes.Texts]),
             ]));
 }
 
