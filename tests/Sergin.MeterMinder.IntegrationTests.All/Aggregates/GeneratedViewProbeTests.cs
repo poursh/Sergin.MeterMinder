@@ -26,6 +26,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
+using Sergin.SharedKernel.Presentation.Blazor.Views;
 using Sergin.SharedKernel.Presentation.Errors;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
@@ -45,6 +46,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
     private PlainProbeStore plainStore = default!;
     private EditProbeStore editStore = default!;
     private PublishProbeStore publishStore = default!;
+    private ConfirmProbeStore confirmStore = default!;
     private NotifiedErrors notified = default!;
 
     public async Task InitializeAsync()
@@ -58,6 +60,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
             PlainProbeTestHost.AddTo(services);
             EditProbeTestHost.AddTo(services);
             PublishProbeTestHost.AddTo(services);
+            ConfirmProbeTestHost.AddTo(services);
             ViewProbeNoteTestHost.AddTo(services);
             services.Replace(ServiceDescriptor.Scoped<IUiTimeZoneStore, FixedTimeZoneStore>());
             services.AddSingleton<NotifiedErrors>();
@@ -70,6 +73,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         plainStore = host.Services.GetRequiredService<PlainProbeStore>();
         editStore = host.Services.GetRequiredService<EditProbeStore>();
         publishStore = host.Services.GetRequiredService<PublishProbeStore>();
+        confirmStore = host.Services.GetRequiredService<ConfirmProbeStore>();
         notified = host.Services.GetRequiredService<NotifiedErrors>();
         await ScheduledTaskTestHost.ResetSchemaAsync(host);
         tree = await RbacScenario.BuildAsync(host);
@@ -559,10 +563,273 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         Assert.Equal([first, second], queries.ParentIds);
     }
 
+    [Fact]
+    public async Task Detail_ShownIdField_RendersWithItsLabel()
+    {
+        Guid probe = confirmStore.Add("Shown probe");
+        await GrantAsync(ConfirmProbePermissions.Read);
+
+        await RenderConfirmDetailAsync(probe, (root, _, _) =>
+        {
+            string html = WebUtility.HtmlDecode(root.ToHtmlString());
+
+            // A Guid named Id is hidden by default; Shown() puts it among the fields under its declared label.
+            Assert.Contains(">Reference<", html, StringComparison.Ordinal);
+            Assert.Contains(probe.ToString(), html, StringComparison.Ordinal);
+            return Task.CompletedTask;
+        });
+    }
+
+    [Fact]
+    public async Task Transition_WithConfirm_AsksFirst()
+    {
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<ConfirmProbe>();
+        var record = new ConfirmProbeResponse(Guid.CreateVersion7(), "Asked probe", new ConfirmProbeTitle("Headline"));
+        List<(CommandView Command, object? Record)> asked = [];
+        bool answer = false;
+        int runs = 0;
+        var actions = new GeneratedCommandActions(
+            new InvokingReceiver(),
+            _ =>
+            {
+                runs++;
+                return Task.CompletedTask;
+            },
+            _ => Task.CompletedTask,
+            confirmAsync: (command, shown) =>
+            {
+                asked.Add((command, shown));
+                return Task.FromResult(answer);
+            });
+
+        SerginPageAction archive = actions.For(model, record.Id, _ => [], record: record).Single(action => action.Label == ConfirmProbeTexts.Archive);
+
+        // Declined: asked once, nothing sent.
+        await archive.OnClick.InvokeAsync();
+        Assert.Equal(0, runs);
+
+        // Accepted: asked again, sent once.
+        answer = true;
+        await archive.OnClick.InvokeAsync();
+        Assert.Equal(1, runs);
+
+        Assert.Equal(2, asked.Count);
+        Assert.All(asked, ask =>
+        {
+            Assert.Equal(typeof(ArchiveConfirmProbeCommand), ask.Command.Request);
+            Assert.Same(record, ask.Record);
+        });
+    }
+
+    [Fact]
+    public void List_DeleteWithValues_IsNotARowOrBulkAction()
+    {
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<ConfirmProbe>();
+        CommandView delete = model.Commands.Single(command => command.Request == typeof(DeleteConfirmProbeCommand));
+        var item = new ConfirmProbeListItem(Guid.CreateVersion7(), "Row");
+        var actions = new GeneratedCommandActions(new NoopReceiver(), _ => Task.CompletedTask, _ => Task.CompletedTask);
+
+        IReadOnlyList<SerginPageAction> icons = actions.For(model, item.Id, _ => [], GeneratedLists.Icons, record: item, row: true);
+        IReadOnlyList<SerginPageAction> bar = actions.For(model, item.Id, _ => [], record: item);
+
+        // A row has no dialog to ask for the value, so its icons hold no Delete; the detail bar still offers it.
+        Assert.DoesNotContain(icons, action => action.Label == delete.Label);
+        Assert.Contains(bar, action => action.Label == delete.Label);
+        Assert.True(delete.Selectable);
+        Assert.False(GeneratedLists.IsBulkAction(delete));
+    }
+
+    [Fact]
+    public async Task DeleteWithValues_Refused_StaysAndReloads()
+    {
+        Guid probe = confirmStore.Add("Holding probe");
+        await GrantAsync(ConfirmProbePermissions.Read, ConfirmProbePermissions.Update);
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<ConfirmProbe>();
+        CommandView delete = model.Commands.Single(command => command.Request == typeof(DeleteConfirmProbeCommand));
+
+        await RenderConfirmDetailAsync(probe, async (root, view, viewHost) =>
+        {
+            // The confirm asks for the value: the text filled from the record, the Cascade switch, the command's label.
+            IDialogReference asking = await view.AskValuesAsync(delete);
+            var dialog = (SerginConfirmValuesDialog)asking.Dialog!;
+            string html = WebUtility.HtmlDecode(root.ToHtmlString());
+            Assert.Contains("Delete Holding probe for good?", html, StringComparison.Ordinal);
+            Assert.Contains("Also delete what it holds", html, StringComparison.Ordinal);
+
+            dialog.Confirm();
+
+            DialogResult answered = (await asking.Result)!;
+            Assert.False(answered.Canceled);
+            var values = (IReadOnlyDictionary<string, object?>)answered.Data!;
+
+            // Refused (no Cascade): the error shown once, the view stays and reads the record again.
+            notified.Clear();
+            int loads = confirmStore.Loads;
+            int sends = confirmStore.Sends;
+
+            await view.DeleteWithValuesAsync(delete, values);
+
+            Assert.Equal(sends + 1, confirmStore.Sends);
+            Error shown = Assert.Single(notified.Errors);
+            Assert.Equal(ConfirmProbeStore.HoldsRecords.Code, shown.Code);
+            Assert.Equal(1, notified.Calls);
+            Assert.Empty(viewHost.Leaves);
+            Assert.True(confirmStore.Loads > loads);
+            Assert.NotNull(confirmStore.Find(probe));
+
+            // With Cascade: sent at the version just read, the record gone, and the view leaves for the list.
+            await view.DeleteWithValuesAsync(delete, new Dictionary<string, object?>(StringComparer.Ordinal) { [nameof(DeleteConfirmProbeCommand.Cascade)] = true });
+
+            Assert.Null(confirmStore.Find(probe));
+            Assert.Equal([ConfirmProbeRoutes.List], viewHost.Leaves);
+            Assert.Equal(1, notified.Calls);
+        });
+    }
+
+    [Fact]
+    public async Task Detail_HeaderReload_BumpsGeneration()
+    {
+        Guid probe = confirmStore.Add("Reloaded probe");
+        await GrantAsync(ConfirmProbePermissions.Read);
+
+        await RenderConfirmDetailAsync(probe, async (_, view, viewHost) =>
+        {
+            int generation = view.Generation;
+            int loads = confirmStore.Loads;
+
+            await view.HeaderReloadAsync();
+
+            Assert.Equal(generation + 1, view.Generation);
+            Assert.True(confirmStore.Loads > loads);
+            Assert.Equal(0, viewHost.Changes);
+        });
+    }
+
+    [Fact]
+    public async Task Detail_SetPropertySent_CallsHostChanged()
+    {
+        Guid probe = confirmStore.Add("Changed probe");
+        await GrantAsync(ConfirmProbePermissions.Read, ConfirmProbePermissions.Update);
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<ConfirmProbe>();
+        CommandView retitle = model.Commands.Single(command => command.Request == typeof(RetitleConfirmProbeCommand));
+        CommandView archive = model.Commands.Single(command => command.Request == typeof(ArchiveConfirmProbeCommand));
+
+        await RenderConfirmDetailAsync(probe, async (root, view, viewHost) =>
+        {
+            int generation = view.Generation;
+
+            // Sent: the generation moves, the host hears of it once, and the view shows the record read again.
+            Assert.True(await view.SetPropertyAsync(retitle, "Fresh headline"));
+            Assert.Equal(1, viewHost.Changes);
+            Assert.Equal(generation + 1, view.Generation);
+            Assert.Contains("Fresh headline", WebUtility.HtmlDecode(root.ToHtmlString()), StringComparison.Ordinal);
+
+            // Stale: nothing changed, so neither moves.
+            confirmStore.Touch(probe);
+            Assert.False(await view.SetPropertyAsync(retitle, "Too late"));
+            Assert.Equal(1, viewHost.Changes);
+            Assert.Equal(generation + 1, view.Generation);
+
+            // A transition that keeps the view open tells the host too.
+            await view.RunAsync(archive);
+            Assert.Contains(probe, confirmStore.Archived);
+            Assert.Equal(2, viewHost.Changes);
+            Assert.Equal(generation + 2, view.Generation);
+        });
+    }
+
     private static IReadOnlyList<SerginPageAction> RowActions(
         AggregateViewModel model, Guid id, IReadOnlySet<CommandRole>? roles, object? record, ViewLinkPlacement links) =>
         new GeneratedCommandActions(new NoopReceiver(), _ => Task.CompletedTask, _ => Task.CompletedTask)
             .For(model, id, _ => [], roles, record: record, links: links);
+
+    // Renders the confirm probe's detail view, with the providers its dialogs render into and a recording host, and hands
+    // the test the root, the view and the host on the renderer's dispatcher.
+    private async Task RenderConfirmDetailAsync(Guid probe, Func<HtmlRootComponent, SerginGeneratedDetailView<ConfirmProbe>, RecordingViewHost, Task> test)
+    {
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+        ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
+            .Initialize("http://localhost/", $"http://localhost{ConfirmProbeRoutes.Detail(probe)}");
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+        var viewHost = new RecordingViewHost();
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            ConfirmDetailHost.View = null;
+            HtmlRootComponent root = await renderer.RenderComponentAsync<ConfirmDetailHost>(ParameterView.FromDictionary(
+                new Dictionary<string, object?>
+                {
+                    [nameof(ConfirmDetailHost.Id)] = probe,
+                    [nameof(ConfirmDetailHost.ViewHost)] = viewHost.Host,
+                }));
+
+            await test(root, ConfirmDetailHost.View!, viewHost);
+        });
+    }
+
+    /// <summary>Runs every event callback it receives, as a component's dispatcher does.</summary>
+    private sealed class InvokingReceiver : IHandleEvent
+    {
+        public Task HandleEventAsync(EventCallbackWorkItem item, object? arg) => item.InvokeAsync(arg);
+    }
+
+    /// <summary>A view host that records where the view left to and how often it said it changed its record.</summary>
+    private sealed class RecordingViewHost
+    {
+        private readonly List<string> leaves = [];
+
+        public RecordingViewHost() =>
+            Host = new SerginViewHost(
+                SerginViewHostKind.Embedded,
+                href =>
+                {
+                    leaves.Add(href);
+                    return Task.CompletedTask;
+                },
+                headerSlot: null,
+                changed: () =>
+                {
+                    Changes++;
+                    return Task.CompletedTask;
+                });
+
+        public SerginViewHost Host { get; }
+
+        public IReadOnlyList<string> Leaves => leaves;
+
+        public int Changes { get; private set; }
+    }
+
+    /// <summary>The confirm probe's generated detail view under a given host, with the providers its dialogs render into.</summary>
+    private sealed class ConfirmDetailHost : ComponentBase
+    {
+        public static SerginGeneratedDetailView<ConfirmProbe>? View { get; set; }
+
+        [Parameter]
+        public Guid Id { get; set; }
+
+        [Parameter]
+        public SerginViewHost ViewHost { get; set; } = default!;
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1);
+            builder.CloseComponent();
+            builder.OpenComponent<CascadingValue<SerginViewHost>>(2);
+            builder.AddComponentParameter(3, nameof(CascadingValue<SerginViewHost>.Value), ViewHost);
+            builder.AddComponentParameter(4, nameof(CascadingValue<SerginViewHost>.ChildContent), (RenderFragment)(content =>
+            {
+                content.OpenComponent<SerginGeneratedDetailView<ConfirmProbe>>(0);
+                content.AddComponentParameter(1, nameof(SerginGeneratedDetailView<ConfirmProbe>.Id), Id);
+                content.AddComponentReferenceCapture(2, instance => View = (SerginGeneratedDetailView<ConfirmProbe>)instance);
+                content.CloseComponent();
+            }));
+            builder.CloseComponent();
+        }
+    }
 
     private sealed class NoopReceiver : IHandleEvent
     {

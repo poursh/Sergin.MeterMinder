@@ -268,6 +268,44 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     }
 
     [Fact]
+    public void Registry_DeleteWithExtraValues_HasConfirmFields()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(ConfirmProbeViewConfiguration)).For<ConfirmProbe>();
+        CommandView delete = model.Commands.Single(command => command.Request == typeof(DeleteConfirmProbeCommand));
+        var id = Guid.CreateVersion7();
+
+        FormFieldView cascade = Assert.Single(delete.ConfirmFields);
+        Assert.Equal(nameof(DeleteConfirmProbeCommand.Cascade), cascade.Name);
+        Assert.Equal(FormInputKind.Switch, cascade.Kind);
+        Assert.Equal(ConfirmProbeTexts.Cascade.Label, cascade.Label.Label);
+        Assert.Null(delete.BuildFromId);
+        Assert.Null(delete.ValueField);
+
+        object built = delete.BuildFromValues!(id, new Dictionary<string, object?>(StringComparer.Ordinal) { [nameof(DeleteConfirmProbeCommand.Cascade)] = true });
+
+        Assert.Equal(new DeleteConfirmProbeCommand(new ConfirmProbeId(id), Cascade: true), built);
+        Assert.True(delete.RequiresVersion);
+    }
+
+    [Fact]
+    public void Registry_Confirm_SetsTitleTextAndLabel()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(ConfirmProbeViewConfiguration)).For<ConfirmProbe>();
+        CommandView archive = model.Commands.Single(command => command.Request == typeof(ArchiveConfirmProbeCommand));
+        CommandView delete = model.Commands.Single(command => command.Request == typeof(DeleteConfirmProbeCommand));
+
+        Assert.Equal(ConfirmProbeTexts.ArchiveTitle, archive.ConfirmTitle);
+        Assert.Equal(ConfirmProbeTexts.ArchiveText, archive.ConfirmText);
+        Assert.Equal(ConfirmProbeTexts.ArchiveConfirm, archive.ConfirmLabel);
+        Assert.Empty(archive.ConfirmFields);
+        Assert.NotNull(archive.BuildFromId);
+
+        // ConfirmDelete sets no label: the confirm button is the command's own label.
+        Assert.Equal(ConfirmProbeTexts.DeleteText, delete.ConfirmText);
+        Assert.Null(delete.ConfirmLabel);
+    }
+
+    [Fact]
     public void ViewModel_ReversePair_PartnerIsNegation()
     {
         AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(PublishProbeViewConfiguration)).For<PublishProbe>();

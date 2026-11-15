@@ -1,5 +1,6 @@
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BrokenChildViews;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ConfirmGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.HardenedGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ParentedLists;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
@@ -349,6 +350,18 @@ public sealed class AggregateViewGuardTests
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(ViewProbeViewConfiguration), typeof(OverviewNoteViewConfiguration)),
             nameof(OverviewNoteViewConfiguration), nameof(GetOverviewNotesOverviewQuery), "ListUnder<ViewProbe>");
+
+    [Fact]
+    public void Guard_DeleteWithHiddenExtraValue_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(HiddenValueProbeViewConfiguration)),
+            nameof(HiddenValueProbeViewConfiguration), nameof(DeleteHiddenValueProbeCommand), nameof(DeleteHiddenValueProbeCommand.Cascade), "NotShown");
+
+    [Fact]
+    public void Guard_ConfirmOnACommandNoViewAsks_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ConfirmOnUpdateViewConfiguration)),
+            nameof(ConfirmOnUpdateViewConfiguration), nameof(UpdatePlainProbeCommand), "Confirm");
 
     private static InvalidOperationException AssertRefused(Action build, params string[] named)
     {
