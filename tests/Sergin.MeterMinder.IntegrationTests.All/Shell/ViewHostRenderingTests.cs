@@ -62,7 +62,7 @@ public sealed partial class ViewHostRenderingTests(SerginWebApiFactory<Program> 
     }
 
     [Fact]
-    public async Task UserDetailView_EmbedsAssignmentsAndEffectivePermissions()
+    public async Task UserDetail_EmbedsAssignmentsAndEffectivePermissions()
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();

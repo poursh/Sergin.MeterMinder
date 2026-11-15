@@ -51,10 +51,17 @@ public sealed partial class GeneratedUserViewTests(SerginWebApiFactory<Program> 
         Assert.Equal(UserUiTexts.Identifier, id.Label);
         Assert.Null(model.ListFieldSet);
 
+        // The name column comes first and carries the row link; the id column is plain text.
+        IReadOnlyList<ListColumn> columns = GeneratedViewSupport.ColumnsOf(
+            model.ListFields, model.ListFieldSet, GeneratedViewSupport.TitleFieldOf(model.ListFields, model.ListTitleField));
+        Assert.Equal([nameof(GetUserListItem.UserName), nameof(GetUserListItem.Id)], columns.Select(column => column.Field.Name));
+        Assert.Equal([true, false], columns.Select(column => column.Links));
+
         string html = await GetAsync("/ua/users");
 
-        Assert.Contains(">User name<", html, StringComparison.Ordinal);
-        Assert.Contains(">Id<", html, StringComparison.Ordinal);
+        int nameHeader = html.IndexOf(">User name<", StringComparison.Ordinal);
+        int idHeader = html.IndexOf(">Id<", StringComparison.Ordinal);
+        Assert.True(nameHeader >= 0 && idHeader > nameHeader, $"expected the User name header before the Id header ({nameHeader}, {idHeader})");
         Assert.DoesNotMatch("class=\"[^\"]*sergin-search", html);
         Assert.DoesNotContain("aria-label=\"Quick search\"", html, StringComparison.Ordinal);
     }
@@ -69,7 +76,9 @@ public sealed partial class GeneratedUserViewTests(SerginWebApiFactory<Program> 
         string html = await GetAsync($"/ua/users/{user}");
 
         Assert.Contains(userName, html, StringComparison.Ordinal);
-        Assert.Contains(">Id<", html, StringComparison.Ordinal);
+        int nameLabel = html.IndexOf(">User name<", StringComparison.Ordinal);
+        int idLabel = html.IndexOf(">Id<", StringComparison.Ordinal);
+        Assert.True(nameLabel >= 0 && idLabel > nameLabel, $"expected the User name label before the Id label ({nameLabel}, {idLabel})");
         Assert.Contains(user.ToString(), html, StringComparison.Ordinal);
         Assert.Contains(">Deactivate", html, StringComparison.Ordinal);
 
