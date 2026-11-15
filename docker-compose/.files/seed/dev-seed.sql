@@ -670,6 +670,7 @@ FROM (VALUES
  ('fa','user-access.users.assignments.role-option','{Role} ({OwnerScope})','{Role} ({OwnerScope})'),
  ('fa','user-access.users.assignments.scope-and-below','حوزه و زیر آن','Scope and below'),
  ('fa','user-access.users.assignments.scope-only','فقط این حوزه','This scope only'),
+ ('fa','user-access.users.assignments.singular','واگذاری','Assignment'),
  ('fa','user-access.users.assignments.title','واگذاری‌ها','Assignments'),
  ('fa','user-access.users.assignments.until','تا {Until}','Until {Until}'),
  ('fa','user-access.users.assignments.valid','معتبر','Valid'),

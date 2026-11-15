@@ -592,6 +592,7 @@ user-access.users.assignments.revoked
 user-access.users.assignments.role-option
 user-access.users.assignments.scope-and-below
 user-access.users.assignments.scope-only
+user-access.users.assignments.singular
 user-access.users.assignments.title
 user-access.users.assignments.until
 user-access.users.assignments.valid
