@@ -1,4 +1,5 @@
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BelongsToGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BrokenChildViews;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ConfirmGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.HardenedGuards;
@@ -362,6 +363,60 @@ public sealed class AggregateViewGuardTests
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(ConfirmOnUpdateViewConfiguration)),
             nameof(ConfirmOnUpdateViewConfiguration), nameof(UpdatePlainProbeCommand), "Confirm");
+
+    [Fact]
+    public void Guard_TreeRootListRoute_Accepted()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration)).For<ParentProbe>();
+
+        // Read as a tree, not listed: the list route names the tree's page, which the trail and a delete use.
+        Assert.Null(model.List);
+        Assert.Equal(ParentProbeRoutes.List, model.Routes.List);
+    }
+
+    [Fact]
+    public void Guard_ListRouteWithNeitherListNorTree_StillRefuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ListRouteWithoutListOrTreeViewConfiguration)),
+            nameof(ListRouteWithoutListOrTreeViewConfiguration), $"IListOf<{nameof(EditProbe)}>", $"ITreeQuery<{nameof(EditProbe)}>");
+
+    [Fact]
+    public void Guard_BelongsTo_ParentWithoutDetailRoute_Refuses()
+    {
+        // The parent's configuration declares no routes.
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(BelongsToUnroutedParentViewConfiguration), typeof(EditProbeViewConfiguration)),
+            nameof(BelongsToUnroutedParentViewConfiguration), $"BelongsTo<{nameof(EditProbe)}", "no detail route");
+
+        // No configuration declares the parent at all.
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(BelongsToUnroutedParentViewConfiguration)),
+            nameof(BelongsToUnroutedParentViewConfiguration), $"BelongsTo<{nameof(EditProbe)}", "no aggregate view configuration");
+    }
+
+    [Fact]
+    public void Guard_BelongsTo_WithListUnder_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ViewProbeViewConfiguration), typeof(BelongsToWithListUnderViewConfiguration)),
+            nameof(BelongsToWithListUnderViewConfiguration), $"BelongsTo<{nameof(ViewProbe)}", $"ListUnder<{nameof(ViewProbe)}>");
+
+    [Fact]
+    public void Guard_BelongsTo_ResponseIsNotTheGetOneResponse_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration), typeof(BelongsToWrongResponseViewConfiguration)),
+            nameof(BelongsToWrongResponseViewConfiguration), nameof(ParentProbeResponse), nameof(ChildProbeResponse));
+
+    [Fact]
+    public void Guard_FormParent_UnknownOrNonGuidProperty_Refuses()
+    {
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ParentOnStringViewConfiguration)),
+            nameof(ParentOnStringViewConfiguration), $"Parent(x => x.{nameof(CreateChildProbeCommand.Name)})", "wraps no Guid");
+
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ParentOnUnknownViewConfiguration)),
+            nameof(ParentOnUnknownViewConfiguration), $"Parent(x => x.{nameof(CreateExtraParentProbeCommand.Extra)})", "no parameter");
+    }
 
     private static InvalidOperationException AssertRefused(Action build, params string[] named)
     {

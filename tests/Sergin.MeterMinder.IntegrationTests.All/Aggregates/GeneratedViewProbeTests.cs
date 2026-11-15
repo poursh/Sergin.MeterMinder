@@ -16,6 +16,7 @@ using Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.Securities.Users;
+using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -47,6 +48,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
     private EditProbeStore editStore = default!;
     private PublishProbeStore publishStore = default!;
     private ConfirmProbeStore confirmStore = default!;
+    private ParentProbeStore parentStore = default!;
     private NotifiedErrors notified = default!;
 
     public async Task InitializeAsync()
@@ -61,6 +63,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
             EditProbeTestHost.AddTo(services);
             PublishProbeTestHost.AddTo(services);
             ConfirmProbeTestHost.AddTo(services);
+            ParentProbeTestHost.AddTo(services);
             ViewProbeNoteTestHost.AddTo(services);
             services.Replace(ServiceDescriptor.Scoped<IUiTimeZoneStore, FixedTimeZoneStore>());
             services.AddSingleton<NotifiedErrors>();
@@ -74,6 +77,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         editStore = host.Services.GetRequiredService<EditProbeStore>();
         publishStore = host.Services.GetRequiredService<PublishProbeStore>();
         confirmStore = host.Services.GetRequiredService<ConfirmProbeStore>();
+        parentStore = host.Services.GetRequiredService<ParentProbeStore>();
         notified = host.Services.GetRequiredService<NotifiedErrors>();
         await ScheduledTaskTestHost.ResetSchemaAsync(host);
         tree = await RbacScenario.BuildAsync(host);
@@ -738,6 +742,197 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         });
     }
 
+    [Fact]
+    public async Task Detail_BelongsTo_TrailNamesTheParent()
+    {
+        Guid parent = parentStore.AddParent("Owning parent");
+        Guid child = parentStore.AddChild("Owned child", parent);
+
+        string html = await GetAsync(ChildProbeRoutes.Detail(child));
+
+        // The parent's list step (its tree's page), the parent as stored linking to its detail, then the record.
+        int list = html.IndexOf($"href=\"{ParentProbeRoutes.List}\"", StringComparison.Ordinal);
+        int parentStep = html.IndexOf($"href=\"{ParentProbeRoutes.Detail(parent)}\"", StringComparison.Ordinal);
+        int record = html.IndexOf(">Owned child<", StringComparison.Ordinal);
+        Assert.True(list >= 0 && parentStep > list && record > parentStep, $"list {list}, parent {parentStep}, record {record}");
+        Assert.Contains(">Probe parents<", html, StringComparison.Ordinal);
+        Assert.Contains(">Owning parent<", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Detail_BelongsTo_DeleteLeavesToTheParent()
+    {
+        Guid top = parentStore.AddParent("Top parent");
+        Guid nested = parentStore.AddParent("Nested parent", top);
+        Guid child = parentStore.AddChild("Leaving child", nested);
+        await GrantAsync(ParentProbePermissions.Read);
+        AggregateViewRegistry views = host.Services.GetRequiredService<AggregateViewRegistry>();
+        CommandView deleteChild = views.For<ChildProbe>().Commands.Single(command => command.Request == typeof(DeleteChildProbeCommand));
+        CommandView deleteParent = views.For<ParentProbe>().Commands.Single(command => command.Request == typeof(DeleteParentProbeCommand));
+
+        // A delete that asks for values leaves for the parent's detail.
+        await RenderDetailAsync<ChildProbe>(ChildProbeRoutes.Detail(child), child, async (_, view, viewHost) =>
+        {
+            await view.DeleteWithValuesAsync(deleteChild, new Dictionary<string, object?>(StringComparer.Ordinal) { [nameof(DeleteChildProbeCommand.Cascade)] = true });
+
+            Assert.Null(parentStore.FindChild(child));
+            Assert.Equal([ParentProbeRoutes.Detail(nested)], viewHost.Leaves);
+        });
+
+        // A plain delete of a parent under a parent leaves for that parent.
+        await RenderDetailAsync<ParentProbe>(ParentProbeRoutes.Detail(nested), nested, async (_, view, viewHost) =>
+        {
+            await view.DeleteConfirmedAsync(deleteParent);
+
+            Assert.Null(parentStore.FindParent(nested));
+            Assert.Equal([ParentProbeRoutes.Detail(top)], viewHost.Leaves);
+        });
+
+        // A top-level parent has none: it leaves for the parent's list route, the tree's page.
+        await RenderDetailAsync<ParentProbe>(ParentProbeRoutes.Detail(top), top, async (_, view, viewHost) =>
+        {
+            await view.DeleteConfirmedAsync(deleteParent);
+
+            Assert.Equal([ParentProbeRoutes.List], viewHost.Leaves);
+        });
+    }
+
+    [Fact]
+    public async Task Form_Parent_FillsTheCommandAndRendersNoInput()
+    {
+        Guid owner = parentStore.AddParent("Form owner");
+        await GrantAsync(ParentProbePermissions.Read, ParentProbePermissions.Create);
+
+        await RenderCreateFormAsync<ChildProbe>(ChildProbeRoutes.Create, owner, async (root, view, viewHost) =>
+        {
+            // No input for the owner: its label is nowhere on the form.
+            string html = WebUtility.HtmlDecode(root.ToHtmlString());
+            Assert.DoesNotContain(ChildProbeTexts.OwnerId.Label.Default, html, StringComparison.Ordinal);
+
+            await view.SubmitAsync();
+
+            CreateChildProbeCommand sent = Assert.Single(parentStore.Created.OfType<CreateChildProbeCommand>());
+            Assert.Equal(owner, sent.OwnerId.Value);
+            Assert.Single(viewHost.Leaves);
+        });
+
+        // A self-parented create takes ParentId the same way, without declaring a Parent(...).
+        await RenderCreateFormAsync<ParentProbe>(ParentProbeRoutes.Create, owner, async (_, view, _) =>
+        {
+            await view.SubmitAsync();
+
+            CreateParentProbeCommand sent = Assert.Single(parentStore.Created.OfType<CreateParentProbeCommand>());
+            Assert.Equal(owner, sent.ParentId.Value);
+        });
+    }
+
+    [Fact]
+    public async Task Form_ParentMissing_Throws()
+    {
+        await GrantAsync(ParentProbePermissions.Read);
+
+        InvalidOperationException refused = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => RenderCreateFormAsync<ChildProbe>(ChildProbeRoutes.Create, parentId: null, (_, _, _) => Task.CompletedTask));
+
+        Assert.Contains(typeof(ChildProbe).FullName!, refused.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(CreateChildProbeCommand.OwnerId), refused.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Form_BelongsTo_CreateTrailAndCancelUseTheParent()
+    {
+        Guid owner = parentStore.AddParent("Trail owner");
+
+        string html = await GetAsync($"{ChildProbeRoutes.Create}?parentId={owner}");
+
+        // The parent's list step, the parent by its singular linking to its detail, then the form's title.
+        int list = html.IndexOf($"href=\"{ParentProbeRoutes.List}\"", StringComparison.Ordinal);
+        int parentStep = html.IndexOf($"href=\"{ParentProbeRoutes.Detail(owner)}\"", StringComparison.Ordinal);
+        Assert.True(list >= 0 && parentStep > list, $"list {list}, parent {parentStep}");
+        Assert.Contains(">Probe parent<", html, StringComparison.Ordinal);
+        Assert.Contains(">New Child probe<", html, StringComparison.Ordinal);
+
+        // Cancel goes to the parent too: the trail's link and the Cancel button's.
+        Assert.Equal(2, CountOf(html, $"href=\"{ParentProbeRoutes.Detail(owner)}\""));
+    }
+
+    [Fact]
+    public async Task Form_FieldComponent_RendersAndFeedsTheCommand()
+    {
+        Guid owner = parentStore.AddParent("Tagging owner");
+        await GrantAsync(ParentProbePermissions.Read);
+
+        await RenderCreateFormAsync<ChildProbe>(ChildProbeRoutes.Create, owner, async (root, view, _) =>
+        {
+            // The component renders in place of a generated input, given the field (its label) and the value.
+            Assert.Contains("Tags: 0", WebUtility.HtmlDecode(root.ToHtmlString()), StringComparison.Ordinal);
+
+            // It sets a collection, which no generated input could: the form holds it and the command carries it.
+            IReadOnlyCollection<string> tags = ["red", "blue"];
+            await ChildProbeTagsInput.Current!.SetAsync(tags);
+            Assert.Contains("Tags: 2", WebUtility.HtmlDecode(root.ToHtmlString()), StringComparison.Ordinal);
+
+            await view.SubmitAsync();
+
+            CreateChildProbeCommand sent = Assert.Single(parentStore.Created.OfType<CreateChildProbeCommand>());
+            Assert.Equal(tags, sent.Tags);
+        });
+    }
+
+    [Fact]
+    public async Task Form_FieldLabel_OverridesTheFieldText()
+    {
+        Guid owner = parentStore.AddParent("Labelled owner");
+
+        string html = await GetAsync($"{ChildProbeRoutes.Create}?parentId={owner}");
+
+        Assert.Contains(ChildProbeTexts.NameOnCreate.Default, html, StringComparison.Ordinal);
+        Assert.DoesNotContain(ChildProbeTexts.Name.Label.Default, html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Detail_SelfParentedCreate_LinksWithParentId()
+    {
+        Guid parent = parentStore.AddParent("Creating parent");
+        string href = $"href=\"{ParentProbeRoutes.Create}?parentId={parent:D}\"";
+
+        await GrantAsync(ParentProbePermissions.Read, ParentProbePermissions.Create);
+        string held = await GetAsync(ParentProbeRoutes.Detail(parent));
+
+        Assert.Contains(href, held, StringComparison.Ordinal);
+        Assert.Contains(ParentProbeTexts.NewChild.Default, held, StringComparison.Ordinal);
+
+        await GrantAsync(ParentProbePermissions.Read);
+        string withheld = await GetAsync(ParentProbeRoutes.Detail(parent));
+
+        Assert.DoesNotContain("parentId=", withheld, StringComparison.Ordinal);
+        Assert.DoesNotContain(ParentProbeTexts.NewChild.Default, withheld, StringComparison.Ordinal);
+
+        // A Secondary action with the create command's permission and scope rule.
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<ParentProbe>();
+        CommandView create = model.Commands.Single(command => command.Request == typeof(CreateParentProbeCommand));
+        Assert.Equal(SerginActionKind.Secondary, model.ChildCreate!.Kind);
+        Assert.Equal(create.Permissions, model.ChildCreate.Permissions);
+        Assert.Equal(create.AnyScope, model.ChildCreate.AnyScope);
+    }
+
+    [Fact]
+    public async Task List_TreeRoot_Throws()
+    {
+        await GrantAsync(ParentProbePermissions.Read);
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+        ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
+            .Initialize("http://localhost/", $"http://localhost{ParentProbeRoutes.List}");
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        InvalidOperationException refused = await Assert.ThrowsAsync<InvalidOperationException>(() => renderer.Dispatcher.InvokeAsync(
+            () => renderer.RenderComponentAsync<SerginGeneratedListView<ParentProbe>>()));
+
+        Assert.Contains(typeof(ParentProbe).FullName!, refused.Message, StringComparison.Ordinal);
+        Assert.Contains("ITreeQuery", refused.Message, StringComparison.Ordinal);
+    }
+
     private static IReadOnlyList<SerginPageAction> RowActions(
         AggregateViewModel model, Guid id, IReadOnlySet<CommandRole>? roles, object? record, ViewLinkPlacement links) =>
         new GeneratedCommandActions(new NoopReceiver(), _ => Task.CompletedTask, _ => Task.CompletedTask)
@@ -766,6 +961,96 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
 
             await test(root, ConfirmDetailHost.View!, viewHost);
         });
+    }
+
+    // Renders a generated detail view of TRoot under a recording host, with the providers its dialogs render into.
+    private Task RenderDetailAsync<TRoot>(
+        string path, Guid id, Func<HtmlRootComponent, SerginGeneratedDetailView<TRoot>, RecordingViewHost, Task> test)
+        where TRoot : class, IAggregateRoot
+    {
+        SerginGeneratedDetailView<TRoot>? view = null;
+
+        return RenderHostedAsync<GeneratedViewHost<SerginGeneratedDetailView<TRoot>>>(
+            path,
+            new Dictionary<string, object?>(StringComparer.Ordinal) { [nameof(SerginGeneratedDetailView<TRoot>.Id)] = id },
+            instance => view = (SerginGeneratedDetailView<TRoot>)instance,
+            (root, viewHost) => test(root, view!, viewHost));
+    }
+
+    // Renders a generated create form of TRoot given ParentId, under a recording host.
+    private Task RenderCreateFormAsync<TRoot>(
+        string path, Guid? parentId, Func<HtmlRootComponent, SerginGeneratedFormView<TRoot>, RecordingViewHost, Task> test)
+        where TRoot : class, IAggregateRoot
+    {
+        SerginGeneratedFormView<TRoot>? view = null;
+
+        return RenderHostedAsync<GeneratedViewHost<SerginGeneratedFormView<TRoot>>>(
+            path,
+            new Dictionary<string, object?>(StringComparer.Ordinal) { [nameof(SerginGeneratedFormView<TRoot>.ParentId)] = parentId },
+            instance => view = (SerginGeneratedFormView<TRoot>)instance,
+            (root, viewHost) => test(root, view!, viewHost));
+    }
+
+    private async Task RenderHostedAsync<THost>(
+        string path, Dictionary<string, object?> viewParameters, Action<object> capture, Func<HtmlRootComponent, RecordingViewHost, Task> test)
+        where THost : IComponent
+    {
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+        ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
+            .Initialize("http://localhost/", $"http://localhost{path}");
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+        var viewHost = new RecordingViewHost();
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            HtmlRootComponent root = await renderer.RenderComponentAsync<THost>(ParameterView.FromDictionary(
+                new Dictionary<string, object?>(StringComparer.Ordinal)
+                {
+                    ["ViewParameters"] = viewParameters,
+                    ["ViewHost"] = viewHost.Host,
+                    ["Capture"] = capture,
+                }));
+
+            await test(root, viewHost);
+        });
+    }
+
+    /// <summary>A generated view under a given host, with the providers its dialogs render into; hands the test the view.</summary>
+    private sealed class GeneratedViewHost<TView> : ComponentBase
+        where TView : IComponent
+    {
+        [Parameter]
+        public Dictionary<string, object?> ViewParameters { get; set; } = default!;
+
+        [Parameter]
+        public SerginViewHost ViewHost { get; set; } = default!;
+
+        [Parameter]
+        public Action<object> Capture { get; set; } = default!;
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1);
+            builder.CloseComponent();
+            builder.OpenComponent<CascadingValue<SerginViewHost>>(2);
+            builder.AddComponentParameter(3, nameof(CascadingValue<SerginViewHost>.Value), ViewHost);
+            builder.AddComponentParameter(4, nameof(CascadingValue<SerginViewHost>.ChildContent), (RenderFragment)(content =>
+            {
+                content.OpenComponent<TView>(0);
+
+                foreach ((string name, object? value) in ViewParameters)
+                {
+                    content.AddComponentParameter(1, name, value);
+                }
+
+                content.AddComponentReferenceCapture(2, instance => Capture(instance));
+                content.CloseComponent();
+            }));
+            builder.CloseComponent();
+        }
     }
 
     /// <summary>Runs every event callback it receives, as a component's dispatcher does.</summary>
