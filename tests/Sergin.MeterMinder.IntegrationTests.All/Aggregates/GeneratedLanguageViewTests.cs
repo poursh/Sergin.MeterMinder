@@ -181,10 +181,10 @@ public sealed class GeneratedLanguageViewTests(SerginWebApiFactory<Program> fact
                 language, new RenameLanguageCommand(new LanguageId(language), new LanguageDisplayName("Malti kurrenti")));
             Assert.False(renamed.IsError, renamed.IsError ? renamed.FirstError.Description : string.Empty);
 
-            SetPropertyStatus status = await setProperty.SubmitAsync(dispatcher, rename, language, "Malti tard", loaded.Version);
+            SetPropertyOutcome outcome = await setProperty.SendAsync(dispatcher, rename, language, "Malti tard", loaded.Version);
 
-            Assert.Equal(SetPropertyStatus.Stale, status);
-            Assert.Contains(setProperty.Errors, VersionErrors.IsStale);
+            Assert.Equal(SetPropertyStatus.Stale, outcome.Status);
+            Assert.Contains(outcome.Errors, VersionErrors.IsStale);
 
             // The reload shows the current name, in the inline card's field too.
             ViewSendResult reloaded = await model.LoadRecordAsync(dispatcher, language);

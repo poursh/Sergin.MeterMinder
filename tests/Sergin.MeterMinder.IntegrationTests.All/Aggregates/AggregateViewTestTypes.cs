@@ -1,5 +1,6 @@
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BrokenChildViews;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.HardenedGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
 using Sergin.SharedKernel.Application.Aggregates;
@@ -726,7 +727,7 @@ internal static class AggregateViewTestRegistry
         typeof(BareChildHostAggregateFeatureConfiguration), typeof(SetProbeAggregateFeatureConfiguration),
         typeof(EnumGapProbeAggregateFeatureConfiguration), typeof(EditProbeAggregateFeatureConfiguration),
         typeof(PairSetProbeAggregateFeatureConfiguration), typeof(PublishProbeAggregateFeatureConfiguration),
-        typeof(ViewProbeNoteAggregateFeatureConfiguration),
+        typeof(ViewProbeNoteAggregateFeatureConfiguration), .. HardenedGuardTypes.AggregateConfigurations,
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -748,7 +749,7 @@ internal static class AggregateViewTestRegistry
         typeof(GetEditProbeQuery), typeof(RenameProbeCommand), typeof(RenameProbeCommandConfiguration), typeof(SetProbeColorCommand),
         typeof(SetProbeColorCommandConfiguration), typeof(RetitleProbeCommand), typeof(RetitleProbeCommandConfiguration),
         typeof(GetPublishProbeQuery), typeof(ListPublishProbesQuery), typeof(PublishProbeCommand), typeof(UnpublishProbeCommand),
-        typeof(ListViewProbeNotesQuery),
+        typeof(ListViewProbeNotesQuery), .. HardenedGuardTypes.Requests,
     ];
 
     public static AggregateViewRegistry Build(params Type[] viewConfigurations) =>
@@ -759,11 +760,11 @@ internal static class AggregateViewTestRegistry
             TextCatalog.FromSources(
             [
                 TextSource.Common,
-                TextSource.FromTypes("Tst", TextOrigin.Ui, typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
+                TextSource.FromTypes("Tst", TextOrigin.Ui, [typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
                     typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts), typeof(BadQueryProbeTexts),
                     typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts), typeof(BadOverviewProbeTexts),
                     typeof(ChildHostTexts), typeof(ViewProbeChildTexts), typeof(BareChildHostTexts), typeof(SetProbeTexts), typeof(EnumGapProbeTexts),
-                    typeof(EditProbeTexts), typeof(PairSetProbeTexts), typeof(PublishProbeTexts), typeof(ViewProbeNoteTexts)),
+                    typeof(EditProbeTexts), typeof(PairSetProbeTexts), typeof(PublishProbeTexts), typeof(ViewProbeNoteTexts), .. HardenedGuardTypes.Texts]),
             ]));
 }
 

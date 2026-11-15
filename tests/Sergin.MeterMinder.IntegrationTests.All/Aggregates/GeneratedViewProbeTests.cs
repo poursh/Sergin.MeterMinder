@@ -1,8 +1,10 @@
 using System.Net;
+using ErrorOr;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.Web.HtmlRendering;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -17,11 +19,14 @@ using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Times;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
+using Sergin.SharedKernel.Presentation.Errors;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
@@ -40,6 +45,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
     private PlainProbeStore plainStore = default!;
     private EditProbeStore editStore = default!;
     private PublishProbeStore publishStore = default!;
+    private NotifiedErrors notified = default!;
 
     public async Task InitializeAsync()
     {
@@ -54,6 +60,9 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
             PublishProbeTestHost.AddTo(services);
             ViewProbeNoteTestHost.AddTo(services);
             services.Replace(ServiceDescriptor.Scoped<IUiTimeZoneStore, FixedTimeZoneStore>());
+            services.AddSingleton<NotifiedErrors>();
+            services.Replace(ServiceDescriptor.Scoped<IUiErrorPresenter>(provider => new RecordingErrorPresenter(
+                ActivatorUtilities.CreateInstance<MudUiErrorPresenter>(provider), provider.GetRequiredService<NotifiedErrors>())));
         }));
 
         users = host.Services.GetRequiredService<ProbeUserContextFactory>();
@@ -61,6 +70,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         plainStore = host.Services.GetRequiredService<PlainProbeStore>();
         editStore = host.Services.GetRequiredService<EditProbeStore>();
         publishStore = host.Services.GetRequiredService<PublishProbeStore>();
+        notified = host.Services.GetRequiredService<NotifiedErrors>();
         await ScheduledTaskTestHost.ResetSchemaAsync(host);
         tree = await RbacScenario.BuildAsync(host);
     }
@@ -228,10 +238,10 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         editStore.Touch(probe);
         int before = editStore.Sends;
 
-        SetPropertyStatus status = await setProperty.SubmitAsync(dispatcher, retitle, probe, "Too late", loaded.Version);
+        SetPropertyOutcome outcome = await setProperty.SendAsync(dispatcher, retitle, probe, "Too late", loaded.Version);
 
-        Assert.Equal(SetPropertyStatus.Stale, status);
-        Assert.Contains(setProperty.Errors, VersionErrors.IsStale);
+        Assert.Equal(SetPropertyStatus.Stale, outcome.Status);
+        Assert.Contains(outcome.Errors, VersionErrors.IsStale);
         Assert.Equal(before + 1, editStore.Sends);
         Assert.Equal("Headline Stale probe", editStore.Find(probe)!.Value.Record.Title.Value);
     }
@@ -248,11 +258,105 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         GeneratedSetProperty setProperty = new(scope.ServiceProvider.GetRequiredService<ISerginFormValidator>());
 
         ViewSendResult loaded = await model.LoadRecordAsync(dispatcher, probe);
-        SetPropertyStatus status = await setProperty.SubmitAsync(dispatcher, color, probe, ProbeColor.Red, loaded.Version);
+        SetPropertyOutcome outcome = await setProperty.SendAsync(dispatcher, color, probe, ProbeColor.Red, loaded.Version);
 
-        Assert.Equal(SetPropertyStatus.Sent, status);
-        Assert.Empty(setProperty.Errors);
+        Assert.Equal(SetPropertyStatus.Sent, outcome.Status);
+        Assert.Empty(outcome.Errors);
         Assert.Equal(ProbeColor.Red, editStore.Find(probe)!.Value.Record.Color);
+    }
+
+    [Fact]
+    public async Task GeneratedSetProperty_TwoSends_EachOutcomeCarriesItsOwnErrors()
+    {
+        Guid probe = editStore.Add("Overlap probe");
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<EditProbe>();
+        CommandView rename = model.Commands.Single(command => command.Request == typeof(RenameProbeCommand));
+        CommandView retitle = model.Commands.Single(command => command.Request == typeof(RetitleProbeCommand));
+
+        using IServiceScope scope = host.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        GeneratedSetProperty setProperty = new(scope.ServiceProvider.GetRequiredService<ISerginFormValidator>());
+
+        ViewSendResult loaded = await model.LoadRecordAsync(dispatcher, probe);
+        editStore.Touch(probe);
+
+        // One instance, two sends in flight at once: a blank name the validator refuses, a title at a version gone stale.
+        Task<SetPropertyOutcome> invalidSend = setProperty.SendAsync(dispatcher, rename, probe, string.Empty, loaded.Version);
+        Task<SetPropertyOutcome> staleSend = setProperty.SendAsync(dispatcher, retitle, probe, "Too late", loaded.Version);
+        SetPropertyOutcome[] outcomes = await Task.WhenAll(invalidSend, staleSend);
+
+        Assert.Equal(SetPropertyStatus.Invalid, outcomes[0].Status);
+        Error invalid = Assert.Single(outcomes[0].Errors);
+        Assert.Equal(nameof(RenameProbeCommand.Name), invalid.Code);
+        Assert.False(VersionErrors.IsStale(invalid));
+
+        Assert.Equal(SetPropertyStatus.Stale, outcomes[1].Status);
+        Assert.NotEmpty(outcomes[1].Errors);
+        Assert.All(outcomes[1].Errors, error => Assert.True(VersionErrors.IsStale(error), error.Code));
+    }
+
+    [Fact]
+    public async Task Detail_DialogEdit_SaveStaleCancel()
+    {
+        Guid probe = editStore.Add("Dialog probe");
+        await GrantAsync(EditProbePermissions.Read, EditProbePermissions.Update);
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<EditProbe>();
+        CommandView retitle = model.Commands.Single(command => command.Request == typeof(RetitleProbeCommand));
+        Assert.Equal(SerginEditMode.Dialog, retitle.EditMode);
+
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+        ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
+            .Initialize("http://localhost/", $"http://localhost/tst/edit-probes/{probe}");
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            EditDetailHost.View = null;
+            HtmlRootComponent root = await renderer.RenderComponentAsync<EditDetailHost>(ParameterView.FromDictionary(
+                new Dictionary<string, object?> { [nameof(EditDetailHost.Id)] = probe }));
+            SerginGeneratedDetailView<EditProbe> view = EditDetailHost.View!;
+            Assert.Contains("Headline Dialog probe", WebUtility.HtmlDecode(root.ToHtmlString()), StringComparison.Ordinal);
+
+            // Save a valid value: sent once, the dialog closes, and the view shows the record read again.
+            notified.Clear();
+            int before = editStore.Sends;
+            IDialogReference saved = await view.EditAsync(retitle);
+            var dialog = (SerginSetPropertyDialog)saved.Dialog!;
+            Assert.Equal("Headline Dialog probe", dialog.Value?.ToString());
+
+            await dialog.SubmitAsync("Fresh headline");
+
+            Assert.Equal(before + 1, editStore.Sends);
+            Assert.True(saved.Result.IsCompleted);
+            Assert.False((await saved.Result)!.Canceled);
+            Assert.Equal("Fresh headline", editStore.Find(probe)!.Value.Record.Title.Value);
+            Assert.Contains("Fresh headline", WebUtility.HtmlDecode(root.ToHtmlString()), StringComparison.Ordinal);
+            Assert.Empty(notified.Errors);
+
+            // Save at a stale version: the dialog stays open and the stale error is shown once.
+            IDialogReference stale = await view.EditAsync(retitle);
+            var staleDialog = (SerginSetPropertyDialog)stale.Dialog!;
+            editStore.Touch(probe);
+
+            await staleDialog.SubmitAsync("Too late");
+
+            Assert.False(stale.Result.IsCompleted);
+            Error shown = Assert.Single(notified.Errors);
+            Assert.True(VersionErrors.IsStale(shown));
+            Assert.Equal(1, notified.Calls);
+            Assert.Equal("Fresh headline", editStore.Find(probe)!.Value.Record.Title.Value);
+
+            // Cancel the still-open dialog: it closes cancelled and sends nothing. (Each ShowAsync waits about 5 s for a
+            // render-complete signal the in-process renderer never gives, so the test opens the dialog only twice.)
+            int beforeCancel = editStore.Sends;
+
+            staleDialog.Cancel();
+
+            Assert.True((await stale.Result)!.Canceled);
+            Assert.Equal(beforeCancel, editStore.Sends);
+            Assert.Single(notified.Errors);
+        });
     }
 
     [Fact]
@@ -270,12 +374,12 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
 
         // What the value form's field validation shows, then what a submit of that value does.
         IReadOnlyCollection<string> messages = await setProperty.ValidateAsync(rename, probe, string.Empty);
-        SetPropertyStatus status = await setProperty.SubmitAsync(dispatcher, rename, probe, string.Empty, loaded.Version);
+        SetPropertyOutcome outcome = await setProperty.SendAsync(dispatcher, rename, probe, string.Empty, loaded.Version);
 
         string message = Assert.Single(messages);
         Assert.Contains("Name", message, StringComparison.Ordinal);
-        Assert.Equal(SetPropertyStatus.Failed, status);
-        Assert.Equal(message, Assert.Single(setProperty.Errors).Description);
+        Assert.Equal(SetPropertyStatus.Invalid, outcome.Status);
+        Assert.Equal(message, Assert.Single(outcome.Errors).Description);
         Assert.Equal(before, editStore.Sends);
         Assert.Equal("Valid probe", editStore.Find(probe)!.Value.Record.Name.Value);
     }
@@ -485,6 +589,84 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         Assert.True(response.StatusCode == HttpStatusCode.OK, $"{path} answered {response.StatusCode}: {body[..Math.Min(body.Length, 3000)]}");
 
         return body;
+    }
+
+    /// <summary>Every error the views handed to the error presenter, and how many times it was called.</summary>
+    private sealed class NotifiedErrors
+    {
+        private readonly List<Error> errors = [];
+        private int calls;
+
+        public IReadOnlyList<Error> Errors
+        {
+            get
+            {
+                lock (errors)
+                {
+                    return [.. errors];
+                }
+            }
+        }
+
+        public int Calls => Volatile.Read(ref calls);
+
+        public void Add(IReadOnlyList<Error> notified)
+        {
+            Interlocked.Increment(ref calls);
+
+            lock (errors)
+            {
+                errors.AddRange(notified);
+            }
+        }
+
+        public void Clear()
+        {
+            Volatile.Write(ref calls, 0);
+
+            lock (errors)
+            {
+                errors.Clear();
+            }
+        }
+    }
+
+    private sealed class RecordingErrorPresenter(IUiErrorPresenter inner, NotifiedErrors notified) : IUiErrorPresenter
+    {
+        public SerginProblem Present(Error error) => inner.Present(error);
+
+        public void Notify(Error error)
+        {
+            notified.Add([error]);
+            inner.Notify(error);
+        }
+
+        public void Notify(IReadOnlyList<Error> errors)
+        {
+            notified.Add(errors);
+            inner.Notify(errors);
+        }
+    }
+
+    /// <summary>The edit probe's generated detail view with the providers its dialogs render into, and a handle on the view.</summary>
+    private sealed class EditDetailHost : ComponentBase
+    {
+        public static SerginGeneratedDetailView<EditProbe>? View { get; set; }
+
+        [Parameter]
+        public Guid Id { get; set; }
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1);
+            builder.CloseComponent();
+            builder.OpenComponent<SerginGeneratedDetailView<EditProbe>>(2);
+            builder.AddComponentParameter(3, nameof(SerginGeneratedDetailView<EditProbe>.Id), Id);
+            builder.AddComponentReferenceCapture(4, instance => View = (SerginGeneratedDetailView<EditProbe>)instance);
+            builder.CloseComponent();
+        }
     }
 
     /// <summary>The generated table of the probe's notes under a parent the test can change, with the providers it renders into.</summary>

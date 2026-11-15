@@ -1,5 +1,6 @@
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BrokenChildViews;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.HardenedGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ParentedLists;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
@@ -307,6 +308,47 @@ public sealed class AggregateViewGuardTests
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(ViewProbeNoteViewConfiguration)),
             nameof(ViewProbeNoteViewConfiguration), typeof(ViewProbe).FullName!, "view configuration");
+
+    [Fact]
+    public void Guard_InlineChoiceWhoseFieldIsHidden_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(InlineChoiceHiddenViewConfiguration)),
+            nameof(InlineChoiceHiddenViewConfiguration), nameof(SetProbeColorCommand), "hidden");
+
+    [Fact]
+    public void Guard_InlineChoiceWhoseFieldsAreReplacedBySlot_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(InlineChoiceInSlotViewConfiguration)),
+            nameof(InlineChoiceInSlotViewConfiguration), nameof(SetProbeColorCommand), nameof(SerginViewSlot.DetailFields));
+
+    [Fact]
+    public void Guard_AppliesWhenOnChildReversePair_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildPairWithAppliesWhenViewConfiguration)),
+            nameof(ChildPairWithAppliesWhenViewConfiguration), nameof(ActivatePairChildCommand), nameof(PairChild), "AppliesWhen");
+
+    [Fact]
+    public void ChildReversePairWithoutAppliesWhen_Builds()
+    {
+        ChildViewModel child = AggregateViewTestRegistry.Build(typeof(ChildPairWithoutAppliesWhenViewConfiguration))
+            .For<PairChildHost>().Children.Single();
+
+        CommandView activate = child.Commands.Single(command => command.Request == typeof(ActivatePairChildCommand));
+        CommandView deactivate = child.Commands.Single(command => command.Request == typeof(DeactivatePairChildCommand));
+
+        // Both offered: neither is hidden, and neither carries a rule that would withhold it.
+        Assert.All([activate, deactivate], command =>
+        {
+            Assert.False(command.Hidden);
+            Assert.Null(command.AppliesWhen);
+        });
+    }
+
+    [Fact]
+    public void Guard_OverviewOnListUnderRoot_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ViewProbeViewConfiguration), typeof(OverviewNoteViewConfiguration)),
+            nameof(OverviewNoteViewConfiguration), nameof(GetOverviewNotesOverviewQuery), "ListUnder<ViewProbe>");
 
     private static InvalidOperationException AssertRefused(Action build, params string[] named)
     {
