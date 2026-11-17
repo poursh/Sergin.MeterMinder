@@ -77,4 +77,46 @@ public sealed class GeneratedTreePartsTests
 
         Assert.Equal(id, command.Id.Value);
     }
+
+    private static (TreeView Tree, IReadOnlyCollection<object> Items, Guid R, Guid A, Guid A1) DescendantsFixture()
+    {
+        TreeView tree = ParentProbeModel().Tree!;
+        Guid r = Guid.CreateVersion7(), a = Guid.CreateVersion7(), a1 = Guid.CreateVersion7(), b = Guid.CreateVersion7();
+        IReadOnlyCollection<object> items =
+        [
+            new ParentProbeTreeItem(a1, a, "A1"),
+            new ParentProbeTreeItem(b, r, "B"),
+            new ParentProbeTreeItem(r, null, "R"),
+            new ParentProbeTreeItem(a, r, "A"),
+        ];
+
+        return (tree, items, r, a, a1);
+    }
+
+    [Fact]
+    public void TreeDescendants_OfTheRoot_AreDepthFirstWithSiblingsByTitle()
+    {
+        (TreeView tree, IReadOnlyCollection<object> items, Guid r, _, _) = DescendantsFixture();
+
+        IReadOnlyList<(object Item, Guid Id, string Title, int Depth)> result = TreeDescendants.Of(tree, items, r);
+
+        Assert.Equal(["A", "A1", "B"], result.Select(node => node.Title));
+        Assert.Equal([0, 1, 0], result.Select(node => node.Depth));
+    }
+
+    [Fact]
+    public void TreeDescendants_OfALeaf_AreEmpty()
+    {
+        (TreeView tree, IReadOnlyCollection<object> items, _, _, Guid a1) = DescendantsFixture();
+
+        Assert.Empty(TreeDescendants.Of(tree, items, a1));
+    }
+
+    [Fact]
+    public void TreeDescendants_OfAnUnknownNode_AreEmpty()
+    {
+        (TreeView tree, IReadOnlyCollection<object> items, _, _, _) = DescendantsFixture();
+
+        Assert.Empty(TreeDescendants.Of(tree, items, Guid.NewGuid()));
+    }
 }
