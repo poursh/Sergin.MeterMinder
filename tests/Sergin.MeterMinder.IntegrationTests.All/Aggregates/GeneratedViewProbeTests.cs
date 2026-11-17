@@ -948,9 +948,8 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
 
         await RenderDetailAsync<ParentProbe>(ParentProbeRoutes.Detail(alpha), alpha, async (root, view, viewHost) =>
         {
-            // The tree is read as the dialog opens, not with the record.
+            // The detail reads the tree once on load (its children section); the dialog reads it again itself as it opens.
             int reads = parentStore.TreeReads;
-            Assert.Equal(0, reads);
 
             IDialogReference asking = await view.AskParentAsync(move);
             var dialog = (SerginMoveDialog)asking.Dialog!;

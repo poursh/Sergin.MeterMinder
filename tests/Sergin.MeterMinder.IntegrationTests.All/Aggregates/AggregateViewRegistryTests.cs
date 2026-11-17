@@ -499,6 +499,46 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     }
 
     [Fact]
+    public void Tree_CarriesTheDeclaredIconAndTexts()
+    {
+        TreeView tree = AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration)).For<ParentProbe>().Tree!;
+
+        Assert.Equal("root-icon", tree.IconOf!(new ParentProbeTreeItem(Guid.NewGuid(), null, "a")));
+        Assert.Equal("node-icon", tree.IconOf!(new ParentProbeTreeItem(Guid.NewGuid(), Guid.NewGuid(), "b")));
+        Assert.Same(ParentProbeTexts.Filter, tree.FilterPlaceholder);
+        Assert.Same(ParentProbeTexts.Prompt, tree.PromptTitle);
+        Assert.Same(ParentProbeTexts.PromptHint, tree.PromptHint);
+        Assert.Equal("prompt-icon", tree.PromptIcon);
+        Assert.Same(ParentProbeTexts.Kids, tree.ChildrenTitle);
+        Assert.Same(ParentProbeTexts.NoKids, tree.ChildrenEmpty);
+        Assert.Same(ShellTexts.Trees.NothingToShow, tree.Empty);
+    }
+
+    [Fact]
+    public void Tree_WithOnlyATitle_TakesTheCommonDefaults()
+    {
+        TreeView tree = AggregateViewTestRegistry.Build(typeof(PlainTreeProbeViewConfiguration)).For<ParentProbe>().Tree!;
+
+        Assert.Null(tree.IconOf);
+        Assert.Same(ShellTexts.Trees.FilterPlaceholder, tree.FilterPlaceholder);
+        Assert.Same(ShellTexts.Trees.SelectPrompt, tree.PromptTitle);
+        Assert.Null(tree.PromptHint);
+        Assert.Equal(Icons.Material.Outlined.AccountTree, tree.PromptIcon);
+        Assert.Same(ShellTexts.Trees.Children, tree.ChildrenTitle);
+        Assert.Same(ShellTexts.Trees.NoChildren, tree.ChildrenEmpty);
+        Assert.Same(ShellTexts.Trees.NothingToShow, tree.Empty);
+    }
+
+    [Fact]
+    public void DetailField_WhenEmpty_IsCarriedOnTheFieldView()
+    {
+        FieldView field = AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration)).For<ParentProbe>()
+            .DetailFields.Single(f => f.Name == "ParentName");
+
+        Assert.Same(ParentProbeTexts.NoParent, field.WhenEmpty);
+    }
+
+    [Fact]
     public void MoveCandidates_ExcludeSelfAndDescendants()
     {
         TreeView tree = AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration)).For<ParentProbe>().Tree!;

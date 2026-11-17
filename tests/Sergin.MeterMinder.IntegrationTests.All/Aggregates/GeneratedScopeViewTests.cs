@@ -134,6 +134,67 @@ public sealed class GeneratedScopeViewTests(SerginWebApiFactory<Program> factory
     }
 
     [Fact]
+    public async Task RootScopeDetail_Under_ShowsTheTreeRootText()
+    {
+        string html = await GetAsync($"/ua/scopes/{Scope.RootId.Value}");
+
+        Assert.Contains("The root of the tree", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("href=\"/ua/scopes/\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ScopeDetail_Under_LinksToTheParent()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+
+        string html = await GetAsync($"/ua/scopes/{scenario.Feeder1}");
+
+        Assert.Contains($"href=\"/ua/scopes/{scenario.North}\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task ScopeDetail_ChildScopes_ListsDescendantsIndented()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+
+        string html = await GetAsync($"/ua/scopes/{scenario.Company}");
+
+        Assert.Contains("Child scopes", html, StringComparison.Ordinal);
+        int north = html.IndexOf($"href=\"/ua/scopes/{scenario.North}\"", StringComparison.Ordinal);
+        int feeder = html.IndexOf($"href=\"/ua/scopes/{scenario.Feeder1}\"", StringComparison.Ordinal);
+        int south = html.IndexOf($"href=\"/ua/scopes/{scenario.South}\"", StringComparison.Ordinal);
+        Assert.True(north >= 0 && north < feeder && feeder < south);
+        Assert.Equal(PaddingBefore(html, north) + 24, PaddingBefore(html, feeder));
+    }
+
+    [Fact]
+    public void ScopeTree_Keys_MatchTheHandWrittenLayout()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        AggregateViewModel model = scope.ServiceProvider.GetRequiredService<AggregateViewRegistry>().For<Scope>();
+
+        var parts = GeneratedTreeParts.For(model);
+
+        Assert.Equal("ua.scopes", parts.LayoutKey);
+        Assert.Equal("scope", parts.GroupKey);
+        Assert.Equal(typeof(DeleteScopeCommand), parts.Delete!.Request);
+        DeleteScopeCommand command = Assert.IsType<DeleteScopeCommand>(GeneratedTreeParts.DeleteRequest(parts.Delete, Guid.NewGuid()));
+        Assert.False(command.Cascade);
+        Assert.Equal([ScopePermissions.Manage], parts.Delete.Permissions);
+        Assert.True(parts.Delete.AnyScope);
+        Assert.NotNull(parts.AddChild);
+        Assert.Equal([ScopePermissions.Manage], parts.AddChild.Permissions);
+        Assert.True(parts.AddChild.AnyScope);
+    }
+
+    private static int PaddingBefore(string html, int index)
+    {
+        const string marker = "padding-left: ";
+        int at = html.LastIndexOf(marker, index, StringComparison.Ordinal) + marker.Length;
+        return int.Parse(html.AsSpan(at, html.IndexOf("px", at, StringComparison.Ordinal) - at), System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    [Fact]
     public async Task RootScopeDetail_OffersNoMoveOrDelete()
     {
         AggregateViewModel model = Model();
