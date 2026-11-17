@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Components;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Queries;
@@ -88,6 +89,103 @@ internal sealed class MoveWithoutLabelViewConfiguration : IAggregateViewConfigur
         view.Child<ParentProbeTag>(child => child.Named(ParentProbeTexts.Tag).Section<ParentProbeTagsSection>());
 }
 
+// ---- Refusal: a move whose constructor is not (Id, NewParentId) ----
+
+internal sealed record ShapedMoveProbeId(Guid Value);
+
+internal sealed class ShapedMoveProbe : AggregateRoot<ShapedMoveProbeId>;
+
+public static class ShapedMoveProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "ShapedMoveProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Shaped move probe");
+
+    public static TextDefinition Move { get; } = Category.Text("Move", "Move shaped");
+
+    public static FieldText NewParentId { get; } = Category.Field(nameof(NewParentId), "Move under");
+}
+
+internal sealed class ShapedMoveProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<ShapedMoveProbe>
+{
+    public void Configure(AggregateFeatureBuilder<ShapedMoveProbe> builder) =>
+        builder.Texts(ShapedMoveProbeTexts.Category).Named(ShapedMoveProbeTexts.Singular);
+}
+
+internal sealed record ShapedMoveTreeItem(Guid Id, Guid? ParentId, string Name);
+
+internal sealed record GetShapedMoveProbeTreeQuery : IQuery<IReadOnlyCollection<ShapedMoveTreeItem>>, ITreeQuery<ShapedMoveProbe>;
+
+internal sealed record MoveShapedMoveProbeCommand(ShapedMoveProbeId Id, ShapedMoveProbeId NewParentId, bool KeepRoles)
+    : ICommand, IMoveCommand<ShapedMoveProbe, ShapedMoveProbeId>;
+
+internal sealed class MoveWithExtraValueViewConfiguration : IAggregateViewConfiguration<ShapedMoveProbe>
+{
+    public void Configure(AggregateViewBuilder<ShapedMoveProbe> view) =>
+        view.Command<MoveShapedMoveProbeCommand>().Label(ShapedMoveProbeTexts.Move);
+}
+
+// ---- Refusal: a move whose NewParentId has no field text to label the picker ----
+
+internal sealed record UnlabelledMoveProbeId(Guid Value);
+
+internal sealed class UnlabelledMoveProbe : AggregateRoot<UnlabelledMoveProbeId>;
+
+public static class UnlabelledMoveProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "UnlabelledMoveProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Unlabelled move probe");
+
+    public static TextDefinition Move { get; } = Category.Text("Move", "Move unlabelled");
+}
+
+internal sealed class UnlabelledMoveProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<UnlabelledMoveProbe>
+{
+    public void Configure(AggregateFeatureBuilder<UnlabelledMoveProbe> builder) =>
+        builder.Texts(UnlabelledMoveProbeTexts.Category).Named(UnlabelledMoveProbeTexts.Singular);
+}
+
+internal sealed record UnlabelledMoveTreeItem(Guid Id, Guid? ParentId, string Name);
+
+internal sealed record GetUnlabelledMoveProbeTreeQuery : IQuery<IReadOnlyCollection<UnlabelledMoveTreeItem>>, ITreeQuery<UnlabelledMoveProbe>;
+
+internal sealed record MoveUnlabelledMoveProbeCommand(UnlabelledMoveProbeId Id, UnlabelledMoveProbeId NewParentId)
+    : ICommand, IMoveCommand<UnlabelledMoveProbe, UnlabelledMoveProbeId>;
+
+internal sealed class MoveWithoutParentFieldTextViewConfiguration : IAggregateViewConfiguration<UnlabelledMoveProbe>
+{
+    public void Configure(AggregateViewBuilder<UnlabelledMoveProbe> view) =>
+        view.Command<MoveUnlabelledMoveProbeCommand>().Label(UnlabelledMoveProbeTexts.Move);
+}
+
+// ---- Refusal: Tree<T>() naming another item than the tree query's ----
+
+/// <summary>The probe parent's tree declared over the flat probe's item.</summary>
+internal sealed class TreeOfAnotherItemViewConfiguration : IAggregateViewConfiguration<ParentProbe>
+{
+    public void Configure(AggregateViewBuilder<ParentProbe> view)
+    {
+        view.Tree<FlatTreeItem>(tree => tree.Title(item => item.Name));
+        view.Command<MoveParentProbeCommand>().Label(ParentProbeTexts.Move);
+        view.Child<ParentProbeTag>(child => child.Named(ParentProbeTexts.Tag).Section<ParentProbeTagsSection>());
+    }
+}
+
+// ---- Refusal: a Section component with no Context parameter ----
+
+/// <summary>A section component that never takes the root's context.</summary>
+internal sealed class ContextlessTagsSection : ComponentBase;
+
+internal sealed class SectionWithoutContextViewConfiguration : IAggregateViewConfiguration<ParentProbe>
+{
+    public void Configure(AggregateViewBuilder<ParentProbe> view)
+    {
+        view.Command<MoveParentProbeCommand>().Hidden();
+        view.Child<ParentProbeTag>(child => child.Named(ParentProbeTexts.Tag).Section<ContextlessTagsSection>());
+    }
+}
+
 // ---- Refusals: a Section child that declares what only the generated child views read ----
 
 /// <summary>The probe parent's section child, its move hidden, spoiled by <paramref name="spoil"/>.</summary>
@@ -123,10 +221,18 @@ internal sealed class SectionWithCommandViewConfiguration()
 internal static class MoveGuardTypes
 {
     public static Type[] AggregateConfigurations { get; } =
-        [typeof(TreelessProbeAggregateFeatureConfiguration), typeof(FlatTreeProbeAggregateFeatureConfiguration)];
+        [
+            typeof(TreelessProbeAggregateFeatureConfiguration), typeof(FlatTreeProbeAggregateFeatureConfiguration),
+            typeof(ShapedMoveProbeAggregateFeatureConfiguration), typeof(UnlabelledMoveProbeAggregateFeatureConfiguration),
+        ];
 
     public static Type[] Requests { get; } =
-        [typeof(MoveTreelessProbeCommand), typeof(GetFlatTreeProbeTreeQuery), typeof(MoveFlatTreeProbeCommand)];
+        [
+            typeof(MoveTreelessProbeCommand), typeof(GetFlatTreeProbeTreeQuery), typeof(MoveFlatTreeProbeCommand),
+            typeof(GetShapedMoveProbeTreeQuery), typeof(MoveShapedMoveProbeCommand),
+            typeof(GetUnlabelledMoveProbeTreeQuery), typeof(MoveUnlabelledMoveProbeCommand),
+        ];
 
-    public static Type[] Texts { get; } = [typeof(TreelessProbeTexts), typeof(FlatTreeProbeTexts)];
+    public static Type[] Texts { get; } =
+        [typeof(TreelessProbeTexts), typeof(FlatTreeProbeTexts), typeof(ShapedMoveProbeTexts), typeof(UnlabelledMoveProbeTexts)];
 }

@@ -35,3 +35,23 @@ Task 6: opus implementer a373cd0 hit 429 weekly budget twice, no changes made; r
 
 ## Final review triage
 
+
+## Leftovers pass (2026-11-17)
+
+Fixed:
+- Walk carry: `UserQueryResponse` gains `IsActive`; the user detail shows "Active" and offers Deactivate only on an active user (`AppliesWhen`). New key `user-access.users.fields.is-active.label` (catalog pin and the `fa` seed row added).
+- Task 2: `ConfirmDelete(...)`/`ConfirmDeleteMany(...)` on anything but a root's delete or a child's removal is now a host-start refusal (it asked with delete texts on a transition and was ignored on an update).
+- Task 2: `RefuseUnshownConfirmValues` advice — already right: a `Hidden()` delete builds no confirm fields (`Guard_HiddenDeleteWithHiddenExtraValue_Builds`).
+- Task 3: a field component's value of the wrong type for a non-primitive parameter is refused naming the request and parameter, not a bare cast error in the compiled constructor.
+- Task 3: the BelongsTo create-trail test asserts the Cancel anchor's href instead of counting parent links.
+- Task 4: one `GeneratedViewSupport.SendAsync` holds the versioned-or-plain send choice (`SendFromIdAsync`, `MoveToAsync`, `DeleteWithValuesAsync`).
+- Task 4: a tree that cannot be read shows its problem inside the move dialog, select and move disabled, no snackbar.
+- Task 4: refusal tests for a move constructor other than `(Id, NewParentId)`, a move with no `NewParentId` text, `Tree<T>` naming another item, and a Section component with no `Context`.
+
+Set aside (ruling — why — cost if wrong):
+- Task 1 static `EditDetailHost.View`, ~10 s Dialog test; Task 5 `HtmlOnceAsync` 5 s poll and `IndexOf(">Id<")` order checks — test-only, collection-serialized, bounded waits — a flaky test later.
+- Task 2 `DeleteWithValuesAsync` vs `FailedAsync` — they differ on purpose (always re-read vs re-read on stale) — none.
+- Task 2 bulk comment wording — cosmetic — none.
+- Task 3 list `CreateAction` without `parentId` for a self-parented root — no such root has a list page (Scope's list route is its tree) — the create form throws on render if one appears.
+- Task 3 `GeneratedInput.ComponentParameters` per-render dictionary — `DynamicComponent` takes fresh parameters each render anyway — negligible.
+- Task 4 re-read assert on a refused move — the probe test already checks the error once and no generation change — a missed re-read regression.

@@ -376,6 +376,18 @@ public sealed class AggregateViewGuardTests
             nameof(ConfirmOnUpdateViewConfiguration), nameof(UpdatePlainProbeCommand), "Confirm");
 
     [Fact]
+    public void Guard_ConfirmDeleteOnAnUpdate_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ConfirmDeleteOnUpdateViewConfiguration)),
+            nameof(ConfirmDeleteOnUpdateViewConfiguration), nameof(UpdatePlainProbeCommand), "ConfirmDelete");
+
+    [Fact]
+    public void Guard_ConfirmDeleteOnATransition_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ConfirmDeleteOnTransitionViewConfiguration)),
+            nameof(ConfirmDeleteOnTransitionViewConfiguration), nameof(ArchiveConfirmProbeCommand), "ConfirmDelete");
+
+    [Fact]
     public void Guard_TreeRootListRoute_Accepted()
     {
         AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration)).For<ParentProbe>();
@@ -446,6 +458,30 @@ public sealed class AggregateViewGuardTests
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(MoveWithoutLabelViewConfiguration)),
             nameof(MoveWithoutLabelViewConfiguration), nameof(MoveParentProbeCommand), "Move command with no default label");
+
+    [Fact]
+    public void Guard_MoveWithAnExtraValue_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(MoveWithExtraValueViewConfiguration)),
+            nameof(MoveWithExtraValueViewConfiguration), nameof(MoveShapedMoveProbeCommand), "not (Id, NewParentId)");
+
+    [Fact]
+    public void Guard_MoveWithoutParentFieldText_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(MoveWithoutParentFieldTextViewConfiguration)),
+            nameof(MoveWithoutParentFieldTextViewConfiguration), nameof(MoveUnlabelledMoveProbeCommand), "NewParentId", "no FieldText");
+
+    [Fact]
+    public void Guard_TreeOfAnotherItem_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(TreeOfAnotherItemViewConfiguration)),
+            nameof(TreeOfAnotherItemViewConfiguration), $"Tree<{nameof(FlatTreeItem)}>()", "not the item");
+
+    [Fact]
+    public void Guard_SectionWithoutContext_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(SectionWithoutContextViewConfiguration)),
+            nameof(SectionWithoutContextViewConfiguration), nameof(ContextlessTagsSection), "AggregateViewContext Context");
 
     [Theory]
     [InlineData(typeof(SectionWithRoutesViewConfiguration), "Routes(...)")]

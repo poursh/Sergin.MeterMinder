@@ -89,7 +89,7 @@ public sealed partial class GeneratedUserViewTests(SerginWebApiFactory<Program> 
         Assert.Equal(UserUiTexts.Deactivate, deactivate.ConfirmLabel);
 
         // The confirm's text fills {UserName} from the loaded record.
-        var record = new UserQueryResponse(user, userName);
+        var record = new UserQueryResponse(user, userName, IsActive: true);
         using (IServiceScope scope = factory.Services.CreateScope())
         {
             IStringLocalizer localizer = scope.ServiceProvider.GetRequiredService<IStringLocalizer>();
@@ -131,6 +131,33 @@ public sealed partial class GeneratedUserViewTests(SerginWebApiFactory<Program> 
             Assert.Same(deactivate, ask.Command);
             Assert.Same(record, ask.Record);
         });
+    }
+
+    [Fact]
+    public async Task UserDetail_OfAnInactiveUser_ShowsInactive_AndOffersNoDeactivate()
+    {
+        string userName = $"generated-inactive-{Guid.CreateVersion7()}";
+        Guid user = await CreateUserAsync(userName);
+
+        string active = await GetAsync($"/ua/users/{user}");
+        Assert.Contains(">Active<", active, StringComparison.Ordinal);
+        Assert.Contains(">Deactivate", active, StringComparison.Ordinal);
+
+        using (IServiceScope scope = factory.Services.CreateScope())
+        {
+            ErrorOr<DeactivateUserCommandResponse> deactivated = await scope.ServiceProvider.GetRequiredService<ISerginDispatcher>()
+                .SendAsync(new DeactivateUserCommand(new UserInternalId(user)));
+            Assert.False(deactivated.IsError, deactivated.IsError ? deactivated.FirstError.Description : string.Empty);
+        }
+
+        string inactive = await GetAsync($"/ua/users/{user}");
+        Assert.Contains(userName, inactive, StringComparison.Ordinal);
+        Assert.DoesNotContain(">Deactivate", inactive, StringComparison.Ordinal);
+
+        CommandView deactivate = Assert.Single(Model().Commands, command => command.Request == typeof(DeactivateUserCommand));
+        Assert.NotNull(deactivate.AppliesWhen);
+        Assert.True(deactivate.AppliesWhen(new UserQueryResponse(user, userName, IsActive: true)));
+        Assert.False(deactivate.AppliesWhen(new UserQueryResponse(user, userName, IsActive: false)));
     }
 
     [Fact]

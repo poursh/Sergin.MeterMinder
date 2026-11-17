@@ -597,6 +597,7 @@ user-access.users.assignments.valid
 user-access.users.deactivate
 user-access.users.deactivate-confirm
 user-access.users.deactivate-title
+user-access.users.fields.is-active.label
 user-access.users.fields.user-name.label
 user-access.users.identifier
 user-access.users.new

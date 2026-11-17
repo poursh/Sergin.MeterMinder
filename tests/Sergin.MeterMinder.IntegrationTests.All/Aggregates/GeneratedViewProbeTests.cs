@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 using ErrorOr;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Rendering;
@@ -852,8 +853,9 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         Assert.Contains(">Probe parent<", html, StringComparison.Ordinal);
         Assert.Contains(">New Child probe<", html, StringComparison.Ordinal);
 
-        // Cancel goes to the parent too: the trail's link and the Cancel button's.
-        Assert.Equal(2, CountOf(html, $"href=\"{ParentProbeRoutes.Detail(owner)}\""));
+        // Cancel goes to the parent too: the anchor carrying the Cancel text links to the parent's detail.
+        string parentHref = Regex.Escape($"href=\"{ParentProbeRoutes.Detail(owner)}\"");
+        Assert.Matches($@"<a\s[^>]*{parentHref}[^>]*>(?:(?!</a>)[\s\S])*>Cancel<", html);
     }
 
     [Fact]
@@ -988,6 +990,43 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
             Assert.Equal(1, viewHost.Changes);
             Assert.Equal(generation + 1, view.Generation);
         });
+    }
+
+    [Fact]
+    public async Task Detail_Move_TreeReadFails_ShowsTheProblemInTheDialog_AndOffersNothing()
+    {
+        Guid top = parentStore.AddParent("Unreadable root");
+        Guid nested = parentStore.AddParent("Unreadable child", top);
+        await GrantAsync(ParentProbePermissions.Read, ParentProbePermissions.Move);
+        CommandView move = host.Services.GetRequiredService<AggregateViewRegistry>().For<ParentProbe>().Commands
+            .Single(command => command.Request == typeof(MoveParentProbeCommand));
+
+        parentStore.TreeFailure = Error.Unexpected();
+
+        try
+        {
+            await RenderDetailAsync<ParentProbe>(ParentProbeRoutes.Detail(nested), nested, async (root, view, viewHost) =>
+            {
+                notified.Clear();
+                IDialogReference asking = await view.AskParentAsync(move);
+                var dialog = (SerginMoveDialog)asking.Dialog!;
+
+                // The failure is the dialog's content, not a snackbar behind it: no candidates, the select and the move disabled.
+                Assert.NotNull(dialog.Problem);
+                Assert.Empty(dialog.Candidates);
+                Assert.False(dialog.Loaded);
+                Assert.False(dialog.CanConfirm);
+                Assert.Empty(notified.Errors);
+                Assert.Contains(dialog.Problem.Title, WebUtility.HtmlDecode(root.ToHtmlString()), StringComparison.Ordinal);
+
+                dialog.Cancel();
+                Assert.True((await asking.Result)!.Canceled);
+            });
+        }
+        finally
+        {
+            parentStore.TreeFailure = null;
+        }
     }
 
     [Fact]

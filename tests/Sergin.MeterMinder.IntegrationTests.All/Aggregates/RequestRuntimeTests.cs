@@ -130,6 +130,19 @@ public sealed class RequestRuntimeTests(SerginWebApiFactory<Program> factory)
         Assert.Equal([3], picked.Items);
     }
 
+    [Fact]
+    public void RequestFactory_ForForm_ValueOfTheWrongTypeForACollection_IsRefusedNamingTheParameter()
+    {
+        Func<Guid, IReadOnlyDictionary<string, object?>, object> build = RequestFactory.ForForm(typeof(CollectionProbeCommand));
+
+        InvalidOperationException refused = Assert.Throws<InvalidOperationException>(
+            () => build(Guid.Empty, new Dictionary<string, object?> { ["Items"] = "3" }));
+
+        Assert.Contains(nameof(CollectionProbeCommand), refused.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(CollectionProbeCommand.Items), refused.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(String), refused.Message, StringComparison.Ordinal);
+    }
+
     /// <summary>A request with collections of each shape a picker may feed: required, and optional (left null).</summary>
     public sealed record CollectionProbeCommand(IReadOnlyCollection<int> Items, IEnumerable<string> Names, IReadOnlyCollection<int>? Optional);
 
