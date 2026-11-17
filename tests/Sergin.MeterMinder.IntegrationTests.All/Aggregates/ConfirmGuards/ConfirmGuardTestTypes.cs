@@ -51,6 +51,12 @@ internal sealed class HiddenValueProbeViewConfiguration : IAggregateViewConfigur
     }
 }
 
+/// <summary>The same delete, hidden: nothing asks for its value, so the refusal does not apply.</summary>
+internal sealed class HiddenDeleteViewConfiguration : IAggregateViewConfiguration<HiddenValueProbe>
+{
+    public void Configure(AggregateViewBuilder<HiddenValueProbe> view) => view.Command<DeleteHiddenValueProbeCommand>().Hidden();
+}
+
 // ---- Refusal: Confirm(...) on a command no view asks before sending ----
 
 /// <summary>An update links to its edit page, so a confirm on it would never be asked.</summary>

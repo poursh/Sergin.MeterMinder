@@ -28,10 +28,10 @@ Task 6: opus implementer a373cd0 hit 429 weekly budget twice, no changes made; r
 - Task 5: minor (deferred): html.IndexOf(">Id<") loose substring order assertions.
 - Task 6: minor (deferred): heading-leak test green per implementer's ScopedRbac filter run (210/210).
 - Task 8 (resolved): ScopeTreeLayout stale `ScopeDetailView` comment; stale hand-written-view prose in add-feature/add-module skills and the UserAccess and root CLAUDE.md; root test-folder list. Not resolved: the open walk items below; every deferred line above is still open.
-- Task 8 walk, open: after a scope rename or move the header breadcrumb keeps the old node path until the next navigation (tree and fields are current).
-- Task 8 walk, open: Deactivate is still offered on a deactivated user (`UserQueryResponse` has no `IsActive`).
-- Task 8 walk, open: clicking the primary Read profile button showed no snackbar within 3 s (not investigated).
-- Task 8 walk, open: deleting a role without ticking Cascade did not navigate; whether an error snackbar showed was not captured (GeneratedRoleViewTests asserts a refusal notification, so likely the refusal; confirm).
+- Task 8 walk, fixed (final wave): after a scope rename or move the header breadcrumb kept the old node path; `SerginTree.ReloadActiveAsync` now re-renders the tree after the group reload. No render-level test (no circuit harness for the tree layout); covered by the one-line change.
+- Task 8 walk, carry: Deactivate is still offered on a deactivated user (`UserQueryResponse` has no `IsActive`; adding it is the fix).
+- Task 8 walk, closed: Read profile shows no snackbar within 3 s because `SimulatedReadDuration` is 3 s; the snackbar comes after the send.
+- Task 8 walk, expected: deleting a role without Cascade while it is assigned is refused, the error is notified and the role stays (`GeneratedRoleViewTests.RoleDelete_WithoutCascade_IsRefusedWhileAssigned_AndTheRoleStays` asserts one notification).
 
 ## Final review triage
 

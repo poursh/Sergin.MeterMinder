@@ -360,6 +360,16 @@ public sealed class AggregateViewGuardTests
             nameof(HiddenValueProbeViewConfiguration), nameof(DeleteHiddenValueProbeCommand), nameof(DeleteHiddenValueProbeCommand.Cascade), "NotShown");
 
     [Fact]
+    public void Guard_HiddenDeleteWithHiddenExtraValue_Builds()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(HiddenDeleteViewConfiguration)).For<HiddenValueProbe>();
+
+        CommandView delete = Assert.Single(model.Commands, command => command.Request == typeof(DeleteHiddenValueProbeCommand));
+        Assert.True(delete.Hidden);
+        Assert.Empty(delete.ConfirmFields);
+    }
+
+    [Fact]
     public void Guard_ConfirmOnACommandNoViewAsks_Refuses() =>
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(ConfirmOnUpdateViewConfiguration)),

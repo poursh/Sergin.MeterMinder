@@ -185,12 +185,15 @@ public sealed class GeneratedRoleViewTests(SerginWebApiFactory<Program> factory)
         (RbacScenario scenario, Guid role, Guid user) = await AssignedRoleAsync();
         CommandView delete = Model().Commands.Single(command => command.Request == typeof(DeleteRoleCommand));
 
+        List<Error> notified = [];
         await RenderDetailAsync(role, caller: null, async (_, view, viewHost) =>
         {
             await view.DeleteWithValuesAsync(delete, CascadeValues(cascade: false));
 
             Assert.Empty(viewHost.Leaves);
-        });
+        }, notified);
+
+        Assert.Single(notified);
 
         Assert.True(await RoleExistsAsync(role));
         IReadOnlyCollection<UserAssignmentItem> assignments = await scenario.SendAsync(new GetUserAssignmentsQueryCommand(new UserInternalId(user)));
@@ -319,6 +322,30 @@ public sealed class GeneratedRoleViewTests(SerginWebApiFactory<Program> factory)
         Assert.Equal([RbacScenario.Read.Value], role.Permissions);
     }
 
+    [Fact]
+    public async Task RoleCreate_WithoutTouchingThePicker_CreatesARoleWithNoPermissions()
+    {
+        AggregateViewModel model = Model();
+        string name = $"bare-{Guid.NewGuid():N}"[..16];
+        using IServiceScope scope = factory.Services.CreateScope();
+
+        // The picker only reports after a pick, so an untouched one leaves Permissions out of the form's values.
+        ViewSendResult sent = await model.SubmitFormAsync(
+            scope.ServiceProvider.GetRequiredService<ISerginDispatcher>(),
+            id: null,
+            new Dictionary<string, object?>(StringComparer.Ordinal)
+            {
+                [nameof(CreateRoleCommand.OwnerScopeId)] = Scope.RootId.Value,
+                [nameof(CreateRoleCommand.Name)] = name,
+            },
+            version: null);
+
+        Assert.False(sent.IsError, sent.IsError ? sent.Errors[0].Description : string.Empty);
+        RoleQueryResponse role = await LoadRoleAsync(Assert.IsType<CreateRoleCommandResponse>(sent.Value).Id);
+        Assert.Equal(name, role.Name);
+        Assert.Empty(role.Permissions);
+    }
+
     private AggregateViewModel Model() => factory.Services.GetRequiredService<AggregateViewRegistry>().For<Role>();
 
     private async Task<RoleQueryResponse> LoadRoleAsync(Guid role)
@@ -357,7 +384,8 @@ public sealed class GeneratedRoleViewTests(SerginWebApiFactory<Program> factory)
     // Renders the generated role detail view in process as the development user, or as <paramref name="caller"/>, under a
     // host that records where the view leaves to, with the providers its dialogs render into.
     private async Task RenderDetailAsync(
-        Guid role, TestCaller? caller, Func<HtmlRootComponent, SerginGeneratedDetailView<Role>, RecordingHost, Task> test)
+        Guid role, TestCaller? caller, Func<HtmlRootComponent, SerginGeneratedDetailView<Role>, RecordingHost, Task> test,
+        List<Error>? notified = null)
     {
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
 
@@ -368,7 +396,10 @@ public sealed class GeneratedRoleViewTests(SerginWebApiFactory<Program> factory)
 
         ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
             .Initialize("http://localhost/", $"http://localhost/ua/roles/{role}");
-        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+        IServiceProvider services = notified is null
+            ? scope.ServiceProvider
+            : new OverridingProvider(scope.ServiceProvider, new RecordingPresenter(scope.ServiceProvider.GetRequiredService<IUiErrorPresenter>(), notified));
+        await using var renderer = new HtmlRenderer(services, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
         var viewHost = new RecordingHost();
 
         await renderer.Dispatcher.InvokeAsync(async () =>
