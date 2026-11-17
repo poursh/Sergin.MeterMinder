@@ -60,7 +60,7 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
         "/dm/manufacturers/new",
         "/st/languages",
         "/st/languages/new",
-        "/ua/roles/new",
+        "/ua/roles/new?scopeId=01920000-0000-7000-8000-0000000000b1",
         "/ua/scopes",
         "/ua/scopes/new",
         "/ua/users",

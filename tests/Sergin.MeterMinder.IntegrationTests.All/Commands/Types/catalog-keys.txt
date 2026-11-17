@@ -506,7 +506,6 @@ settings.translations.values.translation-status.untranslated
 user-access.assignments.permissions.manage
 user-access.menu-title
 user-access.roles.add-permission
-user-access.roles.delete-cascade-confirm
 user-access.roles.delete-confirm
 user-access.roles.delete-title
 user-access.roles.errors.assigned-below-owner
@@ -522,7 +521,6 @@ user-access.roles.fields.owner-scope-id.label
 user-access.roles.fields.permission.label
 user-access.roles.fields.permissions.label
 user-access.roles.inheritable-on-create
-user-access.roles.inheritable-on-detail
 user-access.roles.new
 user-access.roles.owned-by
 user-access.roles.permissions.manage
