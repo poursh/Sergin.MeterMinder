@@ -66,6 +66,23 @@ internal sealed class ConfirmOnUpdateViewConfiguration : IAggregateViewConfigura
         view.Command<UpdatePlainProbeCommand>().Confirm(HiddenValueProbeTexts.Singular, HiddenValueProbeTexts.Confirm);
 }
 
+internal sealed class ConfirmDeleteOnUpdateViewConfiguration : IAggregateViewConfiguration<PlainProbe>
+{
+    public void Configure(AggregateViewBuilder<PlainProbe> view) =>
+        view.Command<UpdatePlainProbeCommand>().ConfirmDelete(HiddenValueProbeTexts.Singular, HiddenValueProbeTexts.Confirm);
+}
+
+internal sealed class ConfirmDeleteOnTransitionViewConfiguration : IAggregateViewConfiguration<ConfirmProbe>
+{
+    public void Configure(AggregateViewBuilder<ConfirmProbe> view)
+    {
+        view.Routes(ConfirmProbeRoutes.List, ConfirmProbeRoutes.Detail);
+        view.Command<ArchiveConfirmProbeCommand>()
+            .Label(ConfirmProbeTexts.Archive)
+            .ConfirmDelete(ConfirmProbeTexts.ArchiveTitle, ConfirmProbeTexts.ArchiveText);
+    }
+}
+
 internal static class ConfirmGuardTypes
 {
     public static Type[] AggregateConfigurations { get; } = [typeof(HiddenValueProbeAggregateFeatureConfiguration)];

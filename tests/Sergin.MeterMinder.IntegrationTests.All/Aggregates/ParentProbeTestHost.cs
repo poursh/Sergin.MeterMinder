@@ -25,6 +25,9 @@ internal sealed class ParentProbeStore
 
     private int treeReads;
 
+    /// <summary>When set, the tree read answers this error instead of the tree.</summary>
+    public Error? TreeFailure { get; set; }
+
     public Guid AddParent(string name, Guid? parentId = null)
     {
         var id = Guid.CreateVersion7();
@@ -77,7 +80,8 @@ internal sealed class GetParentProbeTreeQueryHandler(ParentProbeStore store)
     : IRequestHandler<GetParentProbeTreeQuery, ErrorOr<IReadOnlyList<ParentProbeTreeItem>>>
 {
     public Task<ErrorOr<IReadOnlyList<ParentProbeTreeItem>>> Handle(GetParentProbeTreeQuery request, CancellationToken cancellationToken) =>
-        Task.FromResult<ErrorOr<IReadOnlyList<ParentProbeTreeItem>>>(ErrorOrFactory.From(store.Tree()));
+        Task.FromResult<ErrorOr<IReadOnlyList<ParentProbeTreeItem>>>(
+            store.TreeFailure is { } failure ? failure : ErrorOrFactory.From(store.Tree()));
 }
 
 internal sealed class MoveParentProbeCommandHandler(ParentProbeStore store) : IRequestHandler<MoveParentProbeCommand, ErrorOr<Success>>

@@ -675,6 +675,7 @@ FROM (VALUES
  ('fa','user-access.users.deactivate','غیرفعال‌سازی','Deactivate'),
  ('fa','user-access.users.deactivate-confirm','«{UserName}» غیرفعال شود؟ دیگر نمی‌تواند وارد شود.','Deactivate {UserName}? They can no longer sign in.'),
  ('fa','user-access.users.deactivate-title','غیرفعال‌سازی کاربر','Deactivate user'),
+ ('fa','user-access.users.fields.is-active.label','فعال','Active'),
  ('fa','user-access.users.fields.user-name.label','نام کاربری','User name'),
  ('fa','user-access.users.identifier','شناسه','Id'),
  ('fa','user-access.users.new','کاربر جدید','New user'),
