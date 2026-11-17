@@ -327,12 +327,16 @@ common.scopes.no-scope-matches
 common.scopes.no-scope-to-work-in
 common.scopes.scope
 common.scopes.search-scopes
+common.trees.children
 common.trees.delete-confirm
 common.trees.filter-placeholder
 common.trees.hide-tree
 common.trees.matches
+common.trees.no-children
+common.trees.nothing-to-show
 common.trees.one-match
 common.trees.resize-tree
+common.trees.select-prompt
 common.trees.show-tree
 common.validation.async-predicate-validator
 common.validation.credit-card-validator

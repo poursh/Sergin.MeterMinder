@@ -355,6 +355,20 @@ public static class ParentProbeTexts
 
     public static TextDefinition Tag { get; } = Category.Text("Tag", "Probe tag");
 
+    public static TextDefinition Filter { get; } = Category.Text("Filter", "Filter probes…");
+
+    public static TextDefinition Prompt { get; } = Category.Text("Prompt", "Pick a probe");
+
+    public static TextDefinition PromptHint { get; } = Category.Text("PromptHint", "Pick one to see its parts.");
+
+    public static TextDefinition Kids { get; } = Category.Text("Kids", "Kid probes");
+
+    public static TextDefinition NoKids { get; } = Category.Text("NoKids", "No kid probes.");
+
+    public static TextDefinition ParentLabel { get; } = Category.Text("ParentLabel", "Parent probe");
+
+    public static TextDefinition NoParent { get; } = Category.Text("NoParent", "No parent.");
+
     public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
 
     public static FieldText NewParentId { get; } = Category.Field(nameof(NewParentId), "Move under");
@@ -468,8 +482,30 @@ internal sealed class ParentProbeViewConfiguration : IAggregateViewConfiguration
         view.Routes(ParentProbeRoutes.List, ParentProbeRoutes.Detail, ParentProbeRoutes.Create);
         view.BelongsTo<ParentProbe, ParentProbeResponse>(parent => parent.ParentId, parent => parent.ParentName);
         view.Command<CreateParentProbeCommand>().Label(ParentProbeTexts.NewChild);
-        view.Tree<ParentProbeTreeItem>(tree => tree.Title(item => item.Name));
+        view.Tree<ParentProbeTreeItem>(tree => tree.Title(item => item.Name)
+            .Icon(i => i.ParentId is null ? "root-icon" : "node-icon")
+            .Filter(ParentProbeTexts.Filter)
+            .Prompt(ParentProbeTexts.Prompt, ParentProbeTexts.PromptHint, "prompt-icon")
+            .Children(ParentProbeTexts.Kids, ParentProbeTexts.NoKids));
+        view.Detail<ParentProbeResponse>(detail => detail.Field(parent => parent.ParentName)
+            .Label(ParentProbeTexts.ParentLabel)
+            .Link(parent => $"/tst/probe-parents/{parent.ParentId}")
+            .WhenEmpty(ParentProbeTexts.NoParent));
         view.Command<MoveParentProbeCommand>().Label(ParentProbeTexts.Move).AppliesWhen<ParentProbeResponse>(parent => parent.ParentId is not null);
+        view.Child<ParentProbeTag>(child => child.Named(ParentProbeTexts.Tag).Section<ParentProbeTagsSection>());
+    }
+}
+
+/// <summary>ParentProbe's view with a tree that declares only its title, for the tree defaults.</summary>
+internal sealed class PlainTreeProbeViewConfiguration : IAggregateViewConfiguration<ParentProbe>
+{
+    public void Configure(AggregateViewBuilder<ParentProbe> view)
+    {
+        view.Title(ParentProbeTexts.Title);
+        view.Routes(ParentProbeRoutes.List, ParentProbeRoutes.Detail, ParentProbeRoutes.Create);
+        view.Command<CreateParentProbeCommand>().Label(ParentProbeTexts.NewChild);
+        view.Tree<ParentProbeTreeItem>(tree => tree.Title(item => item.Name));
+        view.Command<MoveParentProbeCommand>().Label(ParentProbeTexts.Move);
         view.Child<ParentProbeTag>(child => child.Named(ParentProbeTexts.Tag).Section<ParentProbeTagsSection>());
     }
 }
