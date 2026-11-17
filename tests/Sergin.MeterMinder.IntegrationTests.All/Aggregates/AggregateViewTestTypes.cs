@@ -510,6 +510,20 @@ internal sealed class PlainTreeProbeViewConfiguration : IAggregateViewConfigurat
     }
 }
 
+/// <summary>ParentProbe's view with a tree and a detail route but no list route.</summary>
+internal sealed class NoListRouteTreeProbeViewConfiguration : IAggregateViewConfiguration<ParentProbe>
+{
+    public void Configure(AggregateViewBuilder<ParentProbe> view)
+    {
+        view.Title(ParentProbeTexts.Title);
+        view.Routes(detail: ParentProbeRoutes.Detail, create: ParentProbeRoutes.Create);
+        view.Command<CreateParentProbeCommand>().Label(ParentProbeTexts.NewChild);
+        view.Tree<ParentProbeTreeItem>(tree => tree.Title(item => item.Name));
+        view.Command<MoveParentProbeCommand>().Label(ParentProbeTexts.Move);
+        view.Child<ParentProbeTag>(child => child.Named(ParentProbeTexts.Tag).Section<ParentProbeTagsSection>());
+    }
+}
+
 internal sealed class ChildProbeViewConfiguration : IAggregateViewConfiguration<ChildProbe>
 {
     public void Configure(AggregateViewBuilder<ChildProbe> view)
