@@ -180,6 +180,11 @@ public sealed class GeneratedScopeViewTests(SerginWebApiFactory<Program> factory
         Assert.Equal(typeof(DeleteScopeCommand), parts.Delete!.Request);
         DeleteScopeCommand command = Assert.IsType<DeleteScopeCommand>(GeneratedTreeParts.DeleteRequest(parts.Delete, Guid.NewGuid()));
         Assert.False(command.Cascade);
+        Assert.Equal([ScopePermissions.Manage], parts.Delete.Permissions);
+        Assert.True(parts.Delete.AnyScope);
+        Assert.NotNull(parts.AddChild);
+        Assert.Equal([ScopePermissions.Manage], parts.AddChild.Permissions);
+        Assert.True(parts.AddChild.AnyScope);
     }
 
     private static int PaddingBefore(string html, int index)
