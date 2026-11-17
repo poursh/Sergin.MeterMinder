@@ -23,6 +23,7 @@ using Sergin.Administration.Settings.Application;
 using Sergin.Administration.Settings.Application.Contracts;
 using Sergin.Administration.UserAccess.Application;
 using Sergin.Administration.UserAccess.Application.Configurations;
+using Sergin.Administration.UserAccess.Application.Configurations.Roles;
 using Sergin.Administration.UserAccess.Application.Contracts.Roles.Commands.Rename;
 using Sergin.Administration.UserAccess.Application.Contracts.Scopes.Commands.Create;
 using Sergin.Administration.UserAccess.Application.Contracts.Scopes.Commands.Move;
@@ -142,9 +143,11 @@ public sealed class ModuleCommandConfigurationTests
     [Fact]
     public void ScopedManagementCommands_CheckNoGlobalPermission()
     {
+        // A role's edits require Manage on any scope (Role is not Scoped()); the handler still checks the owner scope.
         CommandSettings renameRole = Registry.For(typeof(RenameRoleCommand));
 
-        Assert.Empty(renameRole.RequiredPermissions);
+        Assert.Equal(RolePermissions.Manage, Assert.Single(renameRole.RequiredPermissions));
+        Assert.Equal(PermissionScope.Any, renameRole.PermissionScope);
         Assert.True(renameRole.RequiresExpectedVersion);
 
         // Their root now comes from the record's type, but they still add no permission and no version.

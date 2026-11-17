@@ -29,7 +29,11 @@ using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
+using Sergin.SharedKernel.Presentation.Blazor.Validation;
 using Sergin.SharedKernel.Presentation.Blazor.Views;
+using Sergin.Administration.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
+using Sergin.Administration.UserAccess.Application.Contracts.Users.Assignments.Commands.GetList;
+using Sergin.Administration.UserAccess.Domain.Users;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
@@ -81,31 +85,44 @@ public sealed class GeneratedRoleViewTests(SerginWebApiFactory<Program> factory)
         Assert.Contains(">Inheritable<", html, StringComparison.Ordinal);
         Assert.Contains("mud-switch", html, StringComparison.Ordinal);
         Assert.Contains(">Rename<", html, StringComparison.Ordinal);
+
+        // A rename sent through the inline seam is stored.
+        CommandView rename = model.Commands.Single(command => command.Request == typeof(RenameRoleCommand));
+        string renamed = $"renamed-{Guid.NewGuid():N}"[..16];
+        using (IServiceScope scope = factory.Services.CreateScope())
+        {
+            ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+            ViewSendResult loaded = await model.LoadRecordAsync(dispatcher, role);
+            var setProperty = new GeneratedSetProperty(scope.ServiceProvider.GetRequiredService<ISerginFormValidator>());
+
+            SetPropertyOutcome outcome = await setProperty.SendAsync(dispatcher, rename, role, renamed, loaded.Version);
+
+            Assert.Equal(SetPropertyStatus.Sent, outcome.Status);
+        }
+
+        Assert.Equal(renamed, (await LoadRoleAsync(role)).Name);
         Assert.DoesNotContain("Scopes below the owner can use it too", html, StringComparison.Ordinal);
     }
 
-    // The role's commands declare no permission (the handlers check the owner scope), so the generated view cannot hide
-    // its controls from a reader: it shows them, and the server refuses what the reader sends. The hand-written view
-    // hid only Delete.
     [Fact]
     public async Task RoleDetail_ForAReader_ShowsInheritableAsText()
     {
         CommandView setInheritable = Model().Commands.Single(command => command.Request == typeof(SetRoleInheritableCommand));
-        Assert.Empty(setInheritable.Permissions);
+        Assert.Equal(RolePermissions.Manage, Assert.Single(setInheritable.Permissions));
 
         RbacScenario scenario = await RbacScenario.BuildAsync(factory);
-        Guid role = await scenario.CreateRoleAsync(scenario.North, $"reader-{Guid.NewGuid():N}"[..16], inheritable: false, RbacScenario.Read);
+        Guid role = await scenario.CreateRoleAsync(scenario.North, $"reader-{Guid.NewGuid():N}"[..16], inheritable: true, RbacScenario.Read);
         TestCaller reader = await scenario.CreateGrantedCallerAsync(Scope.RootId.Value, RolePermissions.Read.Permission);
 
-        await RenderDetailAsync(role, reader, async (root, view, _) =>
+        await RenderDetailAsync(role, reader, (root, _, _) =>
         {
             string html = Html(root);
             Assert.Contains(">Inheritable<", html, StringComparison.Ordinal);
-            Assert.Contains("mud-switch", html, StringComparison.Ordinal);
-
-            // Flipped by a reader: refused by the pipeline, nothing changes.
-            Assert.False(await view.SetPropertyAsync(setInheritable, true));
-            Assert.False((await LoadRoleAsync(role)).IsInheritable);
+            Assert.Contains(">Yes<", html, StringComparison.Ordinal);
+            Assert.DoesNotContain("mud-switch", html, StringComparison.Ordinal);
+            Assert.DoesNotContain(">Rename<", html, StringComparison.Ordinal);
+            Assert.DoesNotContain(">Delete<", html, StringComparison.Ordinal);
+            return Task.CompletedTask;
         });
     }
 
@@ -140,6 +157,67 @@ public sealed class GeneratedRoleViewTests(SerginWebApiFactory<Program> factory)
 
             Assert.Equal([$"/ua/scopes/{scenario.North}"], viewHost.Leaves);
         });
+
+        Assert.False(await RoleExistsAsync(role));
+    }
+
+    [Fact]
+    public async Task RoleDelete_WithCascade_RevokesTheAssignment()
+    {
+        (RbacScenario scenario, Guid role, Guid user) = await AssignedRoleAsync();
+        CommandView delete = Model().Commands.Single(command => command.Request == typeof(DeleteRoleCommand));
+
+        await RenderDetailAsync(role, caller: null, async (_, view, viewHost) =>
+        {
+            await view.DeleteWithValuesAsync(delete, CascadeValues(cascade: true));
+
+            Assert.Equal([$"/ua/scopes/{scenario.North}"], viewHost.Leaves);
+        });
+
+        Assert.False(await RoleExistsAsync(role));
+        IReadOnlyCollection<UserAssignmentItem> assignments = await scenario.SendAsync(new GetUserAssignmentsQueryCommand(new UserInternalId(user)));
+        Assert.All(assignments.Where(assignment => assignment.RoleId == role), assignment => Assert.NotNull(assignment.RevokedAtUtc));
+    }
+
+    [Fact]
+    public async Task RoleDelete_WithoutCascade_IsRefusedWhileAssigned_AndTheRoleStays()
+    {
+        (RbacScenario scenario, Guid role, Guid user) = await AssignedRoleAsync();
+        CommandView delete = Model().Commands.Single(command => command.Request == typeof(DeleteRoleCommand));
+
+        await RenderDetailAsync(role, caller: null, async (_, view, viewHost) =>
+        {
+            await view.DeleteWithValuesAsync(delete, CascadeValues(cascade: false));
+
+            Assert.Empty(viewHost.Leaves);
+        });
+
+        Assert.True(await RoleExistsAsync(role));
+        IReadOnlyCollection<UserAssignmentItem> assignments = await scenario.SendAsync(new GetUserAssignmentsQueryCommand(new UserInternalId(user)));
+        Assert.All(assignments.Where(assignment => assignment.RoleId == role), assignment => Assert.Null(assignment.RevokedAtUtc));
+    }
+
+    private static Dictionary<string, object?> CascadeValues(bool cascade) =>
+        new(StringComparer.Ordinal) { [nameof(DeleteRoleCommand.Cascade)] = cascade };
+
+    private async Task<(RbacScenario Scenario, Guid Role, Guid User)> AssignedRoleAsync()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+        Guid role = await scenario.CreateRoleAsync(scenario.North, $"held-{Guid.NewGuid():N}"[..16], inheritable: false, RbacScenario.Read);
+        Guid user = await scenario.CreateUserAsync("role-holder");
+        ErrorOr<AssignRoleCommandResponse> assigned = await scenario.AssignAsync(user, role, scenario.North, includeSubtree: false);
+        Assert.False(assigned.IsError, assigned.IsError ? assigned.FirstError.Description : string.Empty);
+
+        return (scenario, role, user);
+    }
+
+    private async Task<bool> RoleExistsAsync(Guid role)
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ErrorOr<Versioned<RoleQueryResponse>> loaded = await scope.ServiceProvider.GetRequiredService<ISerginDispatcher>()
+            .SendVersionedAsync(new GetRoleByIdQueryCommand(new RoleId(role)));
+
+        return !loaded.IsError;
     }
 
     [Fact]
