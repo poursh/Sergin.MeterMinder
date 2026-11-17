@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using MudBlazor;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Localizations;
+using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
@@ -50,10 +51,21 @@ public sealed partial class ScheduleProbePage
 
     protected override async Task OnInitializedAsync()
     {
-        SerginPageAction? schedule = await SerginScheduleAction.PageAsync(
-            ScopeAuthorization, EventCallback.Factory.Create(this, ScheduleAsync), ScheduleProbePermissions.Touch);
+        // What a generated view builds for a schedulable command: the platform permission gates the action,
+        // the command's own permission is the action's.
+        bool mayManage = await ScopeAuthorization.CurrentUserHasAsync(ScheduledTaskPermissions.Manage);
 
-        actions = schedule is null ? [] : [schedule];
+        actions = mayManage
+            ?
+            [
+                new SerginPageAction(
+                    ScheduledTaskUiTexts.ScheduleAction,
+                    Icons.Material.Outlined.Schedule,
+                    SerginActionKind.Secondary,
+                    OnClick: EventCallback.Factory.Create(this, ScheduleAsync),
+                    Permission: ScheduleProbePermissions.Touch),
+            ]
+            : [];
     }
 
     private void OnLoaded() => count = section.CountOf("tst.probes.touch");

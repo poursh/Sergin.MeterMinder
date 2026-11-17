@@ -1,5 +1,9 @@
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BelongsToGuards;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.MoveGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BrokenChildViews;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ConfirmGuards;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.HardenedGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
 using Sergin.SharedKernel.Application.Aggregates;
@@ -201,6 +205,287 @@ internal sealed class EditProbeViewConfiguration : IAggregateViewConfiguration<E
     {
         view.Command<RenameProbeCommand>().Label(CommonTexts.Rename).Edit(SerginEditMode.Inline);
         view.Command<SetProbeColorCommand>().Edit(SerginEditMode.Inline);
+    }
+}
+
+// ---- A versioned root whose transition asks first, whose delete asks for a value, and whose id is shown ----
+
+internal sealed record ConfirmProbeId(Guid Value);
+
+internal sealed record ConfirmProbeTitle(string Value);
+
+internal sealed class ConfirmProbe : AggregateRoot<ConfirmProbeId>;
+
+internal static class ConfirmProbePermissions
+{
+    public static PermissionDefinition Read { get; } = PermissionDefinition.Create("permission.tst.confirm-probes.read", "View confirm probes");
+
+    public static PermissionDefinition Update { get; } = PermissionDefinition.Create("permission.tst.confirm-probes.update", "Change confirm probes");
+}
+
+public static class ConfirmProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "ConfirmProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Confirm probe");
+
+    public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
+
+    public static FieldText Title { get; } = Category.Field(nameof(Title), "Headline");
+
+    public static FieldText Cascade { get; } = Category.Field(nameof(Cascade), "Also delete what it holds");
+
+    /// <summary>The label the shown id field is given.</summary>
+    public static TextDefinition Reference { get; } = Category.Text("Reference", "Reference");
+
+    public static TextDefinition Archive { get; } = Category.Text("Archive", "Archive");
+
+    public static TextDefinition ArchiveTitle { get; } = Category.Text("ArchiveTitle", "Archive probe");
+
+    public static TextDefinition ArchiveText { get; } = Category.Text("ArchiveText", "Archive {Name}?");
+
+    public static TextDefinition ArchiveConfirm { get; } = Category.Text("ArchiveConfirm", "Archive now");
+
+    public static TextDefinition DeleteText { get; } = Category.Text("DeleteText", "Delete {Name} for good?");
+}
+
+internal sealed class ConfirmProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<ConfirmProbe>
+{
+    public void Configure(AggregateFeatureBuilder<ConfirmProbe> builder) =>
+        builder.Versioned()
+            .Permissions(ConfirmProbePermissions.Read, ConfirmProbePermissions.Update)
+            .Texts(ConfirmProbeTexts.Category)
+            .Named(ConfirmProbeTexts.Singular);
+}
+
+internal sealed record ConfirmProbeResponse(Guid Id, string Name, ConfirmProbeTitle Title);
+
+internal sealed record GetConfirmProbeQuery(ConfirmProbeId Id) : IQuery<ConfirmProbeResponse>, IGetOneQuery<ConfirmProbe, ConfirmProbeId>;
+
+internal sealed record ConfirmProbeListItem(Guid Id, string Name);
+
+/// <summary>Gives the probe its list route, which a detail delete leaves to; nothing here sends it.</summary>
+internal sealed record ListConfirmProbesQuery : ListQuery<ConfirmProbeListItem>, IListOf<ConfirmProbe>
+{
+    public ListConfirmProbesQuery(Paggination paggination)
+        : base(paggination)
+    {
+    }
+}
+
+/// <summary>A transition declared with Confirm(...): it asks before it is sent.</summary>
+internal sealed record ArchiveConfirmProbeCommand(ConfirmProbeId Id) : ICommand, ITransitionCommand<ConfirmProbe, ConfirmProbeId>;
+
+/// <summary>A Dialog set-property command: a sent value moves the generation and tells the host.</summary>
+internal sealed record RetitleConfirmProbeCommand(ConfirmProbeId Id, ConfirmProbeTitle Title) : ICommand, ISetPropertyCommand<ConfirmProbe, ConfirmProbeId>;
+
+/// <summary>A delete that asks for a value in its confirm; selectable, so only the confirm-values rule keeps it off the bulk bar.</summary>
+internal sealed record DeleteConfirmProbeCommand(ConfirmProbeId Id, bool Cascade) : ICommand, IDeleteCommand<ConfirmProbe, ConfirmProbeId>, ISelectable;
+
+internal sealed class ArchiveConfirmProbeCommandConfiguration : ICommandConfiguration<ArchiveConfirmProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<ArchiveConfirmProbeCommand> builder) => builder.RequirePermissions(ConfirmProbePermissions.Update);
+}
+
+internal sealed class RetitleConfirmProbeCommandConfiguration : ICommandConfiguration<RetitleConfirmProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<RetitleConfirmProbeCommand> builder) => builder.RequirePermissions(ConfirmProbePermissions.Update);
+}
+
+internal sealed class DeleteConfirmProbeCommandConfiguration : ICommandConfiguration<DeleteConfirmProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<DeleteConfirmProbeCommand> builder) => builder.RequirePermissions(ConfirmProbePermissions.Update);
+}
+
+internal static class ConfirmProbeRoutes
+{
+    public const string List = "/tst/confirm-probes";
+
+    public static string Detail(Guid id) => $"/tst/confirm-probes/{id}";
+}
+
+internal sealed class ConfirmProbeViewConfiguration : IAggregateViewConfiguration<ConfirmProbe>
+{
+    public void Configure(AggregateViewBuilder<ConfirmProbe> view)
+    {
+        view.Routes(ConfirmProbeRoutes.List, ConfirmProbeRoutes.Detail);
+        view.Detail<ConfirmProbeResponse>(detail => detail.Field(x => x.Id).Shown().Label(ConfirmProbeTexts.Reference));
+        view.Command<ArchiveConfirmProbeCommand>()
+            .Label(ConfirmProbeTexts.Archive)
+            .Confirm(ConfirmProbeTexts.ArchiveTitle, ConfirmProbeTexts.ArchiveText, ConfirmProbeTexts.ArchiveConfirm);
+        view.Command<DeleteConfirmProbeCommand>().ConfirmDelete(CommonTexts.Delete, ConfirmProbeTexts.DeleteText);
+    }
+}
+
+// ---- A self-parented root read as a tree, and a root that belongs to it (a scope and a role, in miniature) ----
+
+internal sealed record ParentProbeId(Guid Value);
+
+internal sealed class ParentProbe : AggregateRoot<ParentProbeId>;
+
+internal sealed record ChildProbeId(Guid Value);
+
+internal sealed class ChildProbe : AggregateRoot<ChildProbeId>;
+
+internal sealed record ParentProbeTagId(Guid Value);
+
+/// <summary>A child entity of the probe parent drawn by its own component (Section&lt;T&gt;()), read as one unpaged list.</summary>
+internal sealed class ParentProbeTag : Entity<ParentProbeTagId>;
+
+internal static class ParentProbePermissions
+{
+    public static PermissionDefinition Read { get; } = PermissionDefinition.Create("permission.tst.probe-parents.read", "View probe parents");
+
+    public static PermissionDefinition Create { get; } = PermissionDefinition.Create("permission.tst.probe-parents.create", "Create probe parents");
+
+    public static PermissionDefinition Move { get; } = PermissionDefinition.Create("permission.tst.probe-parents.move", "Move probe parents");
+}
+
+public static class ParentProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "ParentProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Probe parent");
+
+    public static TextDefinition Title { get; } = Category.Text("Title", "Probe parents");
+
+    public static TextDefinition NewChild { get; } = Category.Text("NewChild", "New child parent");
+
+    public static TextDefinition Move { get; } = Category.Text("Move", "Move probe");
+
+    public static TextDefinition Tag { get; } = Category.Text("Tag", "Probe tag");
+
+    public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
+
+    public static FieldText NewParentId { get; } = Category.Field(nameof(NewParentId), "Move under");
+}
+
+public static class ChildProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "ChildProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Child probe");
+
+    public static FieldText Name { get; } = Category.Field(nameof(Name), "Child name");
+
+    public static FieldText OwnerId { get; } = Category.Field(nameof(OwnerId), "Owner");
+
+    public static FieldText Tags { get; } = Category.Field(nameof(Tags), "Tags");
+
+    public static FieldText Cascade { get; } = Category.Field(nameof(Cascade), "Also delete its tags");
+
+    /// <summary>The create form's label for Name, in place of its field text's.</summary>
+    public static TextDefinition NameOnCreate { get; } = Category.Text("NameOnCreate", "Name of the new child");
+}
+
+internal sealed class ParentProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<ParentProbe>
+{
+    public void Configure(AggregateFeatureBuilder<ParentProbe> builder) =>
+        builder.Permissions(ParentProbePermissions.Read, ParentProbePermissions.Create, ParentProbePermissions.Move)
+            .Texts(ParentProbeTexts.Category)
+            .Named(ParentProbeTexts.Singular);
+}
+
+internal sealed class ChildProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<ChildProbe>
+{
+    public void Configure(AggregateFeatureBuilder<ChildProbe> builder) =>
+        builder.Texts(ChildProbeTexts.Category).Named(ChildProbeTexts.Singular);
+}
+
+/// <summary>A top-level parent has no parent: a null id.</summary>
+internal sealed record ParentProbeResponse(Guid Id, string Name, Guid? ParentId, string? ParentName);
+
+internal sealed record GetParentProbeQuery(ParentProbeId Id) : IQuery<ParentProbeResponse>, IGetOneQuery<ParentProbe, ParentProbeId>;
+
+internal sealed record ParentProbeTreeItem(Guid Id, Guid? ParentId, string Name);
+
+/// <summary>The parents are read as a tree, not listed: their list route names the tree's page, and the Move dialog reads it.</summary>
+internal sealed record GetParentProbeTreeQuery : IQuery<IReadOnlyList<ParentProbeTreeItem>>, ITreeQuery<ParentProbe>;
+
+/// <summary>Moves a parent under another: the dialog picks the new parent from the tree.</summary>
+internal sealed record MoveParentProbeCommand(ParentProbeId Id, ParentProbeId NewParentId) : ICommand, IMoveCommand<ParentProbe, ParentProbeId>;
+
+internal sealed class MoveParentProbeCommandConfiguration : ICommandConfiguration<MoveParentProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<MoveParentProbeCommand> builder) => builder.RequirePermissions(ParentProbePermissions.Move);
+}
+
+internal sealed record ParentProbeTagItem(Guid Id, string Label);
+
+/// <summary>Unpaged, which no generated child list could send: only a Section child may have one.</summary>
+internal sealed record GetParentProbeTagsQuery(ParentProbeId RootId)
+    : IQuery<IReadOnlyCollection<ParentProbeTagItem>>, IChildListOf<ParentProbe, ParentProbeId, ParentProbeTag>;
+
+/// <summary>A Label with no field text: a generated add form would be refused, a Section child's is never built.</summary>
+internal sealed record AddParentProbeTagCommand(ParentProbeId RootId, string Label)
+    : ICommand, IAddChildCommand<ParentProbe, ParentProbeId, ParentProbeTag, ParentProbeTagId>;
+
+internal sealed record ProbeCreatedResponse(Guid Id) : ICreatedResponse;
+
+/// <summary>Created under a parent of its own kind: the parent's detail bar links to its create form with the parent's id.</summary>
+internal sealed record CreateParentProbeCommand(string Name, ParentProbeId ParentId)
+    : ICommand<ProbeCreatedResponse>, ICreateCommand<ParentProbe, ParentProbeId>, IUnderParent<ParentProbe, ParentProbeId>;
+
+internal sealed class CreateParentProbeCommandConfiguration : ICommandConfiguration<CreateParentProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<CreateParentProbeCommand> builder) => builder.RequirePermissions(ParentProbePermissions.Create);
+}
+
+internal sealed record DeleteParentProbeCommand(ParentProbeId Id) : ICommand, IDeleteCommand<ParentProbe, ParentProbeId>;
+
+internal sealed record ChildProbeResponse(Guid Id, string Name, Guid OwnerId, string OwnerName);
+
+internal sealed record GetChildProbeQuery(ChildProbeId Id) : IQuery<ChildProbeResponse>, IGetOneQuery<ChildProbe, ChildProbeId>;
+
+/// <summary>Its owner is filled from the form view's ParentId; its tags, a collection, are edited by a configured component.</summary>
+internal sealed record CreateChildProbeCommand(string Name, ParentProbeId OwnerId, IReadOnlyCollection<string> Tags)
+    : ICommand<ProbeCreatedResponse>, ICreateCommand<ChildProbe, ChildProbeId>;
+
+/// <summary>A delete that asks for a value, so the leave target is proved on the delete-with-values path too.</summary>
+internal sealed record DeleteChildProbeCommand(ChildProbeId Id, bool Cascade) : ICommand, IDeleteCommand<ChildProbe, ChildProbeId>;
+
+internal static class ParentProbeRoutes
+{
+    public const string List = "/tst/probe-parents";
+
+    public const string Create = "/tst/probe-parents/new";
+
+    public static string Detail(Guid id) => $"/tst/probe-parents/{id}";
+}
+
+internal static class ChildProbeRoutes
+{
+    public const string Create = "/tst/child-probes/new";
+
+    public static string Detail(Guid id) => $"/tst/child-probes/{id}";
+}
+
+internal sealed class ParentProbeViewConfiguration : IAggregateViewConfiguration<ParentProbe>
+{
+    public void Configure(AggregateViewBuilder<ParentProbe> view)
+    {
+        view.Title(ParentProbeTexts.Title);
+        view.Routes(ParentProbeRoutes.List, ParentProbeRoutes.Detail, ParentProbeRoutes.Create);
+        view.BelongsTo<ParentProbe, ParentProbeResponse>(parent => parent.ParentId, parent => parent.ParentName);
+        view.Command<CreateParentProbeCommand>().Label(ParentProbeTexts.NewChild);
+        view.Tree<ParentProbeTreeItem>(tree => tree.Title(item => item.Name));
+        view.Command<MoveParentProbeCommand>().Label(ParentProbeTexts.Move).AppliesWhen<ParentProbeResponse>(parent => parent.ParentId is not null);
+        view.Child<ParentProbeTag>(child => child.Named(ParentProbeTexts.Tag).Section<ParentProbeTagsSection>());
+    }
+}
+
+internal sealed class ChildProbeViewConfiguration : IAggregateViewConfiguration<ChildProbe>
+{
+    public void Configure(AggregateViewBuilder<ChildProbe> view)
+    {
+        view.Routes(detail: ChildProbeRoutes.Detail, create: ChildProbeRoutes.Create);
+        view.BelongsTo<ParentProbe, ChildProbeResponse>(child => child.OwnerId, child => child.OwnerName);
+        view.Form<CreateChildProbeCommand>(form =>
+        {
+            form.Parent(command => command.OwnerId);
+            form.Field(command => command.Name).Label(ChildProbeTexts.NameOnCreate);
+            form.Field(command => command.Tags).Component<ChildProbeTagsInput>();
+        });
     }
 }
 
@@ -726,7 +1011,10 @@ internal static class AggregateViewTestRegistry
         typeof(BareChildHostAggregateFeatureConfiguration), typeof(SetProbeAggregateFeatureConfiguration),
         typeof(EnumGapProbeAggregateFeatureConfiguration), typeof(EditProbeAggregateFeatureConfiguration),
         typeof(PairSetProbeAggregateFeatureConfiguration), typeof(PublishProbeAggregateFeatureConfiguration),
-        typeof(ViewProbeNoteAggregateFeatureConfiguration),
+        typeof(ViewProbeNoteAggregateFeatureConfiguration), typeof(ConfirmProbeAggregateFeatureConfiguration),
+        typeof(ParentProbeAggregateFeatureConfiguration), typeof(ChildProbeAggregateFeatureConfiguration),
+        .. HardenedGuardTypes.AggregateConfigurations, .. ConfirmGuardTypes.AggregateConfigurations, .. BelongsToGuardTypes.AggregateConfigurations,
+        .. MoveGuardTypes.AggregateConfigurations,
     ];
 
     private static readonly Type[] requestAndConfigurationTypes =
@@ -748,7 +1036,13 @@ internal static class AggregateViewTestRegistry
         typeof(GetEditProbeQuery), typeof(RenameProbeCommand), typeof(RenameProbeCommandConfiguration), typeof(SetProbeColorCommand),
         typeof(SetProbeColorCommandConfiguration), typeof(RetitleProbeCommand), typeof(RetitleProbeCommandConfiguration),
         typeof(GetPublishProbeQuery), typeof(ListPublishProbesQuery), typeof(PublishProbeCommand), typeof(UnpublishProbeCommand),
-        typeof(ListViewProbeNotesQuery),
+        typeof(ListViewProbeNotesQuery), typeof(GetConfirmProbeQuery), typeof(ListConfirmProbesQuery), typeof(ArchiveConfirmProbeCommand), typeof(ArchiveConfirmProbeCommandConfiguration),
+        typeof(RetitleConfirmProbeCommand), typeof(RetitleConfirmProbeCommandConfiguration), typeof(DeleteConfirmProbeCommand),
+        typeof(DeleteConfirmProbeCommandConfiguration), typeof(GetParentProbeQuery), typeof(GetParentProbeTreeQuery), typeof(CreateParentProbeCommand),
+        typeof(CreateParentProbeCommandConfiguration), typeof(DeleteParentProbeCommand), typeof(GetChildProbeQuery), typeof(CreateChildProbeCommand),
+        typeof(DeleteChildProbeCommand), typeof(MoveParentProbeCommand), typeof(MoveParentProbeCommandConfiguration), typeof(GetParentProbeTagsQuery),
+        typeof(AddParentProbeTagCommand), .. HardenedGuardTypes.Requests, .. ConfirmGuardTypes.Requests, .. BelongsToGuardTypes.Requests,
+        .. MoveGuardTypes.Requests,
     ];
 
     public static AggregateViewRegistry Build(params Type[] viewConfigurations) =>
@@ -759,11 +1053,13 @@ internal static class AggregateViewTestRegistry
             TextCatalog.FromSources(
             [
                 TextSource.Common,
-                TextSource.FromTypes("Tst", TextOrigin.Ui, typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
+                TextSource.FromTypes("Tst", TextOrigin.Ui, [typeof(ViewProbeTexts), typeof(PartHolderTexts), typeof(QuerylessProbeTexts),
                     typeof(FilterProbeTexts), typeof(UnlistedProbeTexts), typeof(NoteProbeTexts), typeof(BadQueryProbeTexts),
                     typeof(PlainProbeTexts), typeof(EditScheduledProbeTexts), typeof(CtorProbeTexts), typeof(BadOverviewProbeTexts),
                     typeof(ChildHostTexts), typeof(ViewProbeChildTexts), typeof(BareChildHostTexts), typeof(SetProbeTexts), typeof(EnumGapProbeTexts),
-                    typeof(EditProbeTexts), typeof(PairSetProbeTexts), typeof(PublishProbeTexts), typeof(ViewProbeNoteTexts)),
+                    typeof(EditProbeTexts), typeof(PairSetProbeTexts), typeof(PublishProbeTexts), typeof(ViewProbeNoteTexts), typeof(ConfirmProbeTexts),
+                    typeof(ParentProbeTexts), typeof(ChildProbeTexts), .. HardenedGuardTypes.Texts, .. ConfirmGuardTypes.Texts, .. BelongsToGuardTypes.Texts,
+                    .. MoveGuardTypes.Texts]),
             ]));
 }
 

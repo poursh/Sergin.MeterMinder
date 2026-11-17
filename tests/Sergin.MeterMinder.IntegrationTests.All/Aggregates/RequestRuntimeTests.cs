@@ -115,6 +115,25 @@ public sealed class RequestRuntimeTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public void RequestFactory_ForForm_MissingNonNullableCollectionBecomesAnEmptyOne()
+    {
+        CollectionProbeCommand built = Assert.IsType<CollectionProbeCommand>(RequestFactory.ForForm(typeof(CollectionProbeCommand))(Guid.Empty, new Dictionary<string, object?>()));
+
+        Assert.NotNull(built.Items);
+        Assert.Empty(built.Items);
+        Assert.NotNull(built.Names);
+        Assert.Empty(built.Names);
+        Assert.Null(built.Optional);
+
+        CollectionProbeCommand picked = Assert.IsType<CollectionProbeCommand>(RequestFactory.ForForm(typeof(CollectionProbeCommand))(
+            Guid.Empty, new Dictionary<string, object?> { ["Items"] = (IReadOnlyCollection<int>)[3] }));
+        Assert.Equal([3], picked.Items);
+    }
+
+    /// <summary>A request with collections of each shape a picker may feed: required, and optional (left null).</summary>
+    public sealed record CollectionProbeCommand(IReadOnlyCollection<int> Items, IEnumerable<string> Names, IReadOnlyCollection<int>? Optional);
+
+    [Fact]
     public async Task FormValidator_OnAnEmptyFormBuiltCommand_ReturnsAMessageInsteadOfThrowing()
     {
         using IServiceScope scope = factory.Services.CreateScope();

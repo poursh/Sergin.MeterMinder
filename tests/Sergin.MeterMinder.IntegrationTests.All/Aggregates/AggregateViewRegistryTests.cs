@@ -268,6 +268,44 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     }
 
     [Fact]
+    public void Registry_DeleteWithExtraValues_HasConfirmFields()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(ConfirmProbeViewConfiguration)).For<ConfirmProbe>();
+        CommandView delete = model.Commands.Single(command => command.Request == typeof(DeleteConfirmProbeCommand));
+        var id = Guid.CreateVersion7();
+
+        FormFieldView cascade = Assert.Single(delete.ConfirmFields);
+        Assert.Equal(nameof(DeleteConfirmProbeCommand.Cascade), cascade.Name);
+        Assert.Equal(FormInputKind.Switch, cascade.Kind);
+        Assert.Equal(ConfirmProbeTexts.Cascade.Label, cascade.Label.Label);
+        Assert.Null(delete.BuildFromId);
+        Assert.Null(delete.ValueField);
+
+        object built = delete.BuildFromValues!(id, new Dictionary<string, object?>(StringComparer.Ordinal) { [nameof(DeleteConfirmProbeCommand.Cascade)] = true });
+
+        Assert.Equal(new DeleteConfirmProbeCommand(new ConfirmProbeId(id), Cascade: true), built);
+        Assert.True(delete.RequiresVersion);
+    }
+
+    [Fact]
+    public void Registry_Confirm_SetsTitleTextAndLabel()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(ConfirmProbeViewConfiguration)).For<ConfirmProbe>();
+        CommandView archive = model.Commands.Single(command => command.Request == typeof(ArchiveConfirmProbeCommand));
+        CommandView delete = model.Commands.Single(command => command.Request == typeof(DeleteConfirmProbeCommand));
+
+        Assert.Equal(ConfirmProbeTexts.ArchiveTitle, archive.ConfirmTitle);
+        Assert.Equal(ConfirmProbeTexts.ArchiveText, archive.ConfirmText);
+        Assert.Equal(ConfirmProbeTexts.ArchiveConfirm, archive.ConfirmLabel);
+        Assert.Empty(archive.ConfirmFields);
+        Assert.NotNull(archive.BuildFromId);
+
+        // ConfirmDelete sets no label: the confirm button is the command's own label.
+        Assert.Equal(ConfirmProbeTexts.DeleteText, delete.ConfirmText);
+        Assert.Null(delete.ConfirmLabel);
+    }
+
+    [Fact]
     public void ViewModel_ReversePair_PartnerIsNegation()
     {
         AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(PublishProbeViewConfiguration)).For<PublishProbe>();
@@ -412,5 +450,78 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
         Assert.Equal(typeof(ListViewProbeChildrenQuery), model.List!.Type);
         Assert.Equal(typeof(RenameViewProbeChildCommand), model.Edit!.Type);
         Assert.Equal(ViewProbeChildTexts.Add, model.Commands.Single(command => command.Role == CommandRole.AddChild).Label);
+    }
+
+    [Fact]
+    public void Registry_ChildSection_SkipsListAndCommands()
+    {
+        // The tags' list query is unpaged and their add command's Label has no field text: a generated child would be
+        // refused for either, a Section child builds neither.
+        ChildViewModel tags = AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration)).For<ParentProbe>().Children.Single();
+
+        Assert.Equal(typeof(ParentProbeTag), tags.Child);
+        Assert.Equal(typeof(ParentProbeTagsSection), tags.Section);
+        Assert.Equal(ParentProbeTexts.Tag, tags.Singular);
+        Assert.Equal(ChildViewRoutes.None, tags.Routes);
+        Assert.Null(tags.List);
+        Assert.Null(tags.ListBodyType);
+        Assert.Null(tags.GetOne);
+        Assert.Null(tags.Add);
+        Assert.Null(tags.Edit);
+        Assert.Empty(tags.Commands);
+    }
+
+    [Fact]
+    public void Registry_Move_ReadsTheTreeAndBuildsFromIdAndParent()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration)).For<ParentProbe>();
+        CommandView move = model.Commands.Single(command => command.Request == typeof(MoveParentProbeCommand));
+        var id = Guid.CreateVersion7();
+        var parent = Guid.CreateVersion7();
+
+        // The move: a Secondary detail action with its label, the parent picker labelled by its NewParentId field text.
+        Assert.Equal(CommandRole.Move, move.Role);
+        Assert.Equal(SerginActionKind.Secondary, move.Kind);
+        Assert.Equal(ParentProbeTexts.Move, move.Label);
+        Assert.Equal(ParentProbeTexts.NewParentId, move.MoveParentField);
+        Assert.Equal(new MoveParentProbeCommand(new ParentProbeId(id), new ParentProbeId(parent)), move.BuildMove!(id, parent));
+
+        // The tree: its query and item, read through the compiled readers, titled as configured.
+        TreeView tree = model.Tree!;
+        var item = new ParentProbeTreeItem(id, parent, "Treed");
+        Assert.Equal(typeof(GetParentProbeTreeQuery), tree.Query.Type);
+        Assert.IsType<GetParentProbeTreeQuery>(tree.Query.Build());
+        Assert.Equal(typeof(ParentProbeTreeItem), tree.Item);
+        Assert.Equal(id, tree.IdOf(item));
+        Assert.Equal(parent, tree.ParentIdOf(item));
+        Assert.Null(tree.ParentIdOf(item with { ParentId = null }));
+        Assert.Equal("Treed", tree.TitleOf(item));
+    }
+
+    [Fact]
+    public void MoveCandidates_ExcludeSelfAndDescendants()
+    {
+        TreeView tree = AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration)).For<ParentProbe>().Tree!;
+        var root = Guid.CreateVersion7();
+        var a = Guid.CreateVersion7();
+        var a1 = Guid.CreateVersion7();
+        var b = Guid.CreateVersion7();
+        var c = Guid.CreateVersion7();
+
+        // Out of order on purpose: root > a > a1, root > c, root > b.
+        IReadOnlyCollection<object> items =
+        [
+            new ParentProbeTreeItem(a1, a, "a1"),
+            new ParentProbeTreeItem(c, root, "c"),
+            new ParentProbeTreeItem(root, null, "root"),
+            new ParentProbeTreeItem(a, root, "a"),
+            new ParentProbeTreeItem(b, root, "b"),
+        ];
+
+        // Moving a: neither a nor a1, the rest depth first with siblings by title, the root at depth 0.
+        Assert.Equal([(root, "root", 0), (b, "b", 1), (c, "c", 1)], MoveCandidates.For(tree, items, a));
+
+        // Moving a1 leaves a offered, with its depth.
+        Assert.Equal([(root, "root", 0), (a, "a", 1), (b, "b", 1), (c, "c", 1)], MoveCandidates.For(tree, items, a1));
     }
 }

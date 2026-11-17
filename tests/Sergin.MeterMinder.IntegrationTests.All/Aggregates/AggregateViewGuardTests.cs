@@ -1,5 +1,9 @@
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BadOverviewTargets;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BelongsToGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.BrokenChildViews;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ConfirmGuards;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.HardenedGuards;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.MoveGuards;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ParentedLists;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
@@ -307,6 +311,152 @@ public sealed class AggregateViewGuardTests
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(ViewProbeNoteViewConfiguration)),
             nameof(ViewProbeNoteViewConfiguration), typeof(ViewProbe).FullName!, "view configuration");
+
+    [Fact]
+    public void Guard_InlineChoiceWhoseFieldIsHidden_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(InlineChoiceHiddenViewConfiguration)),
+            nameof(InlineChoiceHiddenViewConfiguration), nameof(SetProbeColorCommand), "hidden");
+
+    [Fact]
+    public void Guard_InlineChoiceWhoseFieldsAreReplacedBySlot_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(InlineChoiceInSlotViewConfiguration)),
+            nameof(InlineChoiceInSlotViewConfiguration), nameof(SetProbeColorCommand), nameof(SerginViewSlot.DetailFields));
+
+    [Fact]
+    public void Guard_AppliesWhenOnChildReversePair_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ChildPairWithAppliesWhenViewConfiguration)),
+            nameof(ChildPairWithAppliesWhenViewConfiguration), nameof(ActivatePairChildCommand), nameof(PairChild), "AppliesWhen");
+
+    [Fact]
+    public void ChildReversePairWithoutAppliesWhen_Builds()
+    {
+        ChildViewModel child = AggregateViewTestRegistry.Build(typeof(ChildPairWithoutAppliesWhenViewConfiguration))
+            .For<PairChildHost>().Children.Single();
+
+        CommandView activate = child.Commands.Single(command => command.Request == typeof(ActivatePairChildCommand));
+        CommandView deactivate = child.Commands.Single(command => command.Request == typeof(DeactivatePairChildCommand));
+
+        // Both offered: neither is hidden, and neither carries a rule that would withhold it.
+        Assert.All([activate, deactivate], command =>
+        {
+            Assert.False(command.Hidden);
+            Assert.Null(command.AppliesWhen);
+        });
+    }
+
+    [Fact]
+    public void Guard_OverviewOnListUnderRoot_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ViewProbeViewConfiguration), typeof(OverviewNoteViewConfiguration)),
+            nameof(OverviewNoteViewConfiguration), nameof(GetOverviewNotesOverviewQuery), "ListUnder<ViewProbe>");
+
+    [Fact]
+    public void Guard_DeleteWithHiddenExtraValue_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(HiddenValueProbeViewConfiguration)),
+            nameof(HiddenValueProbeViewConfiguration), nameof(DeleteHiddenValueProbeCommand), nameof(DeleteHiddenValueProbeCommand.Cascade), "NotShown");
+
+    [Fact]
+    public void Guard_HiddenDeleteWithHiddenExtraValue_Builds()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(HiddenDeleteViewConfiguration)).For<HiddenValueProbe>();
+
+        CommandView delete = Assert.Single(model.Commands, command => command.Request == typeof(DeleteHiddenValueProbeCommand));
+        Assert.True(delete.Hidden);
+        Assert.Empty(delete.ConfirmFields);
+    }
+
+    [Fact]
+    public void Guard_ConfirmOnACommandNoViewAsks_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ConfirmOnUpdateViewConfiguration)),
+            nameof(ConfirmOnUpdateViewConfiguration), nameof(UpdatePlainProbeCommand), "Confirm");
+
+    [Fact]
+    public void Guard_TreeRootListRoute_Accepted()
+    {
+        AggregateViewModel model = AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration)).For<ParentProbe>();
+
+        // Read as a tree, not listed: the list route names the tree's page, which the trail and a delete use.
+        Assert.Null(model.List);
+        Assert.Equal(ParentProbeRoutes.List, model.Routes.List);
+    }
+
+    [Fact]
+    public void Guard_ListRouteWithNeitherListNorTree_StillRefuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ListRouteWithoutListOrTreeViewConfiguration)),
+            nameof(ListRouteWithoutListOrTreeViewConfiguration), $"IListOf<{nameof(EditProbe)}>", $"ITreeQuery<{nameof(EditProbe)}>");
+
+    [Fact]
+    public void Guard_BelongsTo_ParentWithoutDetailRoute_Refuses()
+    {
+        // The parent's configuration declares no routes.
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(BelongsToUnroutedParentViewConfiguration), typeof(EditProbeViewConfiguration)),
+            nameof(BelongsToUnroutedParentViewConfiguration), $"BelongsTo<{nameof(EditProbe)}", "no detail route");
+
+        // No configuration declares the parent at all.
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(BelongsToUnroutedParentViewConfiguration)),
+            nameof(BelongsToUnroutedParentViewConfiguration), $"BelongsTo<{nameof(EditProbe)}", "no aggregate view configuration");
+    }
+
+    [Fact]
+    public void Guard_BelongsTo_WithListUnder_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ViewProbeViewConfiguration), typeof(BelongsToWithListUnderViewConfiguration)),
+            nameof(BelongsToWithListUnderViewConfiguration), $"BelongsTo<{nameof(ViewProbe)}", $"ListUnder<{nameof(ViewProbe)}>");
+
+    [Fact]
+    public void Guard_BelongsTo_ResponseIsNotTheGetOneResponse_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration), typeof(BelongsToWrongResponseViewConfiguration)),
+            nameof(BelongsToWrongResponseViewConfiguration), nameof(ParentProbeResponse), nameof(ChildProbeResponse));
+
+    [Fact]
+    public void Guard_FormParent_UnknownOrNonGuidProperty_Refuses()
+    {
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ParentOnStringViewConfiguration)),
+            nameof(ParentOnStringViewConfiguration), $"Parent(x => x.{nameof(CreateChildProbeCommand.Name)})", "wraps no Guid");
+
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ParentOnUnknownViewConfiguration)),
+            nameof(ParentOnUnknownViewConfiguration), $"Parent(x => x.{nameof(CreateExtraParentProbeCommand.Extra)})", "no parameter");
+    }
+
+    [Fact]
+    public void Guard_MoveWithoutTreeQuery_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(MoveWithoutTreeQueryViewConfiguration)),
+            nameof(MoveWithoutTreeQueryViewConfiguration), nameof(MoveTreelessProbeCommand), $"ITreeQuery<{nameof(TreelessProbe)}>");
+
+    [Fact]
+    public void Guard_MoveTreeItemWithoutParentId_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(MoveTreeItemWithoutParentIdViewConfiguration)),
+            nameof(MoveTreeItemWithoutParentIdViewConfiguration), nameof(MoveFlatTreeProbeCommand), nameof(FlatTreeItem), "ParentId");
+
+    [Fact]
+    public void Guard_MoveWithoutLabel_Refuses() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(MoveWithoutLabelViewConfiguration)),
+            nameof(MoveWithoutLabelViewConfiguration), nameof(MoveParentProbeCommand), "Move command with no default label");
+
+    [Theory]
+    [InlineData(typeof(SectionWithRoutesViewConfiguration), "Routes(...)")]
+    [InlineData(typeof(SectionWithListViewConfiguration), "List(...)")]
+    [InlineData(typeof(SectionWithDetailViewConfiguration), "Detail(...)")]
+    [InlineData(typeof(SectionWithFormViewConfiguration), "Form<AddParentProbeTagCommand>(...)")]
+    [InlineData(typeof(SectionWithCommandViewConfiguration), "Command<AddParentProbeTagCommand>()")]
+    public void Guard_ChildSectionWithRoutesOrList_Refuses(Type configuration, string declaration) =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(configuration),
+            configuration.Name, $"Child<{nameof(ParentProbeTag)}>()", $"Section<{nameof(ParentProbeTagsSection)}>()", declaration);
 
     private static InvalidOperationException AssertRefused(Action build, params string[] named)
     {
