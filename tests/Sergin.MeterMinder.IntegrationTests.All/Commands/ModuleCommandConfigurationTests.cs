@@ -24,6 +24,7 @@ using Sergin.Administration.Settings.Application.Contracts;
 using Sergin.Administration.UserAccess.Application;
 using Sergin.Administration.UserAccess.Application.Configurations;
 using Sergin.Administration.UserAccess.Application.Configurations.Roles;
+using Sergin.Administration.UserAccess.Application.Configurations.Scopes;
 using Sergin.Administration.UserAccess.Application.Contracts.Roles.Commands.Rename;
 using Sergin.Administration.UserAccess.Application.Contracts.Scopes.Commands.Create;
 using Sergin.Administration.UserAccess.Application.Contracts.Scopes.Commands.Move;
@@ -136,34 +137,35 @@ public sealed class ModuleCommandConfigurationTests
     }
 
     /// <summary>
-    /// Scoped management commands require no permission here: the scope they act on is the one the command names,
-    /// not the caller's current scope, so their handlers check it against that target instead. Edits to one role carry a version; a scope move or delete touches several versioned
-    /// roots (the subtree, the owned roles) in one save, so it cannot.
+    /// Scope and role management commands require their Manage permission on any scope (neither aggregate is
+    /// Scoped(); the handlers still check the target scope). Edits to one role carry a version; a scope move or delete
+    /// touches several versioned roots (the subtree, the owned roles) in one save, so it cannot.
     /// </summary>
     [Fact]
-    public void ScopedManagementCommands_CheckNoGlobalPermission()
+    public void ScopedManagementCommands_RequireManageOnAnyScope()
     {
-        // A role's edits require Manage on any scope (Role is not Scoped()); the handler still checks the owner scope.
         CommandSettings renameRole = Registry.For(typeof(RenameRoleCommand));
 
         Assert.Equal(RolePermissions.Manage, Assert.Single(renameRole.RequiredPermissions));
         Assert.Equal(PermissionScope.Any, renameRole.PermissionScope);
         Assert.True(renameRole.RequiresExpectedVersion);
 
-        // Their root now comes from the record's type, but they still add no permission and no version.
-        foreach ((Type request, Type root) in new[]
-        {
-            (typeof(CreateScopeCommand), typeof(Scope)),
-            (typeof(MoveScopeCommand), typeof(Scope)),
-            (typeof(AssignRoleCommand), typeof(User)),
-        })
+        foreach (Type request in new[] { typeof(CreateScopeCommand), typeof(MoveScopeCommand) })
         {
             CommandSettings settings = Registry.For(request);
 
-            Assert.Empty(settings.RequiredPermissions);
+            Assert.Equal(ScopePermissions.Manage, Assert.Single(settings.RequiredPermissions));
+            Assert.Equal(PermissionScope.Any, settings.PermissionScope);
             Assert.False(settings.RequiresExpectedVersion);
-            Assert.Equal(root, settings.AggregateRoot);
+            Assert.Equal(typeof(Scope), settings.AggregateRoot);
         }
+
+        // The user assignment adds no permission here and no version.
+        CommandSettings assign = Registry.For(typeof(AssignRoleCommand));
+
+        Assert.Empty(assign.RequiredPermissions);
+        Assert.False(assign.RequiresExpectedVersion);
+        Assert.Equal(typeof(User), assign.AggregateRoot);
     }
 
     /// <summary>
