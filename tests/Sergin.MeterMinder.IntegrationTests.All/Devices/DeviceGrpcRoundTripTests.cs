@@ -238,6 +238,7 @@ public sealed class DeviceGrpcRoundTripTests : IAsyncLifetime
         services.AddScoped<IScopeAuthorization, ScopeAuthorization>();
         services.AddScoped<RequiredPermissionsContext>();
         services.AddScoped<ScopeFilter>();
+        services.AddScoped<RequestPermissionGate>();
         services.AddScoped(provider => new DeviceService.DeviceServiceClient(
             channel
                 .Intercept(new ConcurrencyClientInterceptor(provider.GetRequiredService<ConcurrencyContext>()))

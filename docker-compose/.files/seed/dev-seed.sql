@@ -92,6 +92,8 @@ INSERT INTO st.translation(id,language_id,key,text,source_text,created_at_utc,cr
 SELECT gen_random_uuid(), l.id, t.key, t.text, t.source, now(), '01920000-0000-7000-8000-00000000000f', gen_random_uuid()
 FROM (VALUES
  ('fa','common.actions.apply','اعمال','Apply'),
+ ('fa','common.actions.background-started','آغاز شد. در پس‌زمینه ادامه می‌یابد.','Started. It keeps running in the background.'),
+ ('fa','common.actions.background-started-many','برای {Count} رکورد آغاز شد. در پس‌زمینه ادامه می‌یابد.','Started for {Count} records. It keeps running in the background.'),
  ('fa','common.actions.bulk-done','برای {Count} رکورد انجام شد.','Done for {Count} records.'),
  ('fa','common.actions.clear','پاک کردن','Clear'),
  ('fa','common.actions.clear-all','پاک کردن همه','Clear all'),
@@ -351,7 +353,9 @@ FROM (VALUES
  ('fa','common.scheduled-tasks.errors.duplicate-targets','هر رکورد را فقط یک بار می‌توان انتخاب کرد.','Each record can be picked only once.'),
  ('fa','common.scheduled-tasks.errors.invalid-cron','«{PropertyName}» زمان‌بندی‌ای نیست که موتور کارها بتواند اجرا کند.','''{PropertyName}'' is not a schedule the job engine can run.'),
  ('fa','common.scheduled-tasks.errors.invalid-time-zone','«{PropertyName}» منطقهٔ زمانی شناخته‌شده‌ای نیست.','''{PropertyName}'' is not a known time zone.'),
+ ('fa','common.scheduled-tasks.errors.must-run-in-background','این عملیات در پس‌زمینه اجرا می‌شود. به‌جای ارسال مستقیم، آن را آغاز کنید.','This action runs in the background. Start it instead of sending it.'),
  ('fa','common.scheduled-tasks.errors.no-targets','دست‌کم یک رکورد انتخاب کنید.','Pick at least one record.'),
+ ('fa','common.scheduled-tasks.errors.not-background','این فرمان در پس‌زمینه اجرا نمی‌شود.','This command does not run in the background.'),
  ('fa','common.scheduled-tasks.errors.not-schedulable','این فرمان را نمی‌توان زمان‌بندی کرد.','This command cannot be scheduled.'),
  ('fa','common.scheduled-tasks.errors.target-without-root','هر رکورد انتخاب‌شده باید رکوردی را که به آن تعلق دارد مشخص کند.','Each picked record must name the record it belongs to.'),
  ('fa','common.scheduled-tasks.errors.too-many-targets','این فرمان را نمی‌توان برای این تعداد رکورد زمان‌بندی کرد.','This command cannot be scheduled for that many records.'),
@@ -371,6 +375,7 @@ FROM (VALUES
  ('fa','common.scheduled-tasks.view-schedules','دیدن زمان‌بندی‌ها ({Count})','View schedules ({Count})'),
  ('fa','common.scheduled-tasks.runs.acted-by','اجرا توسط','Run by'),
  ('fa','common.scheduled-tasks.runs.attempts','تلاش‌ها','Attempts'),
+ ('fa','common.scheduled-tasks.runs.background','پس‌زمینه','Background'),
  ('fa','common.scheduled-tasks.runs.completed','تکمیل‌شده','Completed'),
  ('fa','common.scheduled-tasks.runs.empty','هنوز اجرایی نیست.','No runs yet.'),
  ('fa','common.scheduled-tasks.runs.error','خطا','Error'),

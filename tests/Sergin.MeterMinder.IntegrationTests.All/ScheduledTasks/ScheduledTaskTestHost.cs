@@ -33,6 +33,10 @@ internal static class ScheduledTaskTestHost
         typeof(TouchProbeCommandConfiguration),
         typeof(TouchProbeChildCommandConfiguration),
         typeof(TouchOneProbeCommandConfiguration),
+        typeof(SlowProbeCommandConfiguration),
+        typeof(TimedProbeCommandConfiguration),
+        typeof(GatedTimedProbeCommandConfiguration),
+        typeof(WrappingTimedProbeCommandConfiguration),
     ];
 
     /// <param name="factory">The shared factory.</param>
@@ -72,7 +76,7 @@ internal static class ScheduledTaskTestHost
                 services.AddModuleDbContext<ScheduledTasksDbContext, IScheduledTasksTestDbContext, IScheduledTasksTestUnitOfWork>(
                     context.Configuration.GetSection("Sergin"), ScheduledTasksDbContext.Schema);
 
-                services.AddSingleton(ModuleConfigurationSource.FromTypes(ProbeConfigurations));
+                services.AddSingleton(ModuleConfigurationSource.FromTypesInSchema(ScheduledTasksDbContext.Schema, ProbeConfigurations));
 
                 AddProbeToHostRegistry(services);
 

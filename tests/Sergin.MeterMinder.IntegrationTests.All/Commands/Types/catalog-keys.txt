@@ -1,5 +1,7 @@
 common.actions.add
 common.actions.apply
+common.actions.background-started
+common.actions.background-started-many
 common.actions.bulk-done
 common.actions.cancel
 common.actions.clear
@@ -271,7 +273,9 @@ common.scheduled-tasks.errors.command-changed
 common.scheduled-tasks.errors.duplicate-targets
 common.scheduled-tasks.errors.invalid-cron
 common.scheduled-tasks.errors.invalid-time-zone
+common.scheduled-tasks.errors.must-run-in-background
 common.scheduled-tasks.errors.no-targets
+common.scheduled-tasks.errors.not-background
 common.scheduled-tasks.errors.not-schedulable
 common.scheduled-tasks.errors.target-without-root
 common.scheduled-tasks.errors.too-many-targets
@@ -290,6 +294,7 @@ common.scheduled-tasks.run-now
 common.scheduled-tasks.run-once-started
 common.scheduled-tasks.runs.acted-by
 common.scheduled-tasks.runs.attempts
+common.scheduled-tasks.runs.background
 common.scheduled-tasks.runs.completed
 common.scheduled-tasks.runs.empty
 common.scheduled-tasks.runs.error
