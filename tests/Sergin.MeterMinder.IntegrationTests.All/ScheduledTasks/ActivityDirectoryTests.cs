@@ -190,6 +190,7 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
         Assert.Equal(root, single.RootId);
         Assert.Equal("P-1", single.TargetLabel);
         Assert.Equal("Some.Code", single.FirstErrorCode);
+        Assert.Equal("failed", single.FirstErrorDescription);
         Assert.Equal((1, 0, 1, 0), (single.Total, single.Succeeded, single.Failed, single.Unfinished));
         Assert.NotNull(single.CompletedAtUtc);
 
@@ -198,6 +199,7 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
         Assert.Null(several.RootId);
         Assert.Null(several.TargetLabel);
         Assert.Null(several.FirstErrorCode);
+        Assert.Null(several.FirstErrorDescription);
         Assert.Equal((2, 2), (several.Total, several.Unfinished));
     }
 

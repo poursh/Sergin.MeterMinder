@@ -223,6 +223,67 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         });
     }
 
+    [Fact]
+    public async Task ABurstOfReloads_IsSingleFlight_AnOlderReadNeverOverwritesANewerOne_AndTheRunIsAnnouncedOnce()
+    {
+        Guid running = await SeedRunAsync(caller.Id, label: "P-1");
+        IndicatorFaults faults = host.Services.GetRequiredService<IndicatorFaults>();
+
+        try
+        {
+            await RenderAsync(caller, async (indicator, html, snackbar) =>
+            {
+                await indicator.StartAsync();
+                Assert.Contains("aria-label=\"Activity, 1 running\"", html(), StringComparison.Ordinal);
+
+                // The next read answers "Running" and is then held back, while the run finishes.
+                var oldAnswerRead = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                int held = 0;
+                faults.AfterRead = async () =>
+                {
+                    if (Interlocked.Exchange(ref held, 1) == 0)
+                    {
+                        oldAnswerRead.SetResult();
+                        await Task.Delay(500);
+                    }
+                };
+                int readsBefore = faults.Reads;
+
+                Task first = indicator.ReloadAsync();
+                await oldAnswerRead.Task;
+                await CompleteAsync(running);
+
+                // A burst, as a bulk run's item saves publish one change each, while the old read is still out.
+                IRunNotifier notifier = host.Services.GetRequiredService<IRunNotifier>();
+                for (int change = 0; change < 5; change++)
+                {
+                    notifier.Publish(new RunChanged(new BackgroundRunRef("tst", running), caller.Id));
+                }
+
+                Task second = indicator.ReloadAsync();
+                await Task.WhenAll(first, second);
+
+                for (int attempt = 0; attempt < 30 && html().Contains("mud-badge ", StringComparison.Ordinal); attempt++)
+                {
+                    await Task.Delay(100);
+                }
+
+                // Settled: no read left to come back late with the older answer.
+                await Task.Delay(800);
+
+                Assert.Contains("aria-label=\"Activity, 0 running\"", html(), StringComparison.Ordinal);
+                Assert.False(indicator.IsPolling);
+                Assert.Equal($"{Command} finished for P-1.", Assert.Single(snackbar.ShownSnackbars).Message);
+                // The held read plus one more for the whole burst: coalesced, not one read per change.
+                Assert.InRange(faults.Reads - readsBefore, 2, 3);
+            });
+        }
+        finally
+        {
+            faults.AfterRead = null;
+        }
+    }
+
     private Task RenderAsync(IUserContext user, Func<SerginActivityIndicator, Func<string>, Task> act) =>
         RenderAsync(host, user, (indicator, html, _) => act(indicator, html));
 
@@ -280,25 +341,54 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         await context.SaveChangesAsync();
     }
 
-    /// <summary>A switch that fails the activity read itself, as a broken dispatch would.</summary>
+    /// <summary>
+    /// What the activity reads see: a switch that fails them, as a broken dispatch would, a count, and a hook run after a
+    /// read has its answer and before it is returned (to hold an old answer back while a newer read goes ahead).
+    /// </summary>
     private sealed class IndicatorFaults
     {
         private volatile bool failActivity;
+        private int reads;
 
         public bool FailActivity
         {
             get => failActivity;
             set => failActivity = value;
         }
+
+        public int Reads => Volatile.Read(ref reads);
+
+        public Func<Task>? AfterRead { get; set; }
+
+        public void Read() => Interlocked.Increment(ref reads);
     }
 
     private sealed class FaultyDispatcher(ISerginDispatcher inner, IndicatorFaults faults) : ISerginDispatcher
     {
-        public Task<ErrorOr.ErrorOr<TResponse>> SendAsync<TResponse>(
-            IRequest<ErrorOr.ErrorOr<TResponse>> request, CancellationToken cancellationToken = default) =>
-            faults.FailActivity && request is GetMyActivityQuery
-                ? Task.FromResult<ErrorOr.ErrorOr<TResponse>>(ErrorOr.Error.Failure("test.activity-read-failed"))
-                : inner.SendAsync(request, cancellationToken);
+        public async Task<ErrorOr.ErrorOr<TResponse>> SendAsync<TResponse>(
+            IRequest<ErrorOr.ErrorOr<TResponse>> request, CancellationToken cancellationToken = default)
+        {
+            if (request is not GetMyActivityQuery)
+            {
+                return await inner.SendAsync(request, cancellationToken);
+            }
+
+            faults.Read();
+
+            if (faults.FailActivity)
+            {
+                return ErrorOr.Error.Failure("test.activity-read-failed");
+            }
+
+            ErrorOr.ErrorOr<TResponse> answer = await inner.SendAsync(request, cancellationToken);
+
+            if (faults.AfterRead is { } after)
+            {
+                await after();
+            }
+
+            return answer;
+        }
 
         public Task<ErrorOr.ErrorOr<Versioned<TResponse>>> SendVersionedAsync<TResponse>(
             IRequest<ErrorOr.ErrorOr<TResponse>> request, RowVersion? expected = null, CancellationToken cancellationToken = default) =>

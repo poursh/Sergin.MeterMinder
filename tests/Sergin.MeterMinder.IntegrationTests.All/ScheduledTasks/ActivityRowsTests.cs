@@ -66,6 +66,18 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public void AOneTargetFailure_CarriesItsStoredErrorDescription_AsTheRunsDialogShowsIt()
+    {
+        ActivityRow row = Build(Item(
+            ReadProfile, total: 1, unfinished: 0, failed: 1, targetId: Guid.CreateVersion7(), label: "MTR-1",
+            errorCode: "ScheduledTasks.TimedOut", errorDescription: "The command ran longer than its timeout of 00:10:00."));
+
+        Assert.Equal(ActivityState.Failed, row.State);
+        Assert.Equal("ScheduledTasks.TimedOut", row.FirstErrorCode);
+        Assert.Equal("The command ran longer than its timeout of 00:10:00.", row.FirstErrorDescription);
+    }
+
+    [Fact]
     public void AnUnknownCommand_HasNoLabel_AndKeepsItsName()
     {
         ActivityRow row = Build(Item("xx.gone.command", total: 1, unfinished: 1, targetId: Guid.CreateVersion7(), label: "X-1"));
@@ -89,7 +101,15 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
     }
 
     private static ActivityItem Item(
-        string command, int total, int unfinished, int succeeded = 0, int failed = 0, Guid? targetId = null, string? label = null) =>
+        string command,
+        int total,
+        int unfinished,
+        int succeeded = 0,
+        int failed = 0,
+        Guid? targetId = null,
+        string? label = null,
+        string? errorCode = null,
+        string? errorDescription = null) =>
         new(
             new BackgroundRunRef("dm", Guid.CreateVersion7()),
             command,
@@ -104,5 +124,6 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
             total == 1 ? targetId : null,
             null,
             total == 1 ? label : null,
-            null);
+            total == 1 ? errorCode : null,
+            total == 1 ? errorDescription : null);
 }
