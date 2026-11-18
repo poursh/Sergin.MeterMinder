@@ -148,6 +148,31 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public async Task ASourceThatCannotBeBuilt_IsSkipped()
+    {
+        var user = new UserId(Guid.CreateVersion7());
+        Guid own = await SeedRunAsync(user, ScheduledRunTrigger.Background, DateTime.UtcNow);
+        await using WebApplicationFactory<Program> unbuildable = host.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services => services.AddScoped<IBackgroundRunSource, UnbuildableBackgroundRunSource>()));
+
+        IReadOnlyList<ActivityItem> activity = await ListAsync(unbuildable, user);
+
+        Assert.Equal([own], activity.Select(item => item.Ref.RunId));
+    }
+
+    [Fact]
+    public async Task ACancelledCaller_IsCancelled_NotAnsweredEmpty()
+    {
+        var user = new UserId(Guid.CreateVersion7());
+        await SeedRunAsync(user, ScheduledRunTrigger.Background, DateTime.UtcNow);
+        using var cancelled = new CancellationTokenSource();
+        await cancelled.CancelAsync();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            host.Services.GetRequiredService<IBackgroundRunDirectory>().ListActivityAsync(user, Window, cancelled.Token));
+    }
+
+    [Fact]
     public async Task OneTargetRun_CarriesTargetAndLabel_ManyTargetRunDoesNot()
     {
         var user = new UserId(Guid.CreateVersion7());
@@ -309,4 +334,15 @@ internal sealed class ThrowingBackgroundRunSource : IBackgroundRunSource
 
     public Task<IReadOnlyList<ActivityItem>> ListActivityAsync(UserId user, DateTime finishedSinceUtc, int take, CancellationToken ct) =>
         throw new InvalidOperationException("The store is down.");
+}
+
+/// <summary>A source whose constructor throws: the directory logs it and still returns the others' runs.</summary>
+internal sealed class UnbuildableBackgroundRunSource : IBackgroundRunSource
+{
+    public UnbuildableBackgroundRunSource() => throw new InvalidOperationException("The source cannot be built.");
+
+    public string Schema => "unbuildable";
+
+    public Task<IReadOnlyList<ActivityItem>> ListActivityAsync(UserId user, DateTime finishedSinceUtc, int take, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<ActivityItem>>([]);
 }
