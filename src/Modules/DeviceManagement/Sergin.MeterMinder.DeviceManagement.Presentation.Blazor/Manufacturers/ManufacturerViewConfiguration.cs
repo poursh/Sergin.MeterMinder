@@ -15,7 +15,8 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.Components;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers.DeviceModels;
 using Sergin.SharedKernel.Application.Localizations.Common;
-using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Configuration;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Manufacturers;
 

@@ -1,4 +1,6 @@
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 

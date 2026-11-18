@@ -1,9 +1,10 @@
 using Grpc.Core;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.SharedKernel.Presentation.Grpc.Errors;
 
-namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
+namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Server.Devices;
 
 /// <summary>
 /// Runs in the module's own process when Remote. Proto request in, dispatched the same way

@@ -4,7 +4,7 @@ using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Domain;
-using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Configuration;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates.ConfirmGuards;
 

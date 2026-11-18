@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package sergin.devicemanagement;
 
-option csharp_namespace = "Sergin.MeterMinder.DeviceManagement.Presentation.Grpc";
+option csharp_namespace = "Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts";
 
 import "error.proto";
 

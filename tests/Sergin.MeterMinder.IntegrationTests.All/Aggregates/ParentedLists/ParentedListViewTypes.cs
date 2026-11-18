@@ -1,6 +1,6 @@
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Commands.Types;
-using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Configuration;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates.ParentedLists;
 
