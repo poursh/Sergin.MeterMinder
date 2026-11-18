@@ -271,6 +271,7 @@ common.scheduled-tasks.errors.command-changed
 common.scheduled-tasks.errors.duplicate-targets
 common.scheduled-tasks.errors.invalid-cron
 common.scheduled-tasks.errors.invalid-time-zone
+common.scheduled-tasks.errors.must-run-in-background
 common.scheduled-tasks.errors.no-targets
 common.scheduled-tasks.errors.not-schedulable
 common.scheduled-tasks.errors.target-without-root

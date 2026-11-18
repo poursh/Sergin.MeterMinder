@@ -351,6 +351,7 @@ FROM (VALUES
  ('fa','common.scheduled-tasks.errors.duplicate-targets','هر رکورد را فقط یک بار می‌توان انتخاب کرد.','Each record can be picked only once.'),
  ('fa','common.scheduled-tasks.errors.invalid-cron','«{PropertyName}» زمان‌بندی‌ای نیست که موتور کارها بتواند اجرا کند.','''{PropertyName}'' is not a schedule the job engine can run.'),
  ('fa','common.scheduled-tasks.errors.invalid-time-zone','«{PropertyName}» منطقهٔ زمانی شناخته‌شده‌ای نیست.','''{PropertyName}'' is not a known time zone.'),
+ ('fa','common.scheduled-tasks.errors.must-run-in-background','این عملیات در پس‌زمینه اجرا می‌شود. به‌جای ارسال مستقیم، آن را آغاز کنید.','This action runs in the background. Start it instead of sending it.'),
  ('fa','common.scheduled-tasks.errors.no-targets','دست‌کم یک رکورد انتخاب کنید.','Pick at least one record.'),
  ('fa','common.scheduled-tasks.errors.not-schedulable','این فرمان را نمی‌توان زمان‌بندی کرد.','This command cannot be scheduled.'),
  ('fa','common.scheduled-tasks.errors.target-without-root','هر رکورد انتخاب‌شده باید رکوردی را که به آن تعلق دارد مشخص کند.','Each picked record must name the record it belongs to.'),
