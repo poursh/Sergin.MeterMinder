@@ -35,11 +35,6 @@ public static class DeviceUiTexts
 
     public static readonly TextDefinition ReadProfile = category.Text("ReadProfile", "Read profile");
 
-    public static readonly TextDefinition ReadProfileDone = category.Text("ReadProfileDone", "Profile read for {DeviceId}.");
-
-    public static readonly TextDefinition BulkReadProfileDone =
-        category.Text("BulkReadProfileDone", "Profile read for {Count} devices.", "Reported after a bulk Read profile; {Count} is the number of devices read.");
-
     public static readonly TextDefinition OverviewDevices = overview.Text("Devices", "Devices");
 
     public static readonly TextDefinition OverviewInScope = overview.Text("InScope", "in this scope");

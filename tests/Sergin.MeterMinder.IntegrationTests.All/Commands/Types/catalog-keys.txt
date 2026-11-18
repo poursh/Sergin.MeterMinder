@@ -244,6 +244,18 @@ common.pages.overview
 common.permissions.groups.other
 common.permissions.groups.platform
 common.permissions.platform-all
+common.scheduled-tasks.activity.clear
+common.scheduled-tasks.activity.empty
+common.scheduled-tasks.activity.finished
+common.scheduled-tasks.activity.finished-failed
+common.scheduled-tasks.activity.finished-partly
+common.scheduled-tasks.activity.finished-succeeded
+common.scheduled-tasks.activity.one-record
+common.scheduled-tasks.activity.open-label
+common.scheduled-tasks.activity.records
+common.scheduled-tasks.activity.running
+common.scheduled-tasks.activity.show
+common.scheduled-tasks.activity.title
 common.scheduled-tasks.columns.command
 common.scheduled-tasks.columns.last-outcome
 common.scheduled-tasks.columns.next-run
@@ -376,7 +388,6 @@ common.validation.scale-precision-validator
 common.values.no
 common.values.yes
 common.welcome.prompt
-device-management.devices.bulk-read-profile-done
 device-management.devices.delete-confirm
 device-management.devices.delete-many-confirm
 device-management.devices.delete-many-title
@@ -408,7 +419,6 @@ device-management.devices.permissions.read
 device-management.devices.permissions.read-profile
 device-management.devices.permissions.update
 device-management.devices.read-profile
-device-management.devices.read-profile-done
 device-management.devices.search-placeholder
 device-management.devices.select-manufacturer-first
 device-management.devices.singular
