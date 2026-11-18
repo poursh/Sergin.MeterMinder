@@ -396,6 +396,10 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasDatabaseName("ix_scheduled_task_runs_task_id_running")
                         .HasFilter("status = 'Running'");
 
+                    b.HasIndex("ActingUserId", "StartedAtUtc")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_scheduled_task_runs_acting_user_id_started_at_utc");
+
                     b.HasIndex("TaskId", "StartedAtUtc")
                         .IsDescending(false, true)
                         .HasDatabaseName("ix_scheduled_task_runs_task_id_started_at_utc");
@@ -454,6 +458,10 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                     b.Property<Guid>("TargetId")
                         .HasColumnType("uuid")
                         .HasColumnName("target_id");
+
+                    b.Property<string>("TargetLabel")
+                        .HasColumnType("text")
+                        .HasColumnName("target_label");
 
                     b.HasKey("Id")
                         .HasName("pk_scheduled_task_run_items");

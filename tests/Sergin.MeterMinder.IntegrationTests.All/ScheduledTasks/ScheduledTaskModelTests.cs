@@ -1,6 +1,7 @@
 ﻿using System.Net;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -89,6 +90,21 @@ public sealed class ScheduledTaskModelTests(SerginWebApiFactory<Program> factory
         Assert.Contains(
             model.FindEntityType(typeof(ScheduledTaskRunItem))!.GetIndexes(),
             index => Names(index) == $"{nameof(ScheduledTaskRunItem.TargetId)},{nameof(ScheduledTaskRunItem.RunId)}");
+    }
+
+    [Fact]
+    public void RunItem_TargetLabel_IsNullableText_AndRunsHaveTheActivityIndex()
+    {
+        IModel model = DesignModel();
+        IProperty label = model.FindEntityType(typeof(ScheduledTaskRunItem))!.FindProperty(nameof(ScheduledTaskRunItem.TargetLabel))!;
+
+        Assert.True(label.IsNullable);
+        Assert.Equal(typeof(string), label.ClrType);
+
+        IIndex index = Assert.Single(
+            model.FindEntityType(typeof(ScheduledTaskRun))!.GetIndexes(),
+            candidate => Names(candidate) == $"{nameof(ScheduledTaskRun.ActingUserId)},{nameof(ScheduledTaskRun.StartedAtUtc)}");
+        Assert.Equal([false, true], index.IsDescending);
     }
 
     [Fact]
@@ -213,6 +229,13 @@ public sealed class ScheduledTaskModelTests(SerginWebApiFactory<Program> factory
     }
 
     private static string Names(IIndex index) => string.Join(",", index.Properties.Select(property => property.Name));
+
+    // Descending columns are design-time metadata, not kept in the runtime model.
+    private IModel DesignModel()
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        return scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>().GetService<IDesignTimeModel>().Model;
+    }
 
     private IModel Model()
     {
