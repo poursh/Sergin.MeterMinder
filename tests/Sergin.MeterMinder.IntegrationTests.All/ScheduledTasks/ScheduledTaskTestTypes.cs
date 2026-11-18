@@ -187,3 +187,36 @@ internal sealed record CheckedNote
 }
 
 internal sealed record CheckedProbeCommand(ScheduleProbeId Id, CheckedNote Note) : ICommand<TouchProbeResponse>;
+
+// ---- Background declaration fixtures: never added to ScheduledTaskTestHost.ProbeConfigurations. ----
+
+internal sealed record BackgroundProbeCommand(ScheduleProbeId Id) : ICommand, ISetPropertyCommand<ScheduleProbe, ScheduleProbeId>;
+
+internal sealed class BackgroundProbeCommandConfiguration : ICommandConfiguration<BackgroundProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<BackgroundProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.slow").Background(TimeSpan.FromMinutes(2));
+}
+
+internal sealed class BackgroundOnlyProbeCommandConfiguration : ICommandConfiguration<BackgroundProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<BackgroundProbeCommand> builder) => builder.Background();
+}
+
+internal sealed class BackgroundZeroProbeCommandConfiguration : ICommandConfiguration<BackgroundProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<BackgroundProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.slow").Background(TimeSpan.Zero);
+}
+
+internal sealed class BackgroundNegativeProbeCommandConfiguration : ICommandConfiguration<BackgroundProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<BackgroundProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.slow").Background(TimeSpan.FromSeconds(-1));
+}
+
+internal sealed class BackgroundTooLongProbeCommandConfiguration : ICommandConfiguration<BackgroundProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<BackgroundProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.slow").Background(TimeSpan.FromMinutes(61));
+}
