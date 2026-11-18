@@ -1,3 +1,4 @@
+using ErrorOr;
 using FluentValidation;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
@@ -93,6 +94,68 @@ internal sealed class TouchProbeCommandValidator : AbstractValidator<TouchProbeC
         RuleFor(command => command.Note.Value)
             .NotEqual("invalid")
             .OverridePropertyName(nameof(TouchProbeCommand.Note));
+}
+
+// ---- Background probes: valid declarations, in ScheduledTaskTestHost.ProbeConfigurations; handlers registered per test host. ----
+
+/// <summary>A background command whose handler waits on the host's <see cref="ProbeGate"/> until a test releases it.</summary>
+internal sealed record SlowProbeCommand(ScheduleProbeId Id, string Note)
+    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+/// <summary>A background command with a one-second timeout whose handler takes thirty.</summary>
+internal sealed record TimedProbeCommand(ScheduleProbeId Id)
+    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+internal sealed class SlowProbeCommandConfiguration : ICommandConfiguration<SlowProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<SlowProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.slow").Background().RequirePermissions(ScheduleProbePermissions.Touch);
+}
+
+internal sealed class TimedProbeCommandConfiguration : ICommandConfiguration<TimedProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<TimedProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.timed").Background(TimeSpan.FromSeconds(1)).RequirePermissions(ScheduleProbePermissions.Touch);
+}
+
+internal sealed class SlowProbeCommandValidator : AbstractValidator<SlowProbeCommand>
+{
+    public SlowProbeCommandValidator() => RuleFor(command => command.Note).NotEqual("invalid");
+}
+
+/// <summary>Holds every <see cref="SlowProbeCommand"/> send until <see cref="Release"/>; counts the sends that entered.</summary>
+internal sealed class ProbeGate
+{
+    private readonly TaskCompletionSource released = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int entered;
+
+    public int Entered => Volatile.Read(ref entered);
+
+    public Task WaitAsync(CancellationToken ct)
+    {
+        Interlocked.Increment(ref entered);
+        return released.Task.WaitAsync(ct);
+    }
+
+    public void Release() => released.TrySetResult();
+}
+
+internal sealed class SlowProbeCommandHandler(ProbeGate gate) : ICommandHandler<SlowProbeCommand, TouchProbeResponse>
+{
+    public async Task<ErrorOr<TouchProbeResponse>> Handle(SlowProbeCommand request, CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        return new TouchProbeResponse(request.Note);
+    }
+}
+
+internal sealed class TimedProbeCommandHandler : ICommandHandler<TimedProbeCommand, TouchProbeResponse>
+{
+    public async Task<ErrorOr<TouchProbeResponse>> Handle(TimedProbeCommand request, CancellationToken cancellationToken)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+        return new TouchProbeResponse(string.Empty);
+    }
 }
 
 // ---- Refusal fixtures: each configuration is fed only to the test that needs it. ----
