@@ -1,5 +1,7 @@
 common.actions.add
 common.actions.apply
+common.actions.background-started
+common.actions.background-started-many
 common.actions.bulk-done
 common.actions.cancel
 common.actions.clear
@@ -292,6 +294,7 @@ common.scheduled-tasks.run-now
 common.scheduled-tasks.run-once-started
 common.scheduled-tasks.runs.acted-by
 common.scheduled-tasks.runs.attempts
+common.scheduled-tasks.runs.background
 common.scheduled-tasks.runs.completed
 common.scheduled-tasks.runs.empty
 common.scheduled-tasks.runs.error

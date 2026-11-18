@@ -92,6 +92,8 @@ INSERT INTO st.translation(id,language_id,key,text,source_text,created_at_utc,cr
 SELECT gen_random_uuid(), l.id, t.key, t.text, t.source, now(), '01920000-0000-7000-8000-00000000000f', gen_random_uuid()
 FROM (VALUES
  ('fa','common.actions.apply','اعمال','Apply'),
+ ('fa','common.actions.background-started','آغاز شد. در پس‌زمینه ادامه می‌یابد.','Started. It keeps running in the background.'),
+ ('fa','common.actions.background-started-many','برای {Count} رکورد آغاز شد. در پس‌زمینه ادامه می‌یابد.','Started for {Count} records. It keeps running in the background.'),
  ('fa','common.actions.bulk-done','برای {Count} رکورد انجام شد.','Done for {Count} records.'),
  ('fa','common.actions.clear','پاک کردن','Clear'),
  ('fa','common.actions.clear-all','پاک کردن همه','Clear all'),
@@ -373,6 +375,7 @@ FROM (VALUES
  ('fa','common.scheduled-tasks.view-schedules','دیدن زمان‌بندی‌ها ({Count})','View schedules ({Count})'),
  ('fa','common.scheduled-tasks.runs.acted-by','اجرا توسط','Run by'),
  ('fa','common.scheduled-tasks.runs.attempts','تلاش‌ها','Attempts'),
+ ('fa','common.scheduled-tasks.runs.background','پس‌زمینه','Background'),
  ('fa','common.scheduled-tasks.runs.completed','تکمیل‌شده','Completed'),
  ('fa','common.scheduled-tasks.runs.empty','هنوز اجرایی نیست.','No runs yet.'),
  ('fa','common.scheduled-tasks.runs.error','خطا','Error'),
