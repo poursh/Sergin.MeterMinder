@@ -9,9 +9,9 @@ using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Localizations.Common;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
-using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Errors;
 using Sergin.SharedKernel.Presentation.Localizations;
+using Sergin.SharedKernel.Presentation.Blazor.Lists;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 

@@ -1,8 +1,9 @@
 using System.Reflection;
 using System.Text.RegularExpressions;
 using Sergin.SharedKernel.Modules;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
+using Sergin.SharedKernel.Presentation.Blazor.Lists;
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
-using Sergin.SharedKernel.Presentation.Blazor.Pages;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Localization;
 

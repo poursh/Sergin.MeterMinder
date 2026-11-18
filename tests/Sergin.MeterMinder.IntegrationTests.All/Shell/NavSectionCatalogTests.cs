@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
+using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 

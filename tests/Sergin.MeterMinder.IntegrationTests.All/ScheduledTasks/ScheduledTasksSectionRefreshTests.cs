@@ -24,8 +24,8 @@ using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
-using Sergin.SharedKernel.Presentation.Blazor.Times;
 using Sergin.SharedKernel.Presentation.Errors;
+using Sergin.SharedKernel.Presentation.Blazor.TimeZones;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 

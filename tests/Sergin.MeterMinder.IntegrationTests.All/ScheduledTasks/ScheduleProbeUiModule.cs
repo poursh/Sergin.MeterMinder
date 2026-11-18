@@ -9,7 +9,8 @@ using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
-using Sergin.SharedKernel.Presentation.Blazor.Times;
+using Sergin.SharedKernel.Presentation.Blazor.Navigation;
+using Sergin.SharedKernel.Presentation.Blazor.TimeZones;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 

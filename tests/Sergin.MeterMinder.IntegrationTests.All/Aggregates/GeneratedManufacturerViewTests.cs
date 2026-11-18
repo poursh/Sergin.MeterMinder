@@ -28,8 +28,8 @@ using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Localizations;
+using Sergin.SharedKernel.Presentation.Blazor.Lists;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 

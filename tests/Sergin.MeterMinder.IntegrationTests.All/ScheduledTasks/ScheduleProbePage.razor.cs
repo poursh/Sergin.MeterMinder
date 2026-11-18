@@ -5,9 +5,9 @@ using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
-using Sergin.SharedKernel.Presentation.Blazor.Navigation;
-using Sergin.SharedKernel.Presentation.Blazor.Pages;
 using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
+using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 
