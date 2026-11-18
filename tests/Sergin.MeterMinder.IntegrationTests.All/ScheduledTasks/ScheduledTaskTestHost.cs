@@ -76,7 +76,7 @@ internal static class ScheduledTaskTestHost
                 services.AddModuleDbContext<ScheduledTasksDbContext, IScheduledTasksTestDbContext, IScheduledTasksTestUnitOfWork>(
                     context.Configuration.GetSection("Sergin"), ScheduledTasksDbContext.Schema);
 
-                services.AddSingleton(ModuleConfigurationSource.FromTypes(ProbeConfigurations));
+                services.AddSingleton(ModuleConfigurationSource.FromTypesInSchema(ScheduledTasksDbContext.Schema, ProbeConfigurations));
 
                 AddProbeToHostRegistry(services);
 
