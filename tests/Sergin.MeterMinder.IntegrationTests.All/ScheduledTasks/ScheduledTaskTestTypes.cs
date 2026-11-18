@@ -327,7 +327,7 @@ internal sealed record CheckedProbeCommand(ScheduleProbeId Id, CheckedNote Note)
 
 // ---- Background declaration fixtures: never added to ScheduledTaskTestHost.ProbeConfigurations. ----
 
-internal sealed record BackgroundProbeCommand(ScheduleProbeId Id) : ICommand, ISetPropertyCommand<ScheduleProbe, ScheduleProbeId>;
+internal sealed record BackgroundProbeCommand(ScheduleProbeId Id) : ICommand, ITransitionCommand<ScheduleProbe, ScheduleProbeId>;
 
 internal sealed class BackgroundProbeCommandConfiguration : ICommandConfiguration<BackgroundProbeCommand>
 {
@@ -356,4 +356,40 @@ internal sealed class BackgroundTooLongProbeCommandConfiguration : ICommandConfi
 {
     public void Configure(CommandConfigurationBuilder<BackgroundProbeCommand> builder) =>
         builder.Schedulable("tst.probes.slow").Background(TimeSpan.FromMinutes(61));
+}
+
+/// <summary>A set-property command: the generated views send it with a value, so it may not be a background command.</summary>
+internal sealed record BackgroundSetPropertyProbeCommand(ScheduleProbeId Id, ProbeNote Note)
+    : ICommand, ISetPropertyCommand<ScheduleProbe, ScheduleProbeId>;
+
+internal sealed class BackgroundSetPropertyProbeCommandConfiguration : ICommandConfiguration<BackgroundSetPropertyProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<BackgroundSetPropertyProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.background-set").Background();
+}
+
+/// <summary>A child's transition: the generated views start only a root's.</summary>
+internal sealed record BackgroundChildTransitionProbeCommand(ScheduleProbeId RootId, ScheduleProbeChildId Id)
+    : ICommand, ITransitionCommand<ScheduleProbe, ScheduleProbeId, ScheduleProbeChild, ScheduleProbeChildId>;
+
+internal sealed class BackgroundChildTransitionProbeCommandConfiguration : ICommandConfiguration<BackgroundChildTransitionProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<BackgroundChildTransitionProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.background-child").Background();
+}
+
+/// <summary>A deletion: the generated views confirm and send it, so it may not be a background command.</summary>
+internal sealed record BackgroundDeleteProbeCommand(ScheduleProbeId Id) : ICommand, IDeleteCommand<ScheduleProbe, ScheduleProbeId>;
+
+internal sealed class BackgroundDeleteProbeCommandConfiguration : ICommandConfiguration<BackgroundDeleteProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<BackgroundDeleteProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.background-delete").Background();
+}
+
+/// <summary>Throws a cancellation no token caused, as an HTTP client's timeout does.</summary>
+internal sealed class SelfCancelingProbeCommandHandler : ICommandHandler<TouchOneProbeCommand, TouchProbeResponse>
+{
+    public Task<ErrorOr<TouchProbeResponse>> Handle(TouchOneProbeCommand request, CancellationToken cancellationToken) =>
+        throw new TaskCanceledException("The probe's own request timed out.");
 }

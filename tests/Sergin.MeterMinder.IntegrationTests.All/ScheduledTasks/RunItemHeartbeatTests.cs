@@ -52,6 +52,7 @@ public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) 
                 services.AddTransient<IRequestHandler<GatedTimedProbeCommand, ErrorOr<TouchProbeResponse>>, GatedTimedProbeCommandHandler>();
                 services.AddTransient<IRequestHandler<WrappingTimedProbeCommand, ErrorOr<TouchProbeResponse>>, WrappingTimedProbeCommandHandler>();
                 services.AddScoped<IValidator<SlowProbeCommand>, SlowProbeCommandValidator>();
+                services.AddTransient<IRequestHandler<TouchOneProbeCommand, ErrorOr<TouchProbeResponse>>, SelfCancelingProbeCommandHandler>();
             });
         });
 
@@ -171,6 +172,26 @@ public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) 
         ScheduledTaskRunItem item = Assert.Single(await ItemsAsync(run));
         Assert.Equal(ScheduledRunItemStatus.Running, item.Status);
         Assert.Null(item.ErrorCode);
+    }
+
+    [Fact]
+    public async Task ACancellationNoTokenCaused_IsRetried_NotThrown()
+    {
+        TestCaller user = await TouchCallerAsync(tree.North);
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+        string arguments = ScheduledCommandFactory.ToArguments(new TouchOneProbeCommand(new(Guid.Empty), new ProbeNote("x")));
+        Guid run = await StartRunAsync(user, tree.North, "tst.probes.touch-one", arguments, probe.Id.Value);
+        Guid itemId = Assert.Single(await ItemsAsync(run)).Id;
+
+        using IServiceScope scope = host.Services.CreateScope();
+        ScheduledRunItemExecutor executor = scope.ServiceProvider.GetRequiredService<ScheduledRunItemExecutor>();
+
+        bool retry = await executor.ExecuteAsync(ScheduledTasksDbContext.Schema, itemId, CancellationToken.None);
+
+        Assert.True(retry);
+        ScheduledTaskRunItem item = Assert.Single(await ItemsAsync(run));
+        Assert.Equal(ScheduledRunItemStatus.Retrying, item.Status);
+        Assert.Equal(typeof(TaskCanceledException).FullName, item.ErrorCode);
     }
 
     private static string SlowArguments() => ScheduledCommandFactory.ToArguments(new SlowProbeCommand(new(Guid.Empty), "slow"));

@@ -53,6 +53,18 @@ public sealed class BackgroundDeclarationTests
         Assert.Contains("1 hour", message);
     }
 
+    [Theory]
+    [InlineData(typeof(BackgroundSetPropertyProbeCommandConfiguration), typeof(BackgroundSetPropertyProbeCommand))]
+    [InlineData(typeof(BackgroundChildTransitionProbeCommandConfiguration), typeof(BackgroundChildTransitionProbeCommand))]
+    [InlineData(typeof(BackgroundDeleteProbeCommandConfiguration), typeof(BackgroundDeleteProbeCommand))]
+    public void Background_OnAnythingButARootTransition_RefusesNamingTheRequest(Type configuration, Type request)
+    {
+        string message = Refusal(configuration);
+
+        Assert.Contains(request.FullName!, message);
+        Assert.Contains("ITransitionCommand", message);
+    }
+
     [Fact]
     public void NoBackground_LeavesSettingNull()
     {

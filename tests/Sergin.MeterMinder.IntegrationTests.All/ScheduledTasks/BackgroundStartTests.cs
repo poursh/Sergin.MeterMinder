@@ -115,7 +115,8 @@ public sealed class BackgroundStartTests(SerginWebApiFactory<Program> factory) :
             await StartAsync(host, caller, new TouchProbeCommand(new(Guid.Empty), new ProbeNote("inline")), probe);
 
         Assert.True(started.IsError);
-        Assert.Equal(nameof(StartBackgroundCommand.Template), started.FirstError.Code);
+        Assert.Equal(ErrorType.Validation, started.FirstError.Type);
+        Assert.Equal(ScheduledTaskErrors.NotBackground.Code, started.FirstError.Code);
         Assert.Equal(ScheduledTaskTexts.NotBackground.Default, started.FirstError.Description);
         await AssertNothingWrittenAsync();
     }
@@ -178,9 +179,34 @@ public sealed class BackgroundStartTests(SerginWebApiFactory<Program> factory) :
         Assert.True(started.IsError);
         Assert.Contains(
             started.Errors,
-            error => error.Type == ErrorType.Validation && error.Code == nameof(StartBackgroundCommand.Targets)
+            error => error.Type == ErrorType.Validation && error.Code == ScheduledTaskErrors.TooManyTargets.Code
                 && error.Description == ScheduledTaskTexts.TooManyTargets.Default);
-        await AssertNothingWrittenAsync();
+        await AssertNothingWrittenAsync(capped);
+    }
+
+    [Fact]
+    public async Task TemplateValidator_ReadsTheScopedAggregate_WithinTheCommandsReach()
+    {
+        TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
+        ScheduleProbe reachable = await CreateProbeAsync(tree.Feeder1);
+        ScheduleProbe unreachable = await CreateProbeAsync(tree.South);
+        await using WebApplicationFactory<Program> reading = host.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services =>
+                services.Replace(ServiceDescriptor.Scoped<IValidator<SlowProbeCommand>, ExistingSlowProbeCommandValidator>())));
+
+        ErrorOr<BackgroundRunStartedResponse> outOfReach = await StartAsync(reading, caller, Slow("slow"), unreachable);
+
+        // Refused as the pipeline's validator would refuse it for that caller: the probe is not visible to them.
+        Assert.True(outOfReach.IsError);
+        Error error = Assert.Single(outOfReach.Errors);
+        Assert.Equal(ErrorType.Validation, error.Type);
+        Assert.Equal(nameof(SlowProbeCommand.Id), error.Code);
+        await AssertNothingWrittenAsync(reading);
+
+        ErrorOr<BackgroundRunStartedResponse> inReach = await StartAsync(reading, caller, Slow("slow"), reachable);
+
+        Assert.False(inReach.IsError, inReach.IsError ? inReach.FirstError.Code : string.Empty);
+        Assert.Single(reading.Services.GetRequiredService<FakeScheduledTaskEngine>().QueuedItems);
     }
 
     [Fact]
@@ -226,15 +252,28 @@ public sealed class BackgroundStartTests(SerginWebApiFactory<Program> factory) :
         return await context.ScheduledTaskRuns.AsNoTracking().SingleAsync(run => run.Id == runId);
     }
 
-    private async Task AssertNothingWrittenAsync()
+    private Task AssertNothingWrittenAsync() => AssertNothingWrittenAsync(host);
+
+    /// <summary>No run, no item, and nothing queued on <paramref name="on"/>'s engine: the host the start was sent to.</summary>
+    private static async Task AssertNothingWrittenAsync(WebApplicationFactory<Program> on)
     {
-        using IServiceScope scope = host.Services.CreateScope();
+        using IServiceScope scope = on.Services.CreateScope();
         ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
 
         Assert.False(await context.ScheduledTaskRuns.AnyAsync());
         Assert.False(await context.ScheduledTaskRunItems.AnyAsync());
-        Assert.Empty(Engine.QueuedItems);
+        Assert.Empty(on.Services.GetRequiredService<FakeScheduledTaskEngine>().QueuedItems);
     }
+}
+
+/// <summary>
+/// A validator that reads the scoped probe its command targets, as <c>MustExistIn</c> on a <c>Scoped()</c> root does: it
+/// sees the probe only under the reach the command's permissions publish.
+/// </summary>
+internal sealed class ExistingSlowProbeCommandValidator : AbstractValidator<SlowProbeCommand>
+{
+    public ExistingSlowProbeCommandValidator(ScheduledTasksDbContext context) =>
+        RuleFor(command => command.Id).MustAsync((id, ct) => context.Probes.AnyAsync(probe => probe.Id == id, ct));
 }
 
 /// <summary>
