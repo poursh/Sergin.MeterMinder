@@ -7,9 +7,10 @@ using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Modules;
-using Sergin.SharedKernel.Presentation.Blazor.Modules;
 using Sergin.Administration.UserAccess.Application.Configurations.Scopes;
 using Sergin.Administration.UserAccess.Application.Configurations.Users;
+using Sergin.SharedKernel.Presentation.Blazor.Modules;
+using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 

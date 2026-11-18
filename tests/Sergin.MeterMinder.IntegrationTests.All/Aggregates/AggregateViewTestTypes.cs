@@ -18,7 +18,7 @@ using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Configuration;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
-using Sergin.SharedKernel.Presentation.Blazor.Pages;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 

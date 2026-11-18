@@ -26,8 +26,8 @@ using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
-using Sergin.SharedKernel.Presentation.Blazor.Times;
 using Sergin.Administration.UserAccess.Domain.Scopes;
+using Sergin.SharedKernel.Presentation.Blazor.TimeZones;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 

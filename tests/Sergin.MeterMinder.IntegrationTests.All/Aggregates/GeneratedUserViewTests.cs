@@ -28,7 +28,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.SharedKernel.Presentation.Blazor.Pages;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
 using Sergin.SharedKernel.Presentation.Blazor.Views;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;

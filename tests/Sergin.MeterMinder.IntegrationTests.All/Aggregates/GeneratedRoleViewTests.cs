@@ -32,10 +32,10 @@ using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.Errors;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
-using Sergin.SharedKernel.Presentation.Blazor.Views;
 using Sergin.Administration.UserAccess.Application.Contracts.Users.Assignments.Commands.Assign;
 using Sergin.Administration.UserAccess.Application.Contracts.Users.Assignments.Commands.GetList;
 using Sergin.Administration.UserAccess.Domain.Users;
+using Sergin.SharedKernel.Presentation.Blazor.Views;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
