@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Sergin.SharedKernel.Application.Securities.Authorization;
-using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 
 namespace Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices.Components;
 

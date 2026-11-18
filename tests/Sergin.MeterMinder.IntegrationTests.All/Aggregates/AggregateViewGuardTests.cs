@@ -8,6 +8,7 @@ using Sergin.MeterMinder.IntegrationTests.All.Aggregates.ParentedLists;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnlistedTargets;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.UnresolvedFilters;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 

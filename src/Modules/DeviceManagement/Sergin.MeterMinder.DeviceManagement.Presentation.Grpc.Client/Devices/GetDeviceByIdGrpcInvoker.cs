@@ -1,8 +1,9 @@
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.GetOne;
+using Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Contracts;
 using Sergin.SharedKernel.Presentation.Grpc.Dispatching;
 using Sergin.SharedKernel.Presentation.Grpc.Errors;
 
-namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Devices;
+namespace Sergin.MeterMinder.DeviceManagement.Presentation.Grpc.Client.Devices;
 
 /// <remarks>
 /// Public, not internal: same reasoning as <see cref="DeviceGrpcService"/> — no production composition
