@@ -35,6 +35,8 @@ internal static class ScheduledTaskTestHost
         typeof(TouchOneProbeCommandConfiguration),
         typeof(SlowProbeCommandConfiguration),
         typeof(TimedProbeCommandConfiguration),
+        typeof(GatedTimedProbeCommandConfiguration),
+        typeof(WrappingTimedProbeCommandConfiguration),
     ];
 
     /// <param name="factory">The shared factory.</param>

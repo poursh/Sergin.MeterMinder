@@ -49,6 +49,8 @@ public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) 
                 services.AddSingleton<ProbeGate>();
                 services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<TouchProbeResponse>>, SlowProbeCommandHandler>();
                 services.AddTransient<IRequestHandler<TimedProbeCommand, ErrorOr<TouchProbeResponse>>, TimedProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<GatedTimedProbeCommand, ErrorOr<TouchProbeResponse>>, GatedTimedProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<WrappingTimedProbeCommand, ErrorOr<TouchProbeResponse>>, WrappingTimedProbeCommandHandler>();
                 services.AddScoped<IValidator<SlowProbeCommand>, SlowProbeCommandValidator>();
             });
         });
@@ -104,6 +106,23 @@ public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) 
     }
 
     [Fact]
+    public async Task Timeout_WrappedInAnotherException_IsStillATimeout()
+    {
+        TestCaller user = await TouchCallerAsync(tree.North);
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+        string arguments = ScheduledCommandFactory.ToArguments(new WrappingTimedProbeCommand(new(Guid.Empty)));
+        Guid run = await StartRunAsync(user, tree.North, "tst.probes.wrapping-timed", arguments, probe.Id.Value);
+
+        await Engine.DrainAsync(host.Services);
+
+        ScheduledTaskRunItem item = Assert.Single(await ItemsAsync(run));
+        Assert.Equal(ScheduledRunItemStatus.Failed, item.Status);
+        Assert.Equal("ScheduledTasks.TimedOut", item.ErrorCode);
+        Assert.Equal(1, item.Attempts);
+        Assert.Equal(ScheduledRunStatus.Completed, (await RunAsync(run)).Status);
+    }
+
+    [Fact]
     public async Task Touch_OnAFinishedItem_ChangesNothing()
     {
         TestCaller user = await TouchCallerAsync(tree.North);
@@ -132,7 +151,9 @@ public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) 
     {
         TestCaller user = await TouchCallerAsync(tree.North);
         ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
-        Guid run = await StartRunAsync(user, tree.North, SlowName, SlowArguments(), probe.Id.Value);
+        // A command with a timeout (far longer than the test), so a shutdown could be mistaken for one.
+        string arguments = ScheduledCommandFactory.ToArguments(new GatedTimedProbeCommand(new(Guid.Empty)));
+        Guid run = await StartRunAsync(user, tree.North, "tst.probes.gated-timed", arguments, probe.Id.Value);
         Guid itemId = Assert.Single(await ItemsAsync(run)).Id;
 
         using IServiceScope scope = host.Services.CreateScope();
@@ -143,7 +164,9 @@ public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) 
         await WaitUntilAsync(() => Gate.Entered == 1);
         await shutdown.CancelAsync();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => execution);
+        // The send's own cancellation, unchanged: nothing was attempted after it (a save on the cancelled token would
+        // throw a plain OperationCanceledException instead).
+        await Assert.ThrowsAsync<ProbeCanceledException>(() => execution);
 
         ScheduledTaskRunItem item = Assert.Single(await ItemsAsync(run));
         Assert.Equal(ScheduledRunItemStatus.Running, item.Status);

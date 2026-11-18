@@ -108,6 +108,7 @@ internal sealed record TimedProbeCommand(ScheduleProbeId Id)
 
 internal sealed class SlowProbeCommandConfiguration : ICommandConfiguration<SlowProbeCommand>
 {
+    // The name is shared with BackgroundProbeCommandConfiguration (Task 1's fixture), which lives in a separate source.
     public void Configure(CommandConfigurationBuilder<SlowProbeCommand> builder) =>
         builder.Schedulable("tst.probes.slow").Background().RequirePermissions(ScheduleProbePermissions.Touch);
 }
@@ -116,6 +117,26 @@ internal sealed class TimedProbeCommandConfiguration : ICommandConfiguration<Tim
 {
     public void Configure(CommandConfigurationBuilder<TimedProbeCommand> builder) =>
         builder.Schedulable("tst.probes.timed").Background(TimeSpan.FromSeconds(1)).RequirePermissions(ScheduleProbePermissions.Touch);
+}
+
+/// <summary>A background command with a timeout far longer than any test, whose handler waits on the <see cref="ProbeGate"/>.</summary>
+internal sealed record GatedTimedProbeCommand(ScheduleProbeId Id)
+    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+/// <summary>A background command with a one-second timeout whose handler turns the cancellation into another exception.</summary>
+internal sealed record WrappingTimedProbeCommand(ScheduleProbeId Id)
+    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+internal sealed class GatedTimedProbeCommandConfiguration : ICommandConfiguration<GatedTimedProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<GatedTimedProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.gated-timed").Background(TimeSpan.FromMinutes(1)).RequirePermissions(ScheduleProbePermissions.Touch);
+}
+
+internal sealed class WrappingTimedProbeCommandConfiguration : ICommandConfiguration<WrappingTimedProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<WrappingTimedProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.wrapping-timed").Background(TimeSpan.FromSeconds(1)).RequirePermissions(ScheduleProbePermissions.Touch);
 }
 
 internal sealed class SlowProbeCommandValidator : AbstractValidator<SlowProbeCommand>
@@ -146,6 +167,59 @@ internal sealed class SlowProbeCommandHandler(ProbeGate gate) : ICommandHandler<
     {
         await gate.WaitAsync(cancellationToken);
         return new TouchProbeResponse(request.Note);
+    }
+}
+
+internal sealed class GatedTimedProbeCommandHandler(ProbeGate gate) : ICommandHandler<GatedTimedProbeCommand, TouchProbeResponse>
+{
+    public async Task<ErrorOr<TouchProbeResponse>> Handle(GatedTimedProbeCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await gate.WaitAsync(cancellationToken);
+        }
+        catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
+        {
+            // Distinctive, so a test can tell the send's own cancellation from one a later save throws.
+            throw new ProbeCanceledException("The gated probe was cancelled.", exception);
+        }
+
+        return new TouchProbeResponse(string.Empty);
+    }
+}
+
+/// <summary>The cancellation <see cref="GatedTimedProbeCommandHandler"/> surfaces, told apart from any other.</summary>
+public sealed class ProbeCanceledException : OperationCanceledException
+{
+    public ProbeCanceledException()
+    {
+    }
+
+    public ProbeCanceledException(string message)
+        : base(message)
+    {
+    }
+
+    public ProbeCanceledException(string message, Exception innerException)
+        : base(message, innerException)
+    {
+    }
+}
+
+internal sealed class WrappingTimedProbeCommandHandler : ICommandHandler<WrappingTimedProbeCommand, TouchProbeResponse>
+{
+    public async Task<ErrorOr<TouchProbeResponse>> Handle(WrappingTimedProbeCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+        }
+        catch (OperationCanceledException exception)
+        {
+            throw new InvalidOperationException("The probe wrapped its cancellation.", exception);
+        }
+
+        return new TouchProbeResponse(string.Empty);
     }
 }
 
