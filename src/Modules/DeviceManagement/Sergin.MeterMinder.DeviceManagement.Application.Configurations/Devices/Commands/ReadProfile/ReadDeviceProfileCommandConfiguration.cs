@@ -8,6 +8,7 @@ internal sealed class ReadDeviceProfileCommandConfiguration : ICommandConfigurat
     // A version stored with a schedule would be stale by the next run, so the command waives it.
     public void Configure(CommandConfigurationBuilder<ReadDeviceProfileCommand> builder) =>
         builder.Schedulable("dm.devices.read-profile")
+            .Background(TimeSpan.FromMinutes(10))
             .RequirePermissions(DevicePermissions.ReadProfile)
             .WithoutExpectedVersion();
 }
