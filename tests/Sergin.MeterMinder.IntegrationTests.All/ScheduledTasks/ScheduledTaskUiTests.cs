@@ -436,7 +436,7 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
 
             string html = Html();
             Assert.DoesNotMatch(OneOffCancelButton(), html);
-            Assert.Contains("Completed: 0 of 1 succeeded, 0 failed · 1 cancelled", html, StringComparison.Ordinal);
+            Assert.Contains("Completed: 0 of 1 succeeded, 0 failed, 1 cancelled", html, StringComparison.Ordinal);
         });
     }
 

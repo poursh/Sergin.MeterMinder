@@ -489,6 +489,48 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
     }
 
     [Fact]
+    public async Task AThreeRecordRun_WithOneItemFinished_ShowsOneDone_WhileItRuns()
+    {
+        (Guid run, IReadOnlyList<Guid> items) = await SeedThreeItemRunAsync(caller.Id);
+        await SucceedItemAsync(items[0]);
+
+        await RenderWithServicesAsync(host, caller, async (indicator, _, services) =>
+        {
+            await indicator.StartAsync();
+
+            // The run's counts are written only when it completes: the bar counts the item that no longer waits.
+            ActivityRow row = Assert.Single(services.GetRequiredService<ActivityPanelState>().Rows, found => found.Ref.RunId == run);
+            Assert.Equal(ActivityState.Running, row.State);
+            Assert.Equal((1, 3), (row.Done, row.Total));
+        });
+    }
+
+    [Fact]
+    public async Task ARunCancelledPartWay_IsAnnouncedAsCancelled_WithWhatWasDone()
+    {
+        (Guid run, IReadOnlyList<Guid> items) = await SeedThreeItemRunAsync(caller.Id);
+        await SucceedItemAsync(items[0]);
+
+        await RenderWithServicesAsync(host, caller, async (indicator, _, services) =>
+        {
+            ISnackbar snackbar = services.GetRequiredService<ISnackbar>();
+            await indicator.StartAsync();
+
+            await CancelRunAsync(run);
+            await indicator.ReloadAsync();
+            await SettleAsync(indicator, () => snackbar.ShownSnackbars.Any());
+
+            Snackbar shown = Assert.Single(snackbar.ShownSnackbars);
+            Assert.Equal($"{Command} finished for 1 of 3 records; 2 cancelled.", shown.Message);
+            Assert.Equal(Severity.Normal, shown.Severity);
+
+            ActivityRow row = Assert.Single(services.GetRequiredService<ActivityPanelState>().Rows, found => found.Ref.RunId == run);
+            Assert.Equal(ActivityState.Cancelled, row.State);
+            Assert.Equal((1, 2), (row.Done, row.Cancelled));
+        });
+    }
+
+    [Fact]
     public async Task PanelState_PublishesRows_AfterALoad()
     {
         var target = Guid.CreateVersion7();
@@ -567,6 +609,32 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         await store.SaveAsync(CancellationToken.None);
 
         return run.Id;
+    }
+
+    private async Task<(Guid Run, IReadOnlyList<Guid> Items)> SeedThreeItemRunAsync(UserId user)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema);
+        var definition = new ScheduledRunDefinition(null, ScheduledRunTrigger.Background, user, Guid.CreateVersion7(), "root", Command, "{}");
+        DateTime now = DateTime.UtcNow;
+
+        var run = ScheduledTaskRun.Start(definition, 3, now);
+        IReadOnlyList<ScheduledTaskRunItem> items =
+            [.. Enumerable.Range(1, 3).Select(index => ScheduledTaskRunItem.Create(run.Id, Guid.CreateVersion7(), null, now, $"P-{index}"))];
+        store.AddRun(run, items);
+        await store.SaveAsync(CancellationToken.None);
+
+        return (run.Id, [.. items.Select(item => item.Id)]);
+    }
+
+    private async Task SucceedItemAsync(Guid itemId)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
+
+        ScheduledTaskRunItem item = await context.ScheduledTaskRunItems.SingleAsync(found => found.Id == itemId);
+        item.MarkSucceeded(DateTime.UtcNow);
+        await context.SaveChangesAsync();
     }
 
     private async Task CompleteAsync(Guid runId)

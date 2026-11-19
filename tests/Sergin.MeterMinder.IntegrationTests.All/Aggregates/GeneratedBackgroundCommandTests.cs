@@ -152,7 +152,7 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
     private const string Spinner = "sergin-action-busy";
 
     private static ActivityRow Row(string commandName, Guid target, ActivityState state) =>
-        new(new BackgroundRunRef("dm", Guid.CreateVersion7()), null, commandName, "DEV", null, state, DateTime.UtcNow, null, 0, 1, null, null, target, null, null);
+        new(new BackgroundRunRef("dm", Guid.CreateVersion7()), null, commandName, "DEV", null, state, DateTime.UtcNow, null, 0, 1, null, null, target, null, null, 0);
 
     /// <summary>The popover provider the split button's menu renders into, and the device's generated detail view.</summary>
     private sealed class DetailHost : ComponentBase

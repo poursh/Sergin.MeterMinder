@@ -35,6 +35,7 @@ internal static class ScheduledTaskTestHost
         typeof(TouchOneProbeCommandConfiguration),
         typeof(SlowProbeCommandConfiguration),
         typeof(TimedProbeCommandConfiguration),
+        typeof(LongTimedProbeCommandConfiguration),
         typeof(GatedTimedProbeCommandConfiguration),
         typeof(WrappingTimedProbeCommandConfiguration),
         typeof(CancelThenThrowProbeCommandConfiguration),

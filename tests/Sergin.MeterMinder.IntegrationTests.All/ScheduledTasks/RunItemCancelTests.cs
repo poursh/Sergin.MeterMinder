@@ -21,7 +21,9 @@ namespace Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 /// A cancel reaches an item that is already running: the executor's heartbeat reads the run's cancel request (sent from
 /// another scope, standing in for another process) and stops the command, which ends Cancelled, never retried, before
 /// its timeout; a send that finished first keeps its outcome; a cancel that lands between the claim and the read sends
-/// nothing; and a send that fails retryably once its run was cancelled ends Cancelled, not Retrying.
+/// nothing; a send that fails retryably once its run was cancelled ends Cancelled, not Retrying, even when the cancel
+/// commits just before the Retrying save; a delivery of a waiting item of a cancelled run cancels it; and a cancelled item
+/// keeps the last progress its command reported.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : IAsyncLifetime
@@ -49,7 +51,9 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
                 services.AddSingleton<ProbeRunCanceller>();
                 services.AddSingleton<CancelAfterClaim>();
                 services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<TouchProbeResponse>>, SlowProbeCommandHandler>();
-                services.AddTransient<IRequestHandler<TimedProbeCommand, ErrorOr<TouchProbeResponse>>, TimedProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<LongTimedProbeCommand, ErrorOr<TouchProbeResponse>>, LongTimedProbeCommandHandler>();
+                services.AddSingleton<ProgressProbe>();
+                services.AddTransient<IRequestHandler<ProgressProbeCommand, ErrorOr<TouchProbeResponse>>, ProgressProbeCommandHandler>();
                 services.AddTransient<IRequestHandler<CancelThenThrowProbeCommand, ErrorOr<TouchProbeResponse>>, CancelThenThrowProbeCommandHandler>();
                 DecorateStore(services);
             });
@@ -62,6 +66,7 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
     public async Task DisposeAsync()
     {
         Gate.Release();
+        host.Services.GetRequiredService<ProgressProbe>().OpenGates();
         await host.DisposeAsync();
     }
 
@@ -92,8 +97,8 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
     public async Task CancelBeatsTimeout()
     {
         TestCaller caller = await CallerAsync();
-        // A one-second timeout around a thirty-second send.
-        BackgroundRunRef run = await StartAsync(caller, new TimedProbeCommand(new(Guid.Empty)));
+        // A three-second timeout around a thirty-second send, cancelled at about 300 ms: ample slack for the cancel to win.
+        BackgroundRunRef run = await StartAsync(caller, new LongTimedProbeCommand(new(Guid.Empty)));
         DateTime startedAt = DateTime.UtcNow;
 
         Task drain = Engine.DrainAsync(host.Services);
@@ -173,6 +178,89 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
         Assert.Empty(Engine.QueuedItems);
     }
 
+    [Fact]
+    public async Task CancelWhileRunning_KeepsTheLastProgressReported()
+    {
+        ProgressProbe probe = host.Services.GetRequiredService<ProgressProbe>();
+        probe.Start.Release();
+        // The first report is written at once; the second, inside the 2 s throttle, only by the executor once the send ends.
+        probe.Reports = [10, 40];
+        TestCaller caller = await CallerAsync();
+        BackgroundRunRef run = await StartAsync(caller, new ProgressProbeCommand(new(Guid.Empty)));
+
+        // The finish gate is never released: only the cancel ends the send.
+        Task drain = Engine.DrainAsync(host.Services);
+        await WaitUntilAsync(() => probe.StoredAfterReports is not null);
+
+        ErrorOr<Success> cancelled = await CancelAsync(caller, run);
+        Assert.False(cancelled.IsError, cancelled.IsError ? cancelled.FirstError.Code : string.Empty);
+        await drain.WaitAsync(WaitLimit);
+
+        Assert.Equal(10, probe.StoredAfterReports);
+        (ScheduledTaskRun stored, ScheduledTaskRunItem item) = await ReadAsync(run);
+        Assert.Equal(ScheduledRunItemStatus.Cancelled, item.Status);
+        Assert.Equal(40, item.Progress);
+        Assert.Equal((ScheduledRunStatus.Completed, 1), (stored.Status, stored.Cancelled));
+    }
+
+    [Fact]
+    public async Task ACancelCommittingJustBeforeTheRetryingSave_EndsCancelled_WithoutARetry()
+    {
+        TestCaller caller = await CallerAsync();
+        // The canceller names no run: the probe only throws, a retryable failure.
+        BackgroundRunRef run = await StartAsync(caller, new CancelThenThrowProbeCommand(new(Guid.Empty)));
+        ScheduledRunItemReference queued = Assert.Single(Engine.QueuedItems);
+        Engine.LoseQueuedItems();
+
+        // The store stamps the cancel right before the executor's next save (the Retrying one), while the item is still
+        // Running in the database, so the cancel leaves it alone and the save writes Retrying under a cancelled run.
+        host.Services.GetRequiredService<CancelAfterClaim>().BeforeSaveRunId = run.RunId;
+        bool retry = await ExecuteAsync(queued);
+
+        Assert.False(retry);
+        (ScheduledTaskRun stored, ScheduledTaskRunItem item) = await ReadAsync(run);
+        Assert.Equal(ScheduledRunItemStatus.Cancelled, item.Status);
+        Assert.Equal(1, item.Attempts);
+        Assert.Equal((ScheduledRunStatus.Completed, 1, 0), (stored.Status, stored.Cancelled, stored.Failed));
+    }
+
+    [Fact]
+    public async Task ADeliveryOfARetryingItemOfACancelledRun_CancelsIt_AndCompletesTheRun()
+    {
+        TestCaller caller = await CallerAsync();
+        BackgroundRunRef run = await StartAsync(caller, new SlowProbeCommand(new(Guid.Empty), "slow"));
+        ScheduledRunItemReference queued = Assert.Single(Engine.QueuedItems);
+        Engine.LoseQueuedItems();
+
+        // A retry saved just after the cancel moved the run's waiting items on: Retrying under a cancel-requested run.
+        using (IServiceScope scope = host.Services.CreateScope())
+        {
+            ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
+            DateTime now = DateTime.UtcNow;
+            await context.ScheduledTaskRunItems.Where(item => item.RunId == run.RunId)
+                .ExecuteUpdateAsync(set => set.SetProperty(item => item.Status, ScheduledRunItemStatus.Retrying).SetProperty(item => item.Attempts, 1));
+            await context.ScheduledTaskRuns.Where(one => one.Id == run.RunId)
+                .ExecuteUpdateAsync(set => set.SetProperty(one => one.CancelRequestedAtUtc, now));
+        }
+
+        bool retry = await ExecuteAsync(queued);
+
+        Assert.False(retry);
+        Assert.Equal(0, Gate.Entered);
+        (ScheduledTaskRun stored, ScheduledTaskRunItem item) = await ReadAsync(run);
+        Assert.Equal(ScheduledRunItemStatus.Cancelled, item.Status);
+        Assert.NotNull(item.CompletedAtUtc);
+        Assert.Equal((ScheduledRunStatus.Completed, 1), (stored.Status, stored.Cancelled));
+    }
+
+    private async Task<bool> ExecuteAsync(ScheduledRunItemReference item)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<ScheduledRunItemExecutor>()
+            .ExecuteAsync(item.Schema, item.RunItemId, CancellationToken.None);
+    }
+
     private static void DecorateStore(IServiceCollection services)
     {
         ServiceDescriptor inner = services.Last(descriptor =>
@@ -243,10 +331,15 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
             await context.ScheduledTaskRunItems.AsNoTracking().SingleAsync(item => item.RunId == run.RunId));
     }
 
-    /// <summary>The run whose cancel <see cref="CancelAfterClaimStore"/> stamps right after a claim; none while empty.</summary>
+    /// <summary>
+    /// The run whose cancel <see cref="CancelAfterClaimStore"/> stamps right after a claim, and the one it stamps once,
+    /// right before the next save; none while empty.
+    /// </summary>
     private sealed class CancelAfterClaim
     {
         public Guid? RunId { get; set; }
+
+        public Guid? BeforeSaveRunId { get; set; }
     }
 
     /// <summary>
@@ -312,6 +405,15 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
 
         public Task<bool> TrySaveStartedRunAsync(CancellationToken ct) => inner.TrySaveStartedRunAsync(ct);
 
-        public Task SaveAsync(CancellationToken ct) => inner.SaveAsync(ct);
+        public async Task SaveAsync(CancellationToken ct)
+        {
+            if (armed.BeforeSaveRunId is { } runId)
+            {
+                armed.BeforeSaveRunId = null;
+                await inner.CancelRunAsync(runId, DateTime.UtcNow, ct);
+            }
+
+            await inner.SaveAsync(ct);
+        }
     }
 }

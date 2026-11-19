@@ -37,7 +37,7 @@ public sealed class ScheduledTaskOptionsBindingTests
     [Fact]
     public void HeartbeatInterval_IsBoundAndValidated()
     {
-        Assert.Equal(TimeSpan.FromSeconds(5), Bind([]).HeartbeatInterval);
+        Assert.Equal(TimeSpan.FromSeconds(1), Bind([]).HeartbeatInterval);
         Assert.Equal(TimeSpan.FromSeconds(2), Bind(new Dictionary<string, string?>
         {
             ["Sergin:ScheduledTasks:HeartbeatInterval"] = "00:00:02",

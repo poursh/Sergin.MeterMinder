@@ -253,9 +253,11 @@ common.scheduled-tasks.activity.finished
 common.scheduled-tasks.activity.finished-cancelled
 common.scheduled-tasks.activity.finished-failed
 common.scheduled-tasks.activity.finished-partly
+common.scheduled-tasks.activity.finished-partly-cancelled
 common.scheduled-tasks.activity.finished-succeeded
 common.scheduled-tasks.activity.one-record
 common.scheduled-tasks.activity.open-label
+common.scheduled-tasks.activity.progress
 common.scheduled-tasks.activity.records
 common.scheduled-tasks.activity.running
 common.scheduled-tasks.activity.show
@@ -312,7 +314,6 @@ common.scheduled-tasks.run-once-started
 common.scheduled-tasks.runs.acted-by
 common.scheduled-tasks.runs.attempts
 common.scheduled-tasks.runs.background
-common.scheduled-tasks.runs.cancelled
 common.scheduled-tasks.runs.completed
 common.scheduled-tasks.runs.empty
 common.scheduled-tasks.runs.error
@@ -335,6 +336,7 @@ common.scheduled-tasks.runs.skipped
 common.scheduled-tasks.runs.started
 common.scheduled-tasks.runs.status
 common.scheduled-tasks.runs.summary
+common.scheduled-tasks.runs.summary-with-cancelled
 common.scheduled-tasks.runs.target
 common.scheduled-tasks.runs.title
 common.scheduled-tasks.runs.trigger

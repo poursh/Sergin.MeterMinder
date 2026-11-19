@@ -54,21 +54,27 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
         Assert.Equal("1 record", row.Target);
     }
 
+    // A run's succeeded, failed and cancelled counts are written only when it completes, so a running run carries none:
+    // its bar counts the items that no longer wait.
     [Theory]
-    [InlineData(3, 1, 0, 2, 0, "Running")]
-    [InlineData(3, 3, 0, 0, 0, "Succeeded")]
-    [InlineData(3, 0, 3, 0, 0, "Failed")]
-    [InlineData(3, 2, 1, 0, 0, "PartlyFailed")]
-    [InlineData(3, 0, 0, 0, 3, "Cancelled")]
-    [InlineData(1, 0, 0, 0, 1, "Cancelled")]
-    [InlineData(3, 2, 0, 0, 1, "PartlyFailed")]
-    [InlineData(3, 0, 1, 0, 2, "Failed")]
-    public void TheState_FollowsTheCounts(int total, int succeeded, int failed, int unfinished, int cancelled, string expected)
+    [InlineData(3, 0, 0, 2, 0, "Running", 1)]
+    [InlineData(3, 0, 0, 3, 0, "Running", 0)]
+    [InlineData(3, 3, 0, 0, 0, "Succeeded", 3)]
+    [InlineData(3, 0, 3, 0, 0, "Failed", 3)]
+    [InlineData(3, 2, 1, 0, 0, "PartlyFailed", 3)]
+    [InlineData(3, 0, 0, 0, 3, "Cancelled", 0)]
+    [InlineData(1, 0, 0, 0, 1, "Cancelled", 0)]
+    [InlineData(3, 2, 0, 0, 1, "Cancelled", 2)]
+    [InlineData(3, 0, 1, 0, 2, "Failed", 1)]
+    [InlineData(3, 1, 1, 0, 1, "PartlyFailed", 2)]
+    public void TheState_FollowsTheCounts(
+        int total, int succeeded, int failed, int unfinished, int cancelled, string expected, int expectedDone)
     {
         ActivityRow row = Build(Item(ReadProfile, total, unfinished, succeeded, failed, cancelled: cancelled));
 
         Assert.Equal(expected, row.State.ToString());
-        Assert.Equal(succeeded + failed, row.Done);
+        Assert.Equal(expectedDone, row.Done);
+        Assert.Equal(cancelled, row.Cancelled);
     }
 
     [Fact]

@@ -122,6 +122,16 @@ internal sealed class TimedProbeCommandConfiguration : ICommandConfiguration<Tim
         builder.Schedulable("tst.probes.timed").Background(TimeSpan.FromSeconds(1)).RequirePermissions(ScheduleProbePermissions.Touch);
 }
 
+/// <summary>A background command with a three-second timeout whose handler takes thirty: a cancel well before it wins.</summary>
+internal sealed record LongTimedProbeCommand(ScheduleProbeId Id)
+    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+internal sealed class LongTimedProbeCommandConfiguration : ICommandConfiguration<LongTimedProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<LongTimedProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.long-timed").Background(TimeSpan.FromSeconds(3)).RequirePermissions(ScheduleProbePermissions.Touch);
+}
+
 /// <summary>A background command with a timeout far longer than any test, whose handler waits on the <see cref="ProbeGate"/>.</summary>
 internal sealed record GatedTimedProbeCommand(ScheduleProbeId Id)
     : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
@@ -229,6 +239,15 @@ internal sealed class WrappingTimedProbeCommandHandler : ICommandHandler<Wrappin
 internal sealed class TimedProbeCommandHandler : ICommandHandler<TimedProbeCommand, TouchProbeResponse>
 {
     public async Task<ErrorOr<TouchProbeResponse>> Handle(TimedProbeCommand request, CancellationToken cancellationToken)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+        return new TouchProbeResponse(string.Empty);
+    }
+}
+
+internal sealed class LongTimedProbeCommandHandler : ICommandHandler<LongTimedProbeCommand, TouchProbeResponse>
+{
+    public async Task<ErrorOr<TouchProbeResponse>> Handle(LongTimedProbeCommand request, CancellationToken cancellationToken)
     {
         await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
         return new TouchProbeResponse(string.Empty);
