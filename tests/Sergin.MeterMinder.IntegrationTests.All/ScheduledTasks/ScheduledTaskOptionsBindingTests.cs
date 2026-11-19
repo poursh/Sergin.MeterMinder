@@ -34,6 +34,24 @@ public sealed class ScheduledTaskOptionsBindingTests
         Assert.Equal(5, options.MaxAttempts);
     }
 
+    [Fact]
+    public void HeartbeatInterval_IsBoundAndValidated()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(5), Bind([]).HeartbeatInterval);
+        Assert.Equal(TimeSpan.FromSeconds(2), Bind(new Dictionary<string, string?>
+        {
+            ["Sergin:ScheduledTasks:HeartbeatInterval"] = "00:00:02",
+        }).HeartbeatInterval);
+
+        ScheduledTaskOptions zero = Bind(new Dictionary<string, string?>
+        {
+            ["Sergin:ScheduledTasks:HeartbeatInterval"] = "00:00:00",
+        });
+
+        Assert.False(zero.Validate(out string failure));
+        Assert.Contains("Sergin:ScheduledTasks:HeartbeatInterval", failure, StringComparison.Ordinal);
+    }
+
     private static ScheduledTaskOptions Bind(Dictionary<string, string?> values)
     {
         IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();

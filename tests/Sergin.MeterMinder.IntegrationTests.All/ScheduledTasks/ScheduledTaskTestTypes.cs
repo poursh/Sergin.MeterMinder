@@ -1,9 +1,11 @@
 using ErrorOr;
 using FluentValidation;
+using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Types;
+using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Securities;
 
@@ -229,6 +231,41 @@ internal sealed class TimedProbeCommandHandler : ICommandHandler<TimedProbeComma
     {
         await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
         return new TouchProbeResponse(string.Empty);
+    }
+}
+
+/// <summary>
+/// A background command whose handler cancels its own run (through <see cref="ProbeRunCanceller"/>) and then throws: a
+/// retryable failure of an item whose run was cancelled while it ran.
+/// </summary>
+internal sealed record CancelThenThrowProbeCommand(ScheduleProbeId Id)
+    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+internal sealed class CancelThenThrowProbeCommandConfiguration : ICommandConfiguration<CancelThenThrowProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<CancelThenThrowProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.cancel-then-throw").Background().RequirePermissions(ScheduleProbePermissions.Touch);
+}
+
+/// <summary>The run a <see cref="CancelThenThrowProbeCommandHandler"/> cancels; set by the test before the drain.</summary>
+internal sealed class ProbeRunCanceller
+{
+    public Guid RunId { get; set; }
+}
+
+internal sealed class CancelThenThrowProbeCommandHandler(IServiceScopeFactory scopes, ProbeRunCanceller canceller)
+    : ICommandHandler<CancelThenThrowProbeCommand, TouchProbeResponse>
+{
+    public async Task<ErrorOr<TouchProbeResponse>> Handle(CancelThenThrowProbeCommand request, CancellationToken cancellationToken)
+    {
+        // Another scope, as another process's cancel would be: committed before the send fails.
+        await using (AsyncServiceScope scope = scopes.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema)
+                .CancelRunAsync(canceller.RunId, DateTime.UtcNow, cancellationToken);
+        }
+
+        throw new InvalidOperationException("The probe failed after its run was cancelled.");
     }
 }
 
