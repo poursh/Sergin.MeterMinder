@@ -312,11 +312,14 @@ common.scheduled-tasks.run-once-started
 common.scheduled-tasks.runs.acted-by
 common.scheduled-tasks.runs.attempts
 common.scheduled-tasks.runs.background
+common.scheduled-tasks.runs.cancelled
 common.scheduled-tasks.runs.completed
 common.scheduled-tasks.runs.empty
 common.scheduled-tasks.runs.error
+common.scheduled-tasks.runs.item-cancelled
 common.scheduled-tasks.runs.item-failed
 common.scheduled-tasks.runs.item-pending
+common.scheduled-tasks.runs.item-progress
 common.scheduled-tasks.runs.item-retrying
 common.scheduled-tasks.runs.item-running
 common.scheduled-tasks.runs.item-succeeded

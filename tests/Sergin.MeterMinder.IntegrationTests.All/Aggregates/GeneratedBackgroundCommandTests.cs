@@ -1,5 +1,13 @@
 using System.Data.Common;
+using System.Net;
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
+using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.AspNetCore.Components.Web;
+using Microsoft.AspNetCore.Components.Web.HtmlRendering;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using MudBlazor;
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.ReadProfile;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
@@ -13,6 +21,7 @@ using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Model;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
@@ -103,6 +112,62 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
         Assert.Equal("Completed", status);
         Assert.Equal(3, items.Count);
         Assert.All(items, item => Assert.Equal("Succeeded", item.Status));
+    }
+
+    [Fact]
+    public async Task DetailAction_ShowsASpinner_WhileItsRunIsUnfinished()
+    {
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        Guid device = (await DevicesAsync(scope.ServiceProvider.GetRequiredService<ISerginDispatcher>(), 1))[0];
+        ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
+            .Initialize("http://localhost/", $"http://localhost/dm/devices/{device}");
+        ActivityPanelState activity = scope.ServiceProvider.GetRequiredService<ActivityPanelState>();
+        string commandName = ReadProfile().ScheduleName!;
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            HtmlRootComponent root = await renderer.RenderComponentAsync<DetailHost>(
+                ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(DetailHost.Id)] = device }));
+            string Html() => WebUtility.HtmlDecode(root.ToHtmlString());
+
+            Assert.Contains("Read profile", Html(), StringComparison.Ordinal);
+            Assert.DoesNotContain(Spinner, Html(), StringComparison.Ordinal);
+
+            // A run of the command on another record, and a finished one on this record, show nothing.
+            activity.SetRows([Row(commandName, Guid.CreateVersion7(), ActivityState.Running), Row(commandName, device, ActivityState.Succeeded)]);
+            Assert.DoesNotContain(Spinner, Html(), StringComparison.Ordinal);
+
+            activity.SetRows([Row(commandName, device, ActivityState.Running)]);
+            Assert.Contains(Spinner, Html(), StringComparison.Ordinal);
+
+            // The action stays clickable while its run is going.
+            Assert.DoesNotMatch(@"<button[^>]*disabled[^>]*>\s*(<[^>]*>\s*)*Read profile", Html());
+
+            activity.SetRows([]);
+            Assert.DoesNotContain(Spinner, Html(), StringComparison.Ordinal);
+        });
+    }
+
+    private const string Spinner = "sergin-action-busy";
+
+    private static ActivityRow Row(string commandName, Guid target, ActivityState state) =>
+        new(new BackgroundRunRef("dm", Guid.CreateVersion7()), null, commandName, "DEV", null, state, DateTime.UtcNow, null, 0, 1, null, null, target, null, null);
+
+    /// <summary>The popover provider the split button's menu renders into, and the device's generated detail view.</summary>
+    private sealed class DetailHost : ComponentBase
+    {
+        [Parameter]
+        public Guid Id { get; set; }
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<SerginGeneratedDetailView<Device>>(1);
+            builder.AddComponentParameter(2, nameof(SerginGeneratedDetailView<Device>.Id), Id);
+            builder.CloseComponent();
+        }
     }
 
     private CommandView ReadProfile() =>

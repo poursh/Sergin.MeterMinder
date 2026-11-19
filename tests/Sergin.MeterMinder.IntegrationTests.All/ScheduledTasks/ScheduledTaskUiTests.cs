@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.Web.HtmlRendering;
@@ -410,6 +411,184 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
 
         Assert.Contains("Run now", html, StringComparison.Ordinal);
         Assert.Equal(expected, html.Contains(EngineOff, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task OneOffRuns_RunningRow_HasCancel_AndCancelling_Reloads()
+    {
+        Guid probe = await CreateProbeAsync();
+        await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
+        Guid run = await RunOnceAsync(probe);
+
+        await using AsyncServiceScope scope = OpenScope(probe);
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            SectionHost.Section = null;
+            HtmlRootComponent root = await renderer.RenderComponentAsync<SectionHost>(
+                ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(SectionHost.TargetId)] = probe }));
+            string Html() => WebUtility.HtmlDecode(root.ToHtmlString());
+
+            Assert.Matches(OneOffCancelButton(), Html());
+
+            await SectionHost.Section!.CancelRunAsync(run);
+
+            string html = Html();
+            Assert.DoesNotMatch(OneOffCancelButton(), html);
+            Assert.Contains("Completed: 0 of 1 succeeded, 0 failed · 1 cancelled", html, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public async Task OneOffRuns_CancellingARunThatFinished_ReloadsSilently()
+    {
+        Guid probe = await CreateProbeAsync();
+        await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
+        Guid run = await RunOnceAsync(probe);
+
+        await using AsyncServiceScope scope = OpenScope(probe);
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            SectionHost.Section = null;
+            HtmlRootComponent root = await renderer.RenderComponentAsync<SectionHost>(
+                ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(SectionHost.TargetId)] = probe }));
+            ISnackbar snackbar = scope.ServiceProvider.GetRequiredService<ISnackbar>();
+
+            // Finished behind the section's back: its Cancel is still shown, and the answer is RunFinished.
+            await CompleteRunAsync(run);
+            await SectionHost.Section!.CancelRunAsync(run);
+
+            Assert.Empty(snackbar.ShownSnackbars);
+            string html = WebUtility.HtmlDecode(root.ToHtmlString());
+            Assert.DoesNotMatch(OneOffCancelButton(), html);
+            Assert.Contains("Completed: 1 of 1 succeeded, 0 failed", html, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public async Task RunsDialog_ShowsCancelledAndProgress()
+    {
+        Guid probe = await CreateProbeAsync();
+        Guid other = await CreateProbeAsync();
+        ScheduledTaskId task = await CreateTaskAsync(probe);
+        await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
+        Guid run = await SeedTaskRunAsync(task, cancelled: probe, running: other, progress: 40);
+
+        await using AsyncServiceScope scope = OpenScope(probe);
+        IDialogService dialogs = scope.ServiceProvider.GetRequiredService<IDialogService>();
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        string html = await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            HtmlRootComponent root = await renderer.RenderComponentAsync<ProbeDialogProviders>();
+            DialogParameters<SerginScheduledRunsDialog> parameters = new()
+            {
+                { dialog => dialog.Schema, ScheduledTasksDbContext.Schema },
+                { dialog => dialog.TaskId, task },
+                { dialog => dialog.CommandName, TouchName },
+            };
+
+            IDialogReference reference = await dialogs.ShowAsync<SerginScheduledRunsDialog>(string.Empty, parameters);
+
+            for (int attempt = 0; attempt < 50 && !root.ToHtmlString().Contains("sergin-runs", StringComparison.Ordinal); attempt++)
+            {
+                await Task.Delay(100);
+            }
+
+            await ((SerginScheduledRunsDialog)reference.Dialog!).ShowItemsAsync(run);
+
+            return WebUtility.HtmlDecode(root.ToHtmlString());
+        });
+
+        string items = html[html.IndexOf("sergin-run-items", StringComparison.Ordinal)..];
+        Assert.Matches($@"<td>{probe}</td>\s*<td>Cancelled</td>", items);
+        Assert.Matches($@"<td>{other}</td>\s*<td>Running · 40%</td>", items);
+        Assert.DoesNotContain("Failed", items, StringComparison.Ordinal);
+    }
+
+    [GeneratedRegex(@"sergin-one-off-cancel", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex OneOffCancelButton();
+
+    private AsyncServiceScope OpenScope(Guid probe)
+    {
+        AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+        ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
+            .Initialize("http://localhost/", $"http://localhost/tst/probes/{probe}");
+
+        return scope;
+    }
+
+    // A one-off run as the dialog's Run now starts it: the fake engine runs nothing, so it stays Running.
+    private async Task<Guid> RunOnceAsync(Guid probe)
+    {
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+
+        ErrorOr<ScheduledRunStartedResponse> result = await scope.ServiceProvider.GetRequiredService<ISerginDispatcher>().SendAsync(
+            new RunCommandOnceCommand(
+                ScheduledTasksDbContext.Schema,
+                new TouchProbeCommand(new ScheduleProbeId(probe), new ProbeNote("note")),
+                [new ScheduledTaskTarget(probe, null)]));
+        Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
+
+        return result.Value.RunId;
+    }
+
+    private async Task CompleteRunAsync(Guid runId)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
+
+        ScheduledTaskRun run = await context.ScheduledTaskRuns.FindAsync(runId) ?? throw new InvalidOperationException("run missing");
+        run.Complete(1, 0, 0, DateTime.UtcNow);
+        await context.SaveChangesAsync();
+    }
+
+    // A run of the schedule with one item cancelled and one still running at the given percent.
+    private async Task<Guid> SeedTaskRunAsync(ScheduledTaskId task, Guid cancelled, Guid running, int progress)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        string path = (await scope.ServiceProvider.GetRequiredService<IScopePathResolver>().GetPathAsync(Scope.RootId.Value))!;
+        DateTime now = DateTime.UtcNow;
+
+        var run = ScheduledTaskRun.Start(
+            new ScheduledRunDefinition(task, ScheduledRunTrigger.Scheduled, users.Current!.Id, Scope.RootId.Value, path, TouchName, "{}"), 2, now);
+        var stopped = ScheduledTaskRunItem.Create(run.Id, cancelled, null, now);
+        stopped.MarkCancelled(now);
+        var going = ScheduledTaskRunItem.Create(run.Id, running, null, now);
+        going.MarkRunning(now);
+        going.SetProgress(progress);
+
+        IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema);
+        store.AddRun(run, [stopped, going]);
+        await store.SaveAsync(CancellationToken.None);
+
+        return run.Id;
+    }
+
+    /// <summary>The providers the section's tooltips render into, and a handle on the section.</summary>
+    private sealed class SectionHost : ComponentBase
+    {
+        public static SerginScheduledTasksSection? Section { get; set; }
+
+        [Parameter]
+        public Guid TargetId { get; set; }
+
+        protected override void BuildRenderTree(RenderTreeBuilder builder)
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<SerginScheduledTasksSection>(1);
+            builder.AddComponentParameter(2, nameof(SerginScheduledTasksSection.Schema), ScheduledTasksDbContext.Schema);
+            builder.AddComponentParameter(3, nameof(SerginScheduledTasksSection.TargetId), TargetId);
+            builder.AddComponentParameter(4, nameof(SerginScheduledTasksSection.PollInterval), TimeSpan.FromHours(1));
+            builder.AddComponentReferenceCapture(5, instance => Section = (SerginScheduledTasksSection)instance);
+            builder.CloseComponent();
+        }
     }
 
     [GeneratedRegex(@"^\d{1,2} \p{L}+ \d{4} \d{2}:\d{2}$", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
