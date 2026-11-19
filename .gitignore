@@ -508,5 +508,6 @@ graphify-out/cache/*
 # git worktrees created inside the repo
 .claude/worktrees/
 
-# TickerQ licence file, never committed
+# TickerQ licence file, never committed (the Compose stack mounts it from docker-compose/.files/tickerq/)
 *.tqlicense
+docker-compose/.files/tickerq/

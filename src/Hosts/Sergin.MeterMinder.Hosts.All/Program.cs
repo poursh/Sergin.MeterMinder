@@ -27,6 +27,9 @@ app.UseSerginTickerQ();
 
 await app.UseSerginWebUiAsync<App>(modules);
 
+// Development only, and only with a licence: TickerQ's tables, created once after the migrations have created the database.
+await app.EnsureSerginTickerQStoreAsync();
+
 await app.RunAsync();
 
 public partial class Program;
