@@ -149,7 +149,8 @@ public sealed class ScheduledTasksSectionRefreshTests(SerginWebApiFactory<Progra
             await CreateTaskAsync(probe);
             await Task.Delay(600);
 
-            Assert.DoesNotContain(TouchName, WebUtility.HtmlDecode(root.ToHtmlString()), StringComparison.Ordinal);
+            // The one-off run names the command too, so the schedule table's empty text is what shows nothing was re-read.
+            Assert.Contains(NothingScheduled, WebUtility.HtmlDecode(root.ToHtmlString()), StringComparison.Ordinal);
         });
     }
 

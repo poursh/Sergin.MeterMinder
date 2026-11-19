@@ -231,6 +231,7 @@ public sealed class ScheduledTaskQueryTests(SerginWebApiFactory<Program> factory
 
         Assert.Equal([newest, oldest], runs.Select(run => run.Id));
         Assert.All(runs, run => Assert.Equal(ScheduledRunTrigger.OneOff, run.Trigger));
+        Assert.All(runs, run => Assert.Equal(TouchName, run.CommandName));
         Assert.Equal(
             [newest],
             (await SendAsync(manager, tree.North, new GetOneOffRunsForTargetQuery(Schema, probe.Id.Value, 1))).Value.Select(run => run.Id));
