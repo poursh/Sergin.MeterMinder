@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using ErrorOr;
 using FluentValidation;
 using MediatR;
@@ -135,6 +136,52 @@ public sealed class RunNotifierTests(SerginWebApiFactory<Program> factory) : IAs
         RunChanged change = Assert.Single(heard.Changes);
         Assert.Equal(run, change.Ref);
         Assert.Equal(caller.Id, change.ActingUser);
+    }
+
+    /// <summary>
+    /// A handler runs under the subscriber's culture, not the publisher's: a Blazor circuit subscribes in the viewer's
+    /// language, while a run item is published from a worker thread in the host's default one. Without this the indicator
+    /// re-rendered the page in the default language on every publish while a run was going.
+    /// </summary>
+    [Fact]
+    public async Task Handler_RunsUnderTheSubscribersCulture()
+    {
+        var user = new UserId(Guid.CreateVersion7());
+        CultureInfo heardCulture = CultureInfo.InvariantCulture;
+        CultureInfo heardUiCulture = CultureInfo.InvariantCulture;
+        CultureInfo originalCulture = CultureInfo.CurrentCulture;
+        CultureInfo originalUiCulture = CultureInfo.CurrentUICulture;
+        IDisposable subscription;
+
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("fa");
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("fa");
+            subscription = Notifier.Subscribe(user, _ =>
+            {
+                heardCulture = CultureInfo.CurrentCulture;
+                heardUiCulture = CultureInfo.CurrentUICulture;
+                return Task.CompletedTask;
+            });
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+            CultureInfo.CurrentUICulture = originalUiCulture;
+        }
+
+        using (subscription)
+        {
+            await Task.Run(() =>
+            {
+                CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en");
+                CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en");
+                Notifier.Publish(new RunChanged(new BackgroundRunRef("x", Guid.NewGuid()), user));
+            });
+        }
+
+        Assert.Equal("fa", heardCulture.Name);
+        Assert.Equal("fa", heardUiCulture.Name);
     }
 
     private async Task RecordWithStatusAsync(Recorder heard, RunChanged change)
