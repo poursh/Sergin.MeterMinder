@@ -11,7 +11,6 @@ using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
-using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
@@ -43,7 +42,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
 
         var clock = Stopwatch.StartNew();
         ErrorOr<BackgroundRunStartedResponse> started = await dispatcher.StartAsync(
-            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new ScheduledTaskTarget(id, null)]);
+            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new BackgroundTarget(id, null)]);
         clock.Stop();
 
         Assert.False(started.IsError, started.IsError ? started.FirstError.Description : string.Empty);
@@ -64,7 +63,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
 
         ErrorOr<Versioned<DeviceQueryResponse>> before = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(id));
         ErrorOr<BackgroundRunStartedResponse> started = await dispatcher.StartAsync(
-            new ReadDeviceProfileCommand(id), [new ScheduledTaskTarget(id.Value, null)]);
+            new ReadDeviceProfileCommand(id), [new BackgroundTarget(id.Value, null)]);
         Assert.False(started.IsError);
         (string status, _) = await BackgroundRuns.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
         ErrorOr<Versioned<DeviceQueryResponse>> after = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(id));
@@ -82,7 +81,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
         Assert.False((await dispatcher.SendAtDeviceVersionAsync(id, new DeleteDeviceCommand(new DeviceIntenralId(id)))).IsError);
 
         ErrorOr<BackgroundRunStartedResponse> started = await dispatcher.StartAsync(
-            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new ScheduledTaskTarget(id, null)]);
+            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new BackgroundTarget(id, null)]);
         Assert.False(started.IsError, started.IsError ? started.FirstError.Description : string.Empty);
         (_, IReadOnlyList<(string Status, string? ErrorCode)> items) =
             await BackgroundRuns.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
@@ -102,7 +101,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
         TestCaller reader = await tree.CreateGrantedCallerAsync(AuthorizationScope.RootId, RbacScenario.Read);
 
         ErrorOr<BackgroundRunStartedResponse> result = await tree.TrySendAsync(
-            new StartBackgroundCommand(new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new ScheduledTaskTarget(id, null)]), reader);
+            new StartBackgroundCommand(new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new BackgroundTarget(id, null)]), reader);
 
         Assert.Equal(ErrorType.Forbidden, result.FirstError.Type);
     }

@@ -122,6 +122,47 @@ public sealed class BackgroundStartTests(SerginWebApiFactory<Program> factory) :
     }
 
     [Fact]
+    public async Task Labels_AreStoredPerItem()
+    {
+        TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
+        ScheduleProbe first = await CreateProbeAsync(tree.Feeder1);
+        ScheduleProbe second = await CreateProbeAsync(tree.Feeder1);
+        string longLabel = new('x', 250);
+
+        ErrorOr<BackgroundRunStartedResponse> started = await StartLabelledAsync(
+            caller, [new BackgroundTarget(first.Id.Value, null, "P-1"), new BackgroundTarget(second.Id.Value, null, longLabel)]);
+
+        Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
+        Dictionary<Guid, string?> labels = await LabelsAsync(started.Value.Run.RunId);
+        Assert.Equal("P-1", labels[first.Id.Value]);
+        Assert.Equal(longLabel[..200], labels[second.Id.Value]);
+    }
+
+    [Fact]
+    public void ALongLabel_IsNeverCutInsideASurrogatePair()
+    {
+        // 199 chars, then an emoji (a surrogate pair) straddling the 200-char cut.
+        string straddling = new string('x', 199) + "\U0001F600" + "tail";
+        string fitting = new string('x', 198) + "\U0001F600" + "tail";
+
+        Assert.Equal(new string('x', 199), ScheduledRunStarter.CutLabel(straddling));
+        Assert.Equal(new string('x', 198) + "\U0001F600", ScheduledRunStarter.CutLabel(fitting));
+        Assert.Equal("short", ScheduledRunStarter.CutLabel("short"));
+    }
+
+    [Fact]
+    public async Task NoLabel_StoresNull()
+    {
+        TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+
+        ErrorOr<BackgroundRunStartedResponse> started = await StartLabelledAsync(caller, [new BackgroundTarget(probe.Id.Value)]);
+
+        Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
+        Assert.Null(Assert.Single(await LabelsAsync(started.Value.Run.RunId)).Value);
+    }
+
+    [Fact]
     public async Task SeveralTargets_OneRun_NItems()
     {
         TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
@@ -220,6 +261,23 @@ public sealed class BackgroundStartTests(SerginWebApiFactory<Program> factory) :
 
     private static SlowProbeCommand Slow(string note) => new(new(Guid.Empty), note);
 
+    private async Task<ErrorOr<BackgroundRunStartedResponse>> StartLabelledAsync(IUserContext caller, IReadOnlyCollection<BackgroundTarget> targets)
+    {
+        using IServiceScope circuit = host.Services.CreateScope();
+        circuit.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = caller;
+        circuit.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(tree.North);
+
+        return await circuit.ServiceProvider.GetRequiredService<ISerginDispatcher>().StartAsync(Slow("slow"), targets);
+    }
+
+    private async Task<Dictionary<Guid, string?>> LabelsAsync(Guid runId)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
+
+        return await context.ScheduledTaskRunItems.AsNoTracking().Where(item => item.RunId == runId).ToDictionaryAsync(item => item.TargetId, item => item.TargetLabel);
+    }
+
     private async Task<ErrorOr<BackgroundRunStartedResponse>> StartAsync(
         WebApplicationFactory<Program> on, IUserContext caller, IBaseCommand template, params ScheduleProbe[] probes)
     {
@@ -228,7 +286,7 @@ public sealed class BackgroundStartTests(SerginWebApiFactory<Program> factory) :
         circuit.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(tree.North);
 
         return await circuit.ServiceProvider.GetRequiredService<ISerginDispatcher>()
-            .StartAsync(template, [.. probes.Select(probe => new ScheduledTaskTarget(probe.Id.Value, null))]);
+            .StartAsync(template, [.. probes.Select(probe => new BackgroundTarget(probe.Id.Value))]);
     }
 
     private async Task<ScheduleProbe> CreateProbeAsync(Guid scopeId)

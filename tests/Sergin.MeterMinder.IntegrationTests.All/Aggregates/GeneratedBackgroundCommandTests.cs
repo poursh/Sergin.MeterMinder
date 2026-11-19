@@ -60,6 +60,33 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
     }
 
     [Fact]
+    public async Task SendFromId_StoresTheRecordTitleAsLabel()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        Guid device = (await DevicesAsync(dispatcher, 1))[0];
+
+        ViewSendResult result = await GeneratedViewSupport.SendFromIdAsync(dispatcher, ReadProfile(), device, version: null, label: "DEV-TITLE");
+
+        BackgroundRunStartedResponse started = Assert.IsType<BackgroundRunStartedResponse>(result.Value);
+        Assert.Equal(["DEV-TITLE"], await LabelsAsync(started.Run));
+    }
+
+    [Fact]
+    public async Task StartMany_StoresEachRowsTitle()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        IReadOnlyList<Guid> devices = await DevicesAsync(dispatcher, 3);
+
+        ViewSendResult result = await GeneratedViewSupport.StartManyAsync(
+            dispatcher, ReadProfile(), [.. devices.Select(device => new BackgroundTarget(device, null, "t-" + device))]);
+
+        BackgroundRunStartedResponse started = Assert.IsType<BackgroundRunStartedResponse>(result.Value);
+        Assert.Equal(devices.Select(device => "t-" + device).Order(), (await LabelsAsync(started.Run)).Order());
+    }
+
+    [Fact]
     public async Task StartMany_OneRunForAllRows()
     {
         using IServiceScope scope = factory.Services.CreateScope();
@@ -67,7 +94,7 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
         IReadOnlyList<Guid> devices = await DevicesAsync(dispatcher, 3);
 
         ViewSendResult result = await GeneratedViewSupport.StartManyAsync(
-            dispatcher, ReadProfile(), [.. devices.Select(device => new ScheduledTaskTarget(device, null))]);
+            dispatcher, ReadProfile(), [.. devices.Select(device => new BackgroundTarget(device, null, "t-" + device))]);
 
         Assert.False(result.IsError, result.IsError ? result.Errors[0].Description : string.Empty);
         BackgroundRunStartedResponse started = Assert.IsType<BackgroundRunStartedResponse>(result.Value);
@@ -96,6 +123,28 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
         }
 
         return devices;
+    }
+
+    private async Task<IReadOnlyList<string?>> LabelsAsync(BackgroundRunRef run)
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        using DbConnection connection = await scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>().CreateConnectionAsync();
+        await using DbCommand command = connection.CreateCommand();
+        command.CommandText = "SELECT target_label FROM dm.scheduled_task_run_items WHERE run_id = @id";
+        DbParameter parameter = command.CreateParameter();
+        parameter.ParameterName = "id";
+        parameter.Value = run.RunId;
+        command.Parameters.Add(parameter);
+        List<string?> labels = [];
+
+        await using DbDataReader reader = await command.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            labels.Add(await reader.IsDBNullAsync(0) ? null : reader.GetString(0));
+        }
+
+        return labels;
     }
 
     private async Task<string?> TriggerOfAsync(BackgroundRunRef run)

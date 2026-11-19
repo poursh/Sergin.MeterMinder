@@ -20,9 +20,7 @@ internal sealed class DeviceViewConfiguration : IAggregateViewConfiguration<Devi
 
         view.Command<ReadDeviceProfileCommand>()
             .Label(DeviceUiTexts.ReadProfile)
-            .Icon(Icons.Material.Outlined.Sensors)
-            .SucceededText(DeviceUiTexts.ReadProfileDone)
-            .BulkSucceededText(DeviceUiTexts.BulkReadProfileDone);
+            .Icon(Icons.Material.Outlined.Sensors);
 
         view.Command<DeleteDeviceCommand>()
             .ConfirmDelete(DeviceUiTexts.DeleteTitle, DeviceUiTexts.DeleteConfirm)

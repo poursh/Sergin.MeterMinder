@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
@@ -33,6 +34,24 @@ public sealed class DeviceManagementScheduledTasksModelTests(SerginWebApiFactory
         IIndex running = Assert.Single(
             model.FindEntityType(typeof(ScheduledTaskRun))!.GetIndexes(), index => index.GetDatabaseName() == "ix_scheduled_task_runs_task_id_running");
         Assert.Contains("'Running'", running.GetFilter(), StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DmModel_CarriesTheTargetLabelAndTheActivityIndex()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        IModel model = Assert.IsAssignableFrom<DbContext>(scope.ServiceProvider.GetRequiredService<IDeviceManagementDbContext>()).GetService<IDesignTimeModel>().Model;
+        IEntityType items = model.FindEntityType(typeof(ScheduledTaskRunItem))!;
+        IProperty label = items.FindProperty(nameof(ScheduledTaskRunItem.TargetLabel))!;
+
+        Assert.Equal("target_label", label.GetColumnName(StoreObjectIdentifier.Table("scheduled_task_run_items", "dm")));
+        Assert.True(label.IsNullable);
+
+        IIndex index = Assert.Single(
+            model.FindEntityType(typeof(ScheduledTaskRun))!.GetIndexes(),
+            candidate => candidate.GetDatabaseName() == "ix_scheduled_task_runs_acting_user_id_started_at_utc");
+        Assert.Equal(["acting_user_id", "started_at_utc"], [.. index.Properties.Select(property => property.GetColumnName())]);
+        Assert.Equal([false, true], index.IsDescending);
     }
 
     [Fact]
