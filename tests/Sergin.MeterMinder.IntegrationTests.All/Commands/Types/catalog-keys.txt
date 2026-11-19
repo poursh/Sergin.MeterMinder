@@ -244,9 +244,13 @@ common.pages.overview
 common.permissions.groups.other
 common.permissions.groups.platform
 common.permissions.platform-all
+common.scheduled-tasks.activity.cancel
+common.scheduled-tasks.activity.cancel-failed
+common.scheduled-tasks.activity.cancelled
 common.scheduled-tasks.activity.clear
 common.scheduled-tasks.activity.empty
 common.scheduled-tasks.activity.finished
+common.scheduled-tasks.activity.finished-cancelled
 common.scheduled-tasks.activity.finished-failed
 common.scheduled-tasks.activity.finished-partly
 common.scheduled-tasks.activity.finished-succeeded

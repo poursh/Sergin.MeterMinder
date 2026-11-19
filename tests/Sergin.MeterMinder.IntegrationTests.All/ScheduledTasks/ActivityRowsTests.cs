@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
+using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor;
 using Sergin.MeterMinder.DeviceManagement.Presentation.Blazor.Devices;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
@@ -7,6 +8,7 @@ using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Domain.ScheduledTasks;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
 using Sergin.SharedKernel.Presentation.Localizations;
 
@@ -53,13 +55,17 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
     }
 
     [Theory]
-    [InlineData(3, 1, 0, 2, "Running")]
-    [InlineData(3, 3, 0, 0, "Succeeded")]
-    [InlineData(3, 0, 3, 0, "Failed")]
-    [InlineData(3, 2, 1, 0, "PartlyFailed")]
-    public void TheState_FollowsTheCounts(int total, int succeeded, int failed, int unfinished, string expected)
+    [InlineData(3, 1, 0, 2, 0, "Running")]
+    [InlineData(3, 3, 0, 0, 0, "Succeeded")]
+    [InlineData(3, 0, 3, 0, 0, "Failed")]
+    [InlineData(3, 2, 1, 0, 0, "PartlyFailed")]
+    [InlineData(3, 0, 0, 0, 3, "Cancelled")]
+    [InlineData(1, 0, 0, 0, 1, "Cancelled")]
+    [InlineData(3, 2, 0, 0, 1, "PartlyFailed")]
+    [InlineData(3, 0, 1, 0, 2, "Failed")]
+    public void TheState_FollowsTheCounts(int total, int succeeded, int failed, int unfinished, int cancelled, string expected)
     {
-        ActivityRow row = Build(Item(ReadProfile, total, unfinished, succeeded, failed));
+        ActivityRow row = Build(Item(ReadProfile, total, unfinished, succeeded, failed, cancelled: cancelled));
 
         Assert.Equal(expected, row.State.ToString());
         Assert.Equal(succeeded + failed, row.Done);
@@ -75,6 +81,28 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
         Assert.Equal(ActivityState.Failed, row.State);
         Assert.Equal("ScheduledTasks.TimedOut", row.FirstErrorCode);
         Assert.Equal("The command ran longer than its timeout of 00:10:00.", row.FirstErrorDescription);
+    }
+
+    [Fact]
+    public void ModuleCaption_IsTheModulesCaption()
+    {
+        // Device Management is a group of one, so it declares no caption: its group's title names it.
+        ActivityRow device = Build(Item(ReadProfile, total: 1, unfinished: 1, targetId: Guid.CreateVersion7(), label: "MTR-1"));
+        ActivityRow unknown = Build(Item(ReadProfile, total: 1, unfinished: 1, schema: "xx"));
+
+        Assert.Equal(DeviceManagementUiTexts.MenuTitle, device.ModuleCaption);
+        Assert.Null(unknown.ModuleCaption);
+    }
+
+    [Fact]
+    public void Progress_IsCarried_ForOneRecord()
+    {
+        var device = Guid.CreateVersion7();
+
+        ActivityRow row = Build(Item(ReadProfile, total: 1, unfinished: 1, targetId: device, label: "MTR-1", progress: 40));
+
+        Assert.Equal(40, row.Progress);
+        Assert.Equal(device, row.TargetId);
     }
 
     [Fact]
@@ -97,7 +125,8 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
             [item],
             factory.Services.GetRequiredService<ScheduledCommandCatalog>(),
             factory.Services.GetRequiredService<AggregateViewRegistry>(),
-            records));
+            records,
+            ActivityRows.ModuleCaption(factory.Services.GetRequiredService<SerginUiModuleCatalog>())));
     }
 
     private static ActivityItem Item(
@@ -109,9 +138,12 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
         Guid? targetId = null,
         string? label = null,
         string? errorCode = null,
-        string? errorDescription = null) =>
+        string? errorDescription = null,
+        int cancelled = 0,
+        int? progress = null,
+        string schema = "dm") =>
         new(
-            new BackgroundRunRef("dm", Guid.CreateVersion7()),
+            new BackgroundRunRef(schema, Guid.CreateVersion7()),
             command,
             ScheduledRunTrigger.Background,
             unfinished > 0 ? ScheduledRunStatus.Running : ScheduledRunStatus.Completed,
@@ -126,6 +158,6 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
             total == 1 ? label : null,
             total == 1 ? errorCode : null,
             total == 1 ? errorDescription : null,
-            Cancelled: 0,
-            Progress: null);
+            Cancelled: cancelled,
+            Progress: total == 1 ? progress : null);
 }

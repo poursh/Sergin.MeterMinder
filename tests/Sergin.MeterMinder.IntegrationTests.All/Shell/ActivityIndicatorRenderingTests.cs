@@ -354,6 +354,175 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         });
     }
 
+    [Fact]
+    public async Task CancelOnARunningRow_SendsTheCancel_AndReloads()
+    {
+        IndicatorFaults faults = host.Services.GetRequiredService<IndicatorFaults>();
+        Guid run = await SeedRunAsync(caller.Id, label: "P-1");
+
+        await RenderAsync(caller, async (indicator, html) =>
+        {
+            await indicator.StartAsync();
+            Assert.Contains("aria-label=\"Activity, 1 running\"", html(), StringComparison.Ordinal);
+            int readsBefore = faults.Reads;
+
+            await indicator.CancelAsync(new BackgroundRunRef("tst", run));
+            await SettleAsync(indicator, () => faults.Reads > readsBefore && !html().Contains("mud-badge ", StringComparison.Ordinal));
+
+            Assert.Equal(1, faults.Cancels);
+            Assert.True(faults.Reads > readsBefore);
+            Assert.Contains("aria-label=\"Activity, 0 running\"", html(), StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public async Task CancelOfAFinishedRun_ReloadsWithoutAnError()
+    {
+        IndicatorFaults faults = host.Services.GetRequiredService<IndicatorFaults>();
+        Guid run = await SeedRunAsync(caller.Id, label: "P-1");
+        faults.CancelAnswer = ScheduledTaskErrors.RunFinished;
+
+        try
+        {
+            await RenderAsync(caller, async (indicator, _, snackbar) =>
+            {
+                await indicator.StartAsync();
+                int readsBefore = faults.Reads;
+
+                await indicator.CancelAsync(new BackgroundRunRef("tst", run));
+                await SettleAsync(indicator, () => faults.Reads > readsBefore);
+
+                Assert.Equal(readsBefore + 1, faults.Reads);
+                Assert.Empty(snackbar.ShownSnackbars);
+            });
+        }
+        finally
+        {
+            faults.CancelAnswer = null;
+        }
+    }
+
+    [Fact]
+    public async Task ACancelRefusedForAnotherReason_IsNotified_AndStillReloads()
+    {
+        IndicatorFaults faults = host.Services.GetRequiredService<IndicatorFaults>();
+        Guid run = await SeedRunAsync(caller.Id, label: "P-1");
+        faults.CancelAnswer = ErrorOr.Error.Forbidden();
+
+        try
+        {
+            await RenderAsync(caller, async (indicator, _, snackbar) =>
+            {
+                await indicator.StartAsync();
+                int readsBefore = faults.Reads;
+
+                await indicator.CancelAsync(new BackgroundRunRef("tst", run));
+                await SettleAsync(indicator, () => faults.Reads > readsBefore);
+
+                Assert.Equal(readsBefore + 1, faults.Reads);
+                // The presenter's rendering of a 403; the cancel's own answer, not a finished run's silence.
+                Assert.Equal(Severity.Warning, Assert.Single(snackbar.ShownSnackbars).Severity);
+            });
+        }
+        finally
+        {
+            faults.CancelAnswer = null;
+        }
+    }
+
+    [Fact]
+    public async Task ARunThatComesBackAfterASourceDropout_IsNotAnnouncedTwice()
+    {
+        IndicatorFaults faults = host.Services.GetRequiredService<IndicatorFaults>();
+
+        try
+        {
+            await RenderAsync(caller, async (indicator, _, snackbar) =>
+            {
+                await indicator.StartAsync();
+
+                // Started after the first load, so a read that does not know it would take it for a new, fast run.
+                Guid run = await SeedRunAsync(caller.Id, label: "P-1");
+                await indicator.ReloadAsync();
+                await CompleteAsync(run);
+                await indicator.ReloadAsync();
+                Assert.Equal($"{Command} finished for P-1.", Assert.Single(snackbar.ShownSnackbars).Message);
+
+                // Dismissed, since MudBlazor drops a duplicate of a snackbar still shown and would hide a second announce.
+                snackbar.Clear();
+                faults.Hidden = run;
+                await indicator.ReloadAsync();
+                faults.Hidden = null;
+                await indicator.ReloadAsync();
+
+                Assert.Empty(snackbar.ShownSnackbars);
+            });
+        }
+        finally
+        {
+            faults.Hidden = null;
+        }
+    }
+
+    [Fact]
+    public async Task ACancelledRun_IsAnnouncedAsCancelled()
+    {
+        Guid run = await SeedRunAsync(caller.Id, label: "P-1");
+
+        await RenderWithServicesAsync(host, caller, async (indicator, _, services) =>
+        {
+            ISnackbar snackbar = services.GetRequiredService<ISnackbar>();
+            await indicator.StartAsync();
+
+            await CancelRunAsync(run);
+            await indicator.ReloadAsync();
+            await SettleAsync(indicator, () => snackbar.ShownSnackbars.Any());
+
+            Snackbar shown = Assert.Single(snackbar.ShownSnackbars);
+            Assert.Equal($"{Command} was cancelled for P-1.", shown.Message);
+            Assert.Equal(Severity.Normal, shown.Severity);
+
+            // The popover's row (not prerendered by this harness) is the one the panel state holds.
+            ActivityRow row = Assert.Single(services.GetRequiredService<ActivityPanelState>().Rows);
+            Assert.Equal(ActivityState.Cancelled, row.State);
+        });
+    }
+
+    [Fact]
+    public async Task PanelState_PublishesRows_AfterALoad()
+    {
+        var target = Guid.CreateVersion7();
+        await SeedRunAsync(caller.Id, label: "P-1", target: target);
+
+        await RenderWithServicesAsync(host, caller, async (indicator, _, services) =>
+        {
+            ActivityPanelState panel = services.GetRequiredService<ActivityPanelState>();
+            int changes = 0;
+            panel.RowsChanged += () => changes++;
+            Assert.Empty(panel.Rows);
+            Assert.False(panel.IsRunning(Command, target));
+
+            await indicator.StartAsync();
+
+            Assert.Equal(target, Assert.Single(panel.Rows).TargetId);
+            Assert.True(panel.IsRunning(Command, target));
+            Assert.False(panel.IsRunning(Command, Guid.CreateVersion7()));
+            Assert.False(panel.IsRunning("tst.probes.other", target));
+            Assert.True(changes >= 1);
+        });
+    }
+
+    // Waits, bounded, for a condition and for the indicator to settle: no read out and no notifier-driven reload waiting.
+    private static async Task SettleAsync(SerginActivityIndicator indicator, Func<bool> condition)
+    {
+        for (int attempt = 0; attempt < 50 && (!condition() || !indicator.IsIdle); attempt++)
+        {
+            await Task.Delay(100);
+        }
+
+        Assert.True(indicator.IsIdle);
+    }
+
     private Task RenderAsync(IUserContext user, Func<SerginActivityIndicator, Func<string>, Task> act) =>
         RenderAsync(host, user, (indicator, html, _) => act(indicator, html));
 
@@ -363,8 +532,12 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
     private Task RenderAsync(IUserContext user, Func<SerginActivityIndicator, Func<string>, ISnackbar, Task> act) =>
         RenderAsync(host, user, act);
 
-    private static async Task RenderAsync(
-        WebApplicationFactory<Program> on, IUserContext user, Func<SerginActivityIndicator, Func<string>, ISnackbar, Task> act)
+    private static Task RenderAsync(
+        WebApplicationFactory<Program> on, IUserContext user, Func<SerginActivityIndicator, Func<string>, ISnackbar, Task> act) =>
+        RenderWithServicesAsync(on, user, (indicator, html, services) => act(indicator, html, services.GetRequiredService<ISnackbar>()));
+
+    private static async Task RenderWithServicesAsync(
+        WebApplicationFactory<Program> on, IUserContext user, Func<SerginActivityIndicator, Func<string>, IServiceProvider, Task> act)
     {
         await using AsyncServiceScope scope = on.Services.CreateAsyncScope();
         scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = user;
@@ -378,11 +551,11 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
             HtmlRootComponent root = await renderer.RenderComponentAsync<IndicatorHost>();
             string Html() => WebUtility.HtmlDecode(root.ToHtmlString());
 
-            await act(IndicatorHost.Indicator!, Html, scope.ServiceProvider.GetRequiredService<ISnackbar>());
+            await act(IndicatorHost.Indicator!, Html, scope.ServiceProvider);
         });
     }
 
-    private async Task<Guid> SeedRunAsync(UserId user, string? label)
+    private async Task<Guid> SeedRunAsync(UserId user, string? label, Guid? target = null)
     {
         using IServiceScope scope = host.Services.CreateScope();
         IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema);
@@ -390,7 +563,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         DateTime now = DateTime.UtcNow;
 
         var run = ScheduledTaskRun.Start(definition, 1, now);
-        store.AddRun(run, [ScheduledTaskRunItem.Create(run.Id, Guid.CreateVersion7(), null, now, label)]);
+        store.AddRun(run, [ScheduledTaskRunItem.Create(run.Id, target ?? Guid.CreateVersion7(), null, now, label)]);
         await store.SaveAsync(CancellationToken.None);
 
         return run.Id;
@@ -411,6 +584,16 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         await context.SaveChangesAsync();
     }
 
+    // Cancels the run in its store as the cancel command would, with no notifier publish: the next read sees it.
+    private async Task CancelRunAsync(Guid runId)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema);
+
+        await store.CancelRunAsync(runId, DateTime.UtcNow, CancellationToken.None);
+        await store.CompleteRunIfFinishedAsync(runId, DateTime.UtcNow, CancellationToken.None);
+    }
+
     /// <summary>
     /// What the activity reads see: a switch that fails them, as a broken dispatch would, a count, and a hook run after a
     /// read has its answer and before it is returned (to hold an old answer back while a newer read goes ahead).
@@ -419,6 +602,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
     {
         private volatile bool failActivity;
         private int reads;
+        private int cancels;
 
         public bool FailActivity
         {
@@ -433,6 +617,16 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         public Exception? ThrowOnRead { get; set; }
 
         public void Read() => Interlocked.Increment(ref reads);
+
+        /// <summary>A run the reads leave out, as when the source that holds it drops out of one read.</summary>
+        public Guid? Hidden { get; set; }
+
+        /// <summary>When set, the answer a cancel gets instead of being sent.</summary>
+        public ErrorOr.Error? CancelAnswer { get; set; }
+
+        public int Cancels => Volatile.Read(ref cancels);
+
+        public void Cancel() => Interlocked.Increment(ref cancels);
     }
 
     private sealed class FaultyDispatcher(ISerginDispatcher inner, IndicatorFaults faults) : ISerginDispatcher
@@ -440,6 +634,16 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         public async Task<ErrorOr.ErrorOr<TResponse>> SendAsync<TResponse>(
             IRequest<ErrorOr.ErrorOr<TResponse>> request, CancellationToken cancellationToken = default)
         {
+            if (request is CancelBackgroundRunCommand)
+            {
+                faults.Cancel();
+
+                if (faults.CancelAnswer is { } answered)
+                {
+                    return answered;
+                }
+            }
+
             if (request is not GetMyActivityQuery)
             {
                 return await inner.SendAsync(request, cancellationToken);
@@ -462,6 +666,12 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
             if (faults.AfterRead is { } after)
             {
                 await after();
+            }
+
+            if (faults.Hidden is { } hidden && !answer.IsError && answer.Value is IReadOnlyList<ActivityItem> items)
+            {
+                IReadOnlyList<ActivityItem> kept = [.. items.Where(item => item.Ref.RunId != hidden)];
+                return (TResponse)(object)kept;
             }
 
             return answer;
