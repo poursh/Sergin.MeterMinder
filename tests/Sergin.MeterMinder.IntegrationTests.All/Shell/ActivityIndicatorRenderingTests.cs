@@ -263,18 +263,19 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
                 Task second = indicator.ReloadAsync();
                 await Task.WhenAll(first, second);
 
-                for (int attempt = 0; attempt < 30 && html().Contains("mud-badge ", StringComparison.Ordinal); attempt++)
+                // Settled: no read out and no notifier-driven reload waiting for its interval, so none is left to come back
+                // late with the older answer. Bounded: the trailing reload is due within a second.
+                for (int attempt = 0; attempt < 50 && (!indicator.IsIdle || html().Contains("mud-badge ", StringComparison.Ordinal)); attempt++)
                 {
                     await Task.Delay(100);
                 }
 
-                // Settled: no read left to come back late with the older answer.
-                await Task.Delay(800);
-
+                Assert.True(indicator.IsIdle);
                 Assert.Contains("aria-label=\"Activity, 0 running\"", html(), StringComparison.Ordinal);
                 Assert.False(indicator.IsPolling);
                 Assert.Equal($"{Command} finished for P-1.", Assert.Single(snackbar.ShownSnackbars).Message);
-                // The held read plus one more for the whole burst: coalesced, not one read per change.
+                // The held read, one more for the explicit reload and the first change together, and at most one trailing
+                // read for the rest of the burst (rate-limited to one a second): coalesced, not one read per change.
                 Assert.InRange(faults.Reads - readsBefore, 2, 3);
             });
         }
@@ -282,6 +283,75 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         {
             faults.AfterRead = null;
         }
+    }
+
+    [Fact]
+    public async Task ARunThatStartsAndFinishesBetweenTwoLoads_IsStillAnnounced()
+    {
+        await RenderAsync(caller, async (indicator, html, snackbar) =>
+        {
+            await indicator.StartAsync();
+            Assert.Contains("aria-label=\"Activity, 0 running\"", html(), StringComparison.Ordinal);
+
+            // Never seen running: it started after the first load and finished before the next one.
+            Guid fast = await SeedRunAsync(caller.Id, label: "FAST-1");
+            await CompleteAsync(fast);
+            await indicator.ReloadAsync();
+            await indicator.ReloadAsync();
+
+            Assert.Equal($"{Command} finished for FAST-1.", Assert.Single(snackbar.ShownSnackbars).Message);
+        });
+    }
+
+    [Fact]
+    public async Task AReadThatIsCancelled_RendersNothing_AndDoesNotThrow()
+    {
+        IndicatorFaults faults = host.Services.GetRequiredService<IndicatorFaults>();
+        faults.ThrowOnRead = new TaskCanceledException("interop timed out");
+
+        try
+        {
+            await RenderAsync(caller, async (indicator, html) =>
+            {
+                await indicator.StartAsync();
+
+                Assert.DoesNotContain(Marker, html(), StringComparison.Ordinal);
+                Assert.False(indicator.IsPolling);
+            });
+        }
+        finally
+        {
+            faults.ThrowOnRead = null;
+        }
+    }
+
+    [Fact]
+    public async Task NotifiedChanges_AreRateLimited_ToOneReloadASecond_WithOneTrailingReload()
+    {
+        IndicatorFaults faults = host.Services.GetRequiredService<IndicatorFaults>();
+
+        await RenderAsync(caller, async (indicator, html) =>
+        {
+            await indicator.StartAsync();
+            int readsBefore = faults.Reads;
+            IRunNotifier notifier = host.Services.GetRequiredService<IRunNotifier>();
+            Guid run = await SeedRunAsync(caller.Id, label: "P-1");
+
+            for (int change = 0; change < 10; change++)
+            {
+                notifier.Publish(new RunChanged(new BackgroundRunRef("tst", run), caller.Id));
+                await Task.Delay(20);
+            }
+
+            for (int attempt = 0; attempt < 50 && (faults.Reads - readsBefore < 2 || !indicator.IsIdle); attempt++)
+            {
+                await Task.Delay(100);
+            }
+
+            // One read at once for the first change, one trailing read for the other nine: the last change is not lost.
+            Assert.Equal(2, faults.Reads - readsBefore);
+            Assert.Contains("aria-label=\"Activity, 1 running\"", html(), StringComparison.Ordinal);
+        });
     }
 
     private Task RenderAsync(IUserContext user, Func<SerginActivityIndicator, Func<string>, Task> act) =>
@@ -360,6 +430,8 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
 
         public Func<Task>? AfterRead { get; set; }
 
+        public Exception? ThrowOnRead { get; set; }
+
         public void Read() => Interlocked.Increment(ref reads);
     }
 
@@ -374,6 +446,11 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
             }
 
             faults.Read();
+
+            if (faults.ThrowOnRead is { } thrown)
+            {
+                throw thrown;
+            }
 
             if (faults.FailActivity)
             {

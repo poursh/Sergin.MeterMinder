@@ -212,4 +212,6 @@
 - The per-action spinner while a record has an unfinished run of that command.
 - An admin page of every user's runs.
 - A remote source (gRPC or an outbox projection) behind `IBackgroundRunSource`.
+- The spec's per-row module caption in the activity popover (the module's `SerginNavGroup` caption): deferred to phase 3.
+- `IBackgroundRunSource.GetRunAsync` (reading one run by its ref): deferred to phase 3.
 - Phase 1's parked items: stale Pending items are re-enqueued every recovery pass; a 1000-target start does all its work while the user waits; the `< 1 s` timing assertion; translator notes on `BackgroundStarted(Many)`.

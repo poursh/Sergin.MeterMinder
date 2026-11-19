@@ -3,7 +3,6 @@ using ErrorOr;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
@@ -60,7 +59,7 @@ public sealed class RunNotifierTests(SerginWebApiFactory<Program> factory) : IAs
     {
         TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
         var heard = new Recorder();
-        using IDisposable subscription = Notifier.Subscribe(caller.Id, change => RecordWithStatusAsync(heard, change));
+        using IDisposable subscription = Notifier.Subscribe(caller.Id, change => heard.Track(RecordWithStatusAsync(heard, change)));
 
         BackgroundRunRef run = await StartAndDrainAsync(caller);
 
@@ -68,6 +67,9 @@ public sealed class RunNotifierTests(SerginWebApiFactory<Program> factory) : IAs
         Assert.True(mine.Length >= 2, $"heard {mine.Length}");
         Assert.All(mine, change => Assert.Equal(caller.Id, change.ActingUser));
         Assert.Equal("Completed", (await BackgroundRuns.WaitAsync(host.Services, run, TimeSpan.FromSeconds(10))).Status);
+
+        // Every handler's status read is fire-and-forget: wait for them all, so the last published one has its status.
+        await heard.SettledAsync();
 
         // The last event published was published after the run was Completed.
         Assert.Equal("Completed", heard.StatusAtLastPublished);
@@ -158,6 +160,7 @@ public sealed class RunNotifierTests(SerginWebApiFactory<Program> factory) : IAs
         public IReadOnlyCollection<RunChanged> Changes => [.. changes];
 
         private readonly ConcurrentDictionary<int, string> statuses = new();
+        private readonly ConcurrentQueue<Task> pending = new();
         private int sequence;
 
         public string? StatusAtLastPublished => statuses.IsEmpty ? null : statuses[statuses.Keys.Max()];
@@ -169,6 +172,14 @@ public sealed class RunNotifierTests(SerginWebApiFactory<Program> factory) : IAs
         }
 
         public void SetStatus(int at, string status) => statuses[at] = status;
+
+        public Task Track(Task handling)
+        {
+            pending.Enqueue(handling);
+            return handling;
+        }
+
+        public Task SettledAsync() => Task.WhenAll(pending).WaitAsync(TimeSpan.FromSeconds(10));
 
         public Task HandleAsync(RunChanged change)
         {

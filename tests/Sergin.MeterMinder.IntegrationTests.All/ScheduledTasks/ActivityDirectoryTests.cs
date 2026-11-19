@@ -88,6 +88,26 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public async Task ASkippedRun_IsNotActivity()
+    {
+        // Run now losing the overlap rule records a Skipped run: complete at once, nothing sent, so not a success to show.
+        var user = new UserId(Guid.CreateVersion7());
+        Guid runNow = await SeedRunAsync(user, ScheduledRunTrigger.RunNow, DateTime.UtcNow);
+
+        using (IServiceScope scope = host.Services.CreateScope())
+        {
+            IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(Tst);
+            var definition = new ScheduledRunDefinition(null, ScheduledRunTrigger.RunNow, user, tree.North, "root", "tst.probes.touch", "{}");
+            store.AddRun(ScheduledTaskRun.Skipped(definition, DateTime.UtcNow), []);
+            await store.SaveAsync(CancellationToken.None);
+        }
+
+        IReadOnlyList<ActivityItem> activity = await ListAsync(user);
+
+        Assert.Equal([runNow], activity.Select(item => item.Ref.RunId));
+    }
+
+    [Fact]
     public async Task OtherUsersRuns_AreNotListed()
     {
         var user = new UserId(Guid.CreateVersion7());

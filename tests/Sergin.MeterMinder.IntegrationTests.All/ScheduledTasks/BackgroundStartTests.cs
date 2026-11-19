@@ -139,6 +139,18 @@ public sealed class BackgroundStartTests(SerginWebApiFactory<Program> factory) :
     }
 
     [Fact]
+    public void ALongLabel_IsNeverCutInsideASurrogatePair()
+    {
+        // 199 chars, then an emoji (a surrogate pair) straddling the 200-char cut.
+        string straddling = new string('x', 199) + "\U0001F600" + "tail";
+        string fitting = new string('x', 198) + "\U0001F600" + "tail";
+
+        Assert.Equal(new string('x', 199), ScheduledRunStarter.CutLabel(straddling));
+        Assert.Equal(new string('x', 198) + "\U0001F600", ScheduledRunStarter.CutLabel(fitting));
+        Assert.Equal("short", ScheduledRunStarter.CutLabel("short"));
+    }
+
+    [Fact]
     public async Task NoLabel_StoresNull()
     {
         TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
