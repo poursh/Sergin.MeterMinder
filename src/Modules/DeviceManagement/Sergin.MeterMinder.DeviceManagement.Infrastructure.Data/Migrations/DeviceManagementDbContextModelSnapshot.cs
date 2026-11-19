@@ -448,6 +448,10 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_activity_at_utc");
 
+                    b.Property<short?>("Progress")
+                        .HasColumnType("smallint")
+                        .HasColumnName("progress");
+
                     b.Property<Guid?>("RootId")
                         .HasColumnType("uuid")
                         .HasColumnName("root_id");

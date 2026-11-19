@@ -123,6 +123,17 @@ public sealed class ScheduledTaskModelTests(SerginWebApiFactory<Program> factory
     }
 
     [Fact]
+    public void RunItem_CarriesTheProgressColumn()
+    {
+        IEntityType items = DesignModel().FindEntityType(typeof(ScheduledTaskRunItem))!;
+        IProperty progress = items.FindProperty(nameof(ScheduledTaskRunItem.Progress))!;
+
+        Assert.Equal("progress", progress.GetColumnName(StoreObjectIdentifier.Table("scheduled_task_run_items", "tst")));
+        Assert.Equal("smallint", progress.GetColumnType());
+        Assert.True(progress.IsNullable);
+    }
+
+    [Fact]
     public void OneRunningRunPerTask_IsAPartialUniqueIndex()
     {
         IEntityType runs = Model().FindEntityType(typeof(ScheduledTaskRun))!;

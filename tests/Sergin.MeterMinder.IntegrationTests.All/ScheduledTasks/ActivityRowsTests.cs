@@ -125,5 +125,7 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
             null,
             total == 1 ? label : null,
             total == 1 ? errorCode : null,
-            total == 1 ? errorDescription : null);
+            total == 1 ? errorDescription : null,
+            Cancelled: 0,
+            Progress: null);
 }

@@ -224,6 +224,44 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public async Task OneItemRun_CarriesProgress_ManyItemRun_DoesNot()
+    {
+        var user = new UserId(Guid.CreateVersion7());
+        Guid many = await SeedRunAsync(
+            user, ScheduledRunTrigger.Background, DateTime.UtcNow.AddSeconds(-1), targets: [(Guid.CreateVersion7(), null, null), (Guid.CreateVersion7(), null, null)], progress: 70);
+        Guid one = await SeedRunAsync(user, ScheduledRunTrigger.Background, DateTime.UtcNow, progress: 40);
+
+        IReadOnlyList<ActivityItem> activity = await ListAsync(user);
+
+        Assert.Equal(40, activity.Single(item => item.Ref.RunId == one).Progress);
+        Assert.Null(activity.Single(item => item.Ref.RunId == many).Progress);
+    }
+
+    [Fact]
+    public async Task CancelledCount_IsRead()
+    {
+        var user = new UserId(Guid.CreateVersion7());
+
+        using (IServiceScope scope = host.Services.CreateScope())
+        {
+            IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(Tst);
+            var definition = new ScheduledRunDefinition(null, ScheduledRunTrigger.Background, user, tree.North, "root", "tst.probes.touch", "{}");
+            var run = ScheduledTaskRun.Start(definition, 3, DateTime.UtcNow);
+            ScheduledTaskRunItem[] items = [.. Enumerable.Range(0, 3).Select(_ => ScheduledTaskRunItem.Create(run.Id, Guid.CreateVersion7(), null, DateTime.UtcNow))];
+            items[0].MarkSucceeded(DateTime.UtcNow);
+            items[1].MarkCancelled(DateTime.UtcNow);
+            items[2].MarkCancelled(DateTime.UtcNow);
+            run.Complete(succeeded: 1, failed: 0, cancelled: 2, DateTime.UtcNow);
+            store.AddRun(run, items);
+            await store.SaveAsync(CancellationToken.None);
+        }
+
+        ActivityItem item = Assert.Single(await ListAsync(user));
+
+        Assert.Equal((3, 1, 0, 2, 0), (item.Total, item.Succeeded, item.Failed, item.Cancelled, item.Unfinished));
+    }
+
+    [Fact]
     public async Task Query_ReturnsOnlyTheCallersRuns()
     {
         TestCaller first = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
@@ -272,7 +310,8 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
         DateTime startedAtUtc,
         bool completed = false,
         string? failedWith = null,
-        IReadOnlyList<(Guid TargetId, Guid? RootId, string? Label)>? targets = null)
+        IReadOnlyList<(Guid TargetId, Guid? RootId, string? Label)>? targets = null,
+        int? progress = null)
     {
         using IServiceScope scope = host.Services.CreateScope();
         IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(Tst);
@@ -281,6 +320,14 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
 
         var run = ScheduledTaskRun.Start(definition, targets.Count, startedAtUtc);
         ScheduledTaskRunItem[] items = [.. targets.Select(target => ScheduledTaskRunItem.Create(run.Id, target.TargetId, target.RootId, startedAtUtc, target.Label))];
+
+        if (progress is { } percent)
+        {
+            foreach (ScheduledTaskRunItem item in items)
+            {
+                item.SetProgress(percent);
+            }
+        }
 
         if (completed)
         {

@@ -1,5 +1,6 @@
 using ErrorOr;
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
@@ -266,6 +267,83 @@ internal sealed class CancelThenThrowProbeCommandHandler(IServiceScopeFactory sc
         }
 
         throw new InvalidOperationException("The probe failed after its run was cancelled.");
+    }
+}
+
+/// <summary>A background command whose handler reports progress through <see cref="IRunProgress"/>, as <see cref="ProgressProbe"/> scripts it.</summary>
+internal sealed record ProgressProbeCommand(ScheduleProbeId Id)
+    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+internal sealed class ProgressProbeCommandConfiguration : ICommandConfiguration<ProgressProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<ProgressProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.progress").Background().RequirePermissions(ScheduleProbePermissions.Touch);
+}
+
+/// <summary>
+/// The script of every <see cref="ProgressProbeCommand"/> send: wait for <see cref="Start"/>, report each of
+/// <see cref="Reports"/>, read the item's stored progress back (another scope, as the runs dialog would), then wait for
+/// <see cref="Finish"/>. Both gates are open unless a test closes them.
+/// </summary>
+internal sealed class ProgressProbe
+{
+    private readonly TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int entered;
+
+    public IReadOnlyList<int> Reports { get; set; } = [];
+
+    /// <summary>Called after each report; a test moves its clock here.</summary>
+    public Action AfterEachReport { get; set; } = () => { };
+
+    public ProbeGate Start { get; } = new();
+
+    public ProbeGate Finish { get; } = new();
+
+    /// <summary>The item's stored progress, read once every report was made and before the send returned.</summary>
+    public int? StoredAfterReports { get; set; }
+
+    public int Entered => Volatile.Read(ref entered);
+
+    public Task Started => started.Task;
+
+    public void Enter()
+    {
+        Interlocked.Increment(ref entered);
+        started.TrySetResult();
+    }
+
+    public void OpenGates()
+    {
+        Start.Release();
+        Finish.Release();
+    }
+}
+
+internal sealed class ProgressProbeCommandHandler(ProgressProbe probe, IRunProgress progress, IRunItemContext runItem, IServiceScopeFactory scopes)
+    : ICommandHandler<ProgressProbeCommand, TouchProbeResponse>
+{
+    public async Task<ErrorOr<TouchProbeResponse>> Handle(ProgressProbeCommand request, CancellationToken cancellationToken)
+    {
+        probe.Enter();
+        await probe.Start.WaitAsync(cancellationToken);
+
+        foreach (int report in probe.Reports)
+        {
+            await progress.ReportAsync(report, cancellationToken);
+            probe.AfterEachReport();
+        }
+
+        await using (AsyncServiceScope scope = scopes.CreateAsyncScope())
+        {
+            probe.StoredAfterReports = await scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>().ScheduledTaskRunItems
+                .AsNoTracking()
+                .Where(item => item.Id == runItem.RunItemId)
+                .Select(item => item.Progress)
+                .SingleAsync(cancellationToken);
+        }
+
+        await probe.Finish.WaitAsync(cancellationToken);
+        return new TouchProbeResponse(string.Empty);
     }
 }
 

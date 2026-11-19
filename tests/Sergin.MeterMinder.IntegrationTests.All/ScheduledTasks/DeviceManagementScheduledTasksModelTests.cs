@@ -74,6 +74,18 @@ public sealed class DeviceManagementScheduledTasksModelTests(SerginWebApiFactory
     }
 
     [Fact]
+    public void DmModel_CarriesTheProgressColumn()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        IModel model = Assert.IsAssignableFrom<DbContext>(scope.ServiceProvider.GetRequiredService<IDeviceManagementDbContext>()).GetService<IDesignTimeModel>().Model;
+        IProperty progress = model.FindEntityType(typeof(ScheduledTaskRunItem))!.FindProperty(nameof(ScheduledTaskRunItem.Progress))!;
+
+        Assert.Equal("progress", progress.GetColumnName(StoreObjectIdentifier.Table("scheduled_task_run_items", "dm")));
+        Assert.Equal("smallint", progress.GetColumnType());
+        Assert.True(progress.IsNullable);
+    }
+
+    [Fact]
     public void DmContext_IsAScheduledTasksContext()
     {
         using IServiceScope scope = factory.Services.CreateScope();

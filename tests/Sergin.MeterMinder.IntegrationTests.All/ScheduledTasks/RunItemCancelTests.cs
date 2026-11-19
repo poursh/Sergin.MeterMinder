@@ -294,6 +294,9 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
 
         public Task<RunItemHeartbeat> TouchRunItemAsync(Guid runItemId, DateTime now, CancellationToken ct) => inner.TouchRunItemAsync(runItemId, now, ct);
 
+        public Task SetRunItemProgressAsync(Guid runItemId, int percent, DateTime now, CancellationToken ct) =>
+            inner.SetRunItemProgressAsync(runItemId, percent, now, ct);
+
         public Task<IReadOnlyCollection<Guid>> ListStaleRunItemsAsync(DateTime quietSince, CancellationToken ct) => inner.ListStaleRunItemsAsync(quietSince, ct);
 
         public Task<IReadOnlyCollection<Guid>> CancelAbandonedRunItemsAsync(DateTime quietSince, DateTime at, CancellationToken ct) =>

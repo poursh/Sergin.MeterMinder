@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Diagnostics;
 using ErrorOr;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +13,7 @@ using Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
 using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
 using Sergin.SharedKernel.Domain.Securities;
+using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 
@@ -52,6 +54,22 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
             await BackgroundRuns.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
         Assert.Equal("Completed", status);
         Assert.Equal("Succeeded", Assert.Single(items).Status);
+    }
+
+    [Fact]
+    public async Task ReadProfile_Finished_HasProgress100()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        Guid id = await CreateDeviceAsync(dispatcher);
+
+        ErrorOr<BackgroundRunStartedResponse> started = await dispatcher.StartAsync(
+            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new BackgroundTarget(id, null)]);
+        Assert.False(started.IsError, started.IsError ? started.FirstError.Description : string.Empty);
+        (string status, _) = await BackgroundRuns.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
+
+        Assert.Equal("Completed", status);
+        Assert.Equal(100, await ProgressOfAsync(started.Value.Run.RunId));
     }
 
     [Fact]
@@ -114,6 +132,21 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
         Assert.True(catalog.TryGet("dm.devices.read-profile", out ScheduledCommand? command));
         Assert.Equal(typeof(ReadDeviceProfileCommand), command.RequestType);
         Assert.Equal(TimeSpan.FromMinutes(10), command.Background!.Timeout);
+    }
+
+    private async Task<int?> ProgressOfAsync(Guid runId)
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        using DbConnection connection = await scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>().CreateConnectionAsync();
+        await using DbCommand command = connection.CreateCommand();
+        command.CommandText = "SELECT progress FROM dm.scheduled_task_run_items WHERE run_id = @id";
+        DbParameter parameter = command.CreateParameter();
+        parameter.ParameterName = "id";
+        parameter.Value = runId;
+        command.Parameters.Add(parameter);
+
+        object? value = await command.ExecuteScalarAsync();
+        return value is null or DBNull ? null : Convert.ToInt32(value, System.Globalization.CultureInfo.InvariantCulture);
     }
 
     private static async Task<Guid> CreateDeviceAsync(ISerginDispatcher dispatcher)
