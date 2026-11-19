@@ -121,6 +121,24 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
         Assert.Null(row.Href);
     }
 
+    [Fact]
+    public void ACommandAViewNames_IsShownByThatViewCommandsIcon()
+    {
+        string? icon = ActivityRows.CommandIcon(
+            ReadProfile,
+            factory.Services.GetRequiredService<ScheduledCommandCatalog>(),
+            factory.Services.GetRequiredService<AggregateViewRegistry>());
+
+        Assert.Equal(MudBlazor.Icons.Material.Outlined.Sensors, icon);
+    }
+
+    [Fact]
+    public void ACommandTheCatalogueDoesNotKnow_HasNoIcon() =>
+        Assert.Null(ActivityRows.CommandIcon(
+            "xx.gone.command",
+            factory.Services.GetRequiredService<ScheduledCommandCatalog>(),
+            factory.Services.GetRequiredService<AggregateViewRegistry>()));
+
     private ActivityRow Build(ActivityItem item)
     {
         using IServiceScope scope = factory.Services.CreateScope();

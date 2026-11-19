@@ -101,14 +101,14 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
         string filtered = await GetAsync($"/tst/probes/{probe}?schedules={TouchName}");
 
         Assert.Contains($"Showing {TouchName}", filtered, StringComparison.Ordinal);
-        Assert.Equal(2, Regex.Count(filtered, "<td[^>]*>" + Regex.Escape(TouchName) + "</td>"));
+        Assert.Equal(2, Regex.Count(filtered, "<span>" + Regex.Escape(TouchName) + "</span>"));
         Assert.DoesNotContain("tst.probes.touch-one", filtered, StringComparison.Ordinal);
 
         string all = await GetAsync($"/tst/probes/{probe}");
 
         Assert.DoesNotContain("Showing", all, StringComparison.Ordinal);
         Assert.Contains("tst.probes.touch-one", all, StringComparison.Ordinal);
-        Assert.Equal(2, Regex.Count(all, "<td[^>]*>" + Regex.Escape(TouchName) + "</td>"));
+        Assert.Equal(2, Regex.Count(all, "<span>" + Regex.Escape(TouchName) + "</span>"));
     }
 
     [Fact]
@@ -414,7 +414,7 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
     }
 
     [Fact]
-    public async Task OneOffRuns_RunningRow_HasCancel_AndCancelling_Reloads()
+    public async Task OneOffRuns_RunningRow_HasCancelAndProgress_AndCancelling_Reloads()
     {
         Guid probe = await CreateProbeAsync();
         await GrantAsync(ScheduledTaskPermissions.Manage, ScheduleProbePermissions.Touch);
@@ -431,11 +431,13 @@ public sealed partial class ScheduledTaskUiTests(SerginWebApiFactory<Program> fa
             string Html() => WebUtility.HtmlDecode(root.ToHtmlString());
 
             Assert.Matches(OneOffCancelButton(), Html());
+            Assert.Contains("sergin-one-off-progress", Html(), StringComparison.Ordinal);
 
             await SectionHost.Section!.CancelRunAsync(run);
 
             string html = Html();
             Assert.DoesNotMatch(OneOffCancelButton(), html);
+            Assert.DoesNotContain("sergin-one-off-progress", html, StringComparison.Ordinal);
             Assert.Contains("Completed: 0 of 1 succeeded, 0 failed, 1 cancelled", html, StringComparison.Ordinal);
         });
     }
