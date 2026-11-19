@@ -173,6 +173,31 @@ public sealed class RunItemRecoveryTests(SerginWebApiFactory<Program> factory) :
         Assert.DoesNotContain(runs, one => one.Status == ScheduledRunStatus.Skipped);
     }
 
+    [Fact]
+    public async Task Recovery_CancelsAnAbandonedItemOfACancelledRun()
+    {
+        (Guid run, Guid item) = await StartRunAsync();
+
+        // A delivery claimed the item and its host died mid-send; then the run was cancelled, which leaves a Running item
+        // to its delivery.
+        Assert.True(await ClaimAsync(item));
+        await CancelRunAsync(run);
+        Assert.Equal(ScheduledRunItemStatus.Running, (await ItemAsync(item)).Status);
+
+        clock.Advance(PastStale);
+        Assert.Equal(0, await RecoverAsync());
+
+        ScheduledTaskRunItem done = await ItemAsync(item);
+        Assert.Equal(ScheduledRunItemStatus.Cancelled, done.Status);
+        Assert.NotNull(done.CompletedAtUtc);
+        Assert.Equal(1, done.Attempts);
+        Assert.Empty(engine.QueuedItems);
+        Assert.Empty(Recorder.Sends);
+        ScheduledTaskRun completed = await RunAsync(run);
+        Assert.Equal(ScheduledRunStatus.Completed, completed.Status);
+        Assert.Equal((0, 0, 1), (completed.Succeeded, completed.Failed, completed.Cancelled));
+    }
+
     [Theory]
     [InlineData("00:00:00", "00:01:00", "StaleAfter must be a positive")]
     [InlineData("00:15:00", "00:00:00", "RecoveryInterval must be a positive")]
@@ -296,6 +321,14 @@ public sealed class RunItemRecoveryTests(SerginWebApiFactory<Program> factory) :
         IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(Schema);
 
         return await store.TryClaimRunItemAsync(item, clock.UtcNow, clock.UtcNow - new ScheduledTaskOptions().StaleAfter, CancellationToken.None);
+    }
+
+    private async Task CancelRunAsync(Guid run)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(Schema);
+
+        await store.CancelRunAsync(run, clock.UtcNow, CancellationToken.None);
     }
 
     /// <summary>One recovery pass by hand: the shared test host leaves the background loop out.</summary>

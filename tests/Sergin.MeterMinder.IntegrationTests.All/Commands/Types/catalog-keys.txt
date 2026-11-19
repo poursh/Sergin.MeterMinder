@@ -244,14 +244,20 @@ common.pages.overview
 common.permissions.groups.other
 common.permissions.groups.platform
 common.permissions.platform-all
+common.scheduled-tasks.activity.cancel
+common.scheduled-tasks.activity.cancel-failed
+common.scheduled-tasks.activity.cancelled
 common.scheduled-tasks.activity.clear
 common.scheduled-tasks.activity.empty
 common.scheduled-tasks.activity.finished
+common.scheduled-tasks.activity.finished-cancelled
 common.scheduled-tasks.activity.finished-failed
 common.scheduled-tasks.activity.finished-partly
+common.scheduled-tasks.activity.finished-partly-cancelled
 common.scheduled-tasks.activity.finished-succeeded
 common.scheduled-tasks.activity.one-record
 common.scheduled-tasks.activity.open-label
+common.scheduled-tasks.activity.progress
 common.scheduled-tasks.activity.records
 common.scheduled-tasks.activity.running
 common.scheduled-tasks.activity.show
@@ -289,6 +295,7 @@ common.scheduled-tasks.errors.must-run-in-background
 common.scheduled-tasks.errors.no-targets
 common.scheduled-tasks.errors.not-background
 common.scheduled-tasks.errors.not-schedulable
+common.scheduled-tasks.errors.run-finished
 common.scheduled-tasks.errors.target-without-root
 common.scheduled-tasks.errors.too-many-targets
 common.scheduled-tasks.filtered-to
@@ -310,8 +317,10 @@ common.scheduled-tasks.runs.background
 common.scheduled-tasks.runs.completed
 common.scheduled-tasks.runs.empty
 common.scheduled-tasks.runs.error
+common.scheduled-tasks.runs.item-cancelled
 common.scheduled-tasks.runs.item-failed
 common.scheduled-tasks.runs.item-pending
+common.scheduled-tasks.runs.item-progress
 common.scheduled-tasks.runs.item-retrying
 common.scheduled-tasks.runs.item-running
 common.scheduled-tasks.runs.item-succeeded
@@ -327,6 +336,7 @@ common.scheduled-tasks.runs.skipped
 common.scheduled-tasks.runs.started
 common.scheduled-tasks.runs.status
 common.scheduled-tasks.runs.summary
+common.scheduled-tasks.runs.summary-with-cancelled
 common.scheduled-tasks.runs.target
 common.scheduled-tasks.runs.title
 common.scheduled-tasks.runs.trigger

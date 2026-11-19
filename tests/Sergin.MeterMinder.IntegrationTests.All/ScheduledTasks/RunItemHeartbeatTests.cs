@@ -135,7 +135,7 @@ public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) 
         ScheduledTaskRunItem finished = Assert.Single(await ItemsAsync(run));
         Assert.Equal(ScheduledRunItemStatus.Succeeded, finished.Status);
 
-        bool touched;
+        RunItemHeartbeat touched;
 
         using (IServiceScope scope = host.Services.CreateScope())
         {
@@ -143,7 +143,7 @@ public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) 
             touched = await store.TouchRunItemAsync(finished.Id, finished.LastActivityAtUtc.AddHours(1), CancellationToken.None);
         }
 
-        Assert.False(touched);
+        Assert.Equal(new RunItemHeartbeat(Touched: false, CancelRequested: false), touched);
         Assert.Equal(finished.LastActivityAtUtc, Assert.Single(await ItemsAsync(run)).LastActivityAtUtc);
     }
 

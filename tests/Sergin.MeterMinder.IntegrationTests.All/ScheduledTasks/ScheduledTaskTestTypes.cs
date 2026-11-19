@@ -1,9 +1,12 @@
 using ErrorOr;
 using FluentValidation;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Types;
+using Sergin.SharedKernel.Application.ScheduledTasks;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Securities;
 
@@ -119,6 +122,16 @@ internal sealed class TimedProbeCommandConfiguration : ICommandConfiguration<Tim
         builder.Schedulable("tst.probes.timed").Background(TimeSpan.FromSeconds(1)).RequirePermissions(ScheduleProbePermissions.Touch);
 }
 
+/// <summary>A background command with a three-second timeout whose handler takes thirty: a cancel well before it wins.</summary>
+internal sealed record LongTimedProbeCommand(ScheduleProbeId Id)
+    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+internal sealed class LongTimedProbeCommandConfiguration : ICommandConfiguration<LongTimedProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<LongTimedProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.long-timed").Background(TimeSpan.FromSeconds(3)).RequirePermissions(ScheduleProbePermissions.Touch);
+}
+
 /// <summary>A background command with a timeout far longer than any test, whose handler waits on the <see cref="ProbeGate"/>.</summary>
 internal sealed record GatedTimedProbeCommand(ScheduleProbeId Id)
     : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
@@ -228,6 +241,127 @@ internal sealed class TimedProbeCommandHandler : ICommandHandler<TimedProbeComma
     public async Task<ErrorOr<TouchProbeResponse>> Handle(TimedProbeCommand request, CancellationToken cancellationToken)
     {
         await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+        return new TouchProbeResponse(string.Empty);
+    }
+}
+
+internal sealed class LongTimedProbeCommandHandler : ICommandHandler<LongTimedProbeCommand, TouchProbeResponse>
+{
+    public async Task<ErrorOr<TouchProbeResponse>> Handle(LongTimedProbeCommand request, CancellationToken cancellationToken)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+        return new TouchProbeResponse(string.Empty);
+    }
+}
+
+/// <summary>
+/// A background command whose handler cancels its own run (through <see cref="ProbeRunCanceller"/>) and then throws: a
+/// retryable failure of an item whose run was cancelled while it ran.
+/// </summary>
+internal sealed record CancelThenThrowProbeCommand(ScheduleProbeId Id)
+    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+internal sealed class CancelThenThrowProbeCommandConfiguration : ICommandConfiguration<CancelThenThrowProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<CancelThenThrowProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.cancel-then-throw").Background().RequirePermissions(ScheduleProbePermissions.Touch);
+}
+
+/// <summary>The run a <see cref="CancelThenThrowProbeCommandHandler"/> cancels; set by the test before the drain.</summary>
+internal sealed class ProbeRunCanceller
+{
+    public Guid RunId { get; set; }
+}
+
+internal sealed class CancelThenThrowProbeCommandHandler(IServiceScopeFactory scopes, ProbeRunCanceller canceller)
+    : ICommandHandler<CancelThenThrowProbeCommand, TouchProbeResponse>
+{
+    public async Task<ErrorOr<TouchProbeResponse>> Handle(CancelThenThrowProbeCommand request, CancellationToken cancellationToken)
+    {
+        // Another scope, as another process's cancel would be: committed before the send fails.
+        await using (AsyncServiceScope scope = scopes.CreateAsyncScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema)
+                .CancelRunAsync(canceller.RunId, DateTime.UtcNow, cancellationToken);
+        }
+
+        throw new InvalidOperationException("The probe failed after its run was cancelled.");
+    }
+}
+
+/// <summary>A background command whose handler reports progress through <see cref="IRunProgress"/>, as <see cref="ProgressProbe"/> scripts it.</summary>
+internal sealed record ProgressProbeCommand(ScheduleProbeId Id)
+    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+internal sealed class ProgressProbeCommandConfiguration : ICommandConfiguration<ProgressProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<ProgressProbeCommand> builder) =>
+        builder.Schedulable("tst.probes.progress").Background().RequirePermissions(ScheduleProbePermissions.Touch);
+}
+
+/// <summary>
+/// The script of every <see cref="ProgressProbeCommand"/> send: wait for <see cref="Start"/>, report each of
+/// <see cref="Reports"/>, read the item's stored progress back (another scope, as the runs dialog would), then wait for
+/// <see cref="Finish"/>. Both gates are open unless a test closes them.
+/// </summary>
+internal sealed class ProgressProbe
+{
+    private readonly TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private int entered;
+
+    public IReadOnlyList<int> Reports { get; set; } = [];
+
+    /// <summary>Called after each report; a test moves its clock here.</summary>
+    public Action AfterEachReport { get; set; } = () => { };
+
+    public ProbeGate Start { get; } = new();
+
+    public ProbeGate Finish { get; } = new();
+
+    /// <summary>The item's stored progress, read once every report was made and before the send returned.</summary>
+    public int? StoredAfterReports { get; set; }
+
+    public int Entered => Volatile.Read(ref entered);
+
+    public Task Started => started.Task;
+
+    public void Enter()
+    {
+        Interlocked.Increment(ref entered);
+        started.TrySetResult();
+    }
+
+    public void OpenGates()
+    {
+        Start.Release();
+        Finish.Release();
+    }
+}
+
+internal sealed class ProgressProbeCommandHandler(ProgressProbe probe, IRunProgress progress, IRunItemContext runItem, IServiceScopeFactory scopes)
+    : ICommandHandler<ProgressProbeCommand, TouchProbeResponse>
+{
+    public async Task<ErrorOr<TouchProbeResponse>> Handle(ProgressProbeCommand request, CancellationToken cancellationToken)
+    {
+        probe.Enter();
+        await probe.Start.WaitAsync(cancellationToken);
+
+        foreach (int report in probe.Reports)
+        {
+            await progress.ReportAsync(report, cancellationToken);
+            probe.AfterEachReport();
+        }
+
+        await using (AsyncServiceScope scope = scopes.CreateAsyncScope())
+        {
+            probe.StoredAfterReports = await scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>().ScheduledTaskRunItems
+                .AsNoTracking()
+                .Where(item => item.Id == runItem.RunItemId)
+                .Select(item => item.Progress)
+                .SingleAsync(cancellationToken);
+        }
+
+        await probe.Finish.WaitAsync(cancellationToken);
         return new TouchProbeResponse(string.Empty);
     }
 }

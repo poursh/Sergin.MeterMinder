@@ -86,7 +86,7 @@ public sealed class PurgeTests(SerginWebApiFactory<Program> factory) : IAsyncLif
         if (completedAtUtc is { } at)
         {
             item.MarkSucceeded(at);
-            run.Complete(1, 0, at);
+            run.Complete(1, 0, 0, at);
         }
 
         store.AddRun(run, [item]);

@@ -323,7 +323,7 @@ public sealed class ScheduledTasksSectionRefreshTests(SerginWebApiFactory<Progra
         ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
 
         ScheduledTaskRun run = await context.ScheduledTaskRuns.FindAsync(runId) ?? throw new InvalidOperationException("run missing");
-        run.Complete(1, 0, DateTime.UtcNow);
+        run.Complete(1, 0, 0, DateTime.UtcNow);
         await context.SaveChangesAsync();
     }
 

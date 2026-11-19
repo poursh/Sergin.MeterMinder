@@ -55,6 +55,37 @@ public sealed class DeviceManagementScheduledTasksModelTests(SerginWebApiFactory
     }
 
     [Fact]
+    public void DmModel_CarriesTheCancelColumns()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        IModel model = Assert.IsAssignableFrom<DbContext>(scope.ServiceProvider.GetRequiredService<IDeviceManagementDbContext>()).GetService<IDesignTimeModel>().Model;
+        IEntityType runs = model.FindEntityType(typeof(ScheduledTaskRun))!;
+        var table = StoreObjectIdentifier.Table("scheduled_task_runs", "dm");
+        IProperty requested = runs.FindProperty(nameof(ScheduledTaskRun.CancelRequestedAtUtc))!;
+        IProperty cancelled = runs.FindProperty(nameof(ScheduledTaskRun.Cancelled))!;
+
+        Assert.Equal("cancel_requested_at_utc", requested.GetColumnName(table));
+        Assert.Equal("timestamp with time zone", requested.GetColumnType());
+        Assert.True(requested.IsNullable);
+        Assert.Equal("cancelled", cancelled.GetColumnName(table));
+        Assert.Equal("integer", cancelled.GetColumnType());
+        Assert.False(cancelled.IsNullable);
+        Assert.Equal(0, cancelled.GetDefaultValue());
+    }
+
+    [Fact]
+    public void DmModel_CarriesTheProgressColumn()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        IModel model = Assert.IsAssignableFrom<DbContext>(scope.ServiceProvider.GetRequiredService<IDeviceManagementDbContext>()).GetService<IDesignTimeModel>().Model;
+        IProperty progress = model.FindEntityType(typeof(ScheduledTaskRunItem))!.FindProperty(nameof(ScheduledTaskRunItem.Progress))!;
+
+        Assert.Equal("progress", progress.GetColumnName(StoreObjectIdentifier.Table("scheduled_task_run_items", "dm")));
+        Assert.Equal("smallint", progress.GetColumnType());
+        Assert.True(progress.IsNullable);
+    }
+
+    [Fact]
     public void DmContext_IsAScheduledTasksContext()
     {
         using IServiceScope scope = factory.Services.CreateScope();
