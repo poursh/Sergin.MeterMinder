@@ -117,6 +117,26 @@ public sealed class RunNotifierTests(SerginWebApiFactory<Program> factory) : IAs
         Assert.True(heard.Changes.Count(change => change.Ref == run) >= 2);
     }
 
+    [Fact]
+    public async Task Cancel_PublishesRunChanged()
+    {
+        TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
+        BackgroundRunRef run = await StartAsync(caller);
+        var heard = new Recorder();
+        using IDisposable subscription = Notifier.Subscribe(caller.Id, heard.HandleAsync);
+
+        using IServiceScope circuit = host.Services.CreateScope();
+        circuit.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = caller;
+        circuit.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(tree.North);
+        ErrorOr<Success> cancelled = await circuit.ServiceProvider.GetRequiredService<ISerginDispatcher>()
+            .SendAsync(new CancelBackgroundRunCommand(run.Schema, run.RunId));
+
+        Assert.False(cancelled.IsError, cancelled.IsError ? cancelled.FirstError.Code : string.Empty);
+        RunChanged change = Assert.Single(heard.Changes);
+        Assert.Equal(run, change.Ref);
+        Assert.Equal(caller.Id, change.ActingUser);
+    }
+
     private async Task RecordWithStatusAsync(Recorder heard, RunChanged change)
     {
         int sequence = heard.Next(change);
@@ -130,6 +150,16 @@ public sealed class RunNotifierTests(SerginWebApiFactory<Program> factory) : IAs
     {
         host.Services.GetRequiredService<ProbeGate>().Release();
 
+        BackgroundRunRef run = await StartAsync(caller);
+
+        await Engine.DrainAsync(host.Services);
+
+        return run;
+    }
+
+    /// <summary>Starts a one-probe run and leaves its item queued on the fake engine.</summary>
+    private async Task<BackgroundRunRef> StartAsync(TestCaller caller)
+    {
         ScheduleProbe probe;
         using (IServiceScope scope = host.Services.CreateScope())
         {
@@ -147,8 +177,6 @@ public sealed class RunNotifierTests(SerginWebApiFactory<Program> factory) : IAs
         ErrorOr<BackgroundRunStartedResponse> started = await circuit.ServiceProvider.GetRequiredService<ISerginDispatcher>()
             .StartAsync(new SlowProbeCommand(new(Guid.Empty), "slow"), [new BackgroundTarget(probe.Id.Value)]);
         Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
-
-        await Engine.DrainAsync(host.Services);
 
         return started.Value.Run;
     }

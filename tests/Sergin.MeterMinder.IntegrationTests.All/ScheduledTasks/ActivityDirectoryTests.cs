@@ -296,7 +296,7 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
                 }
             }
 
-            run.Complete(failedWith is null ? items.Length : 0, failedWith is null ? 0 : items.Length, DateTime.UtcNow);
+            run.Complete(failedWith is null ? items.Length : 0, failedWith is null ? 0 : items.Length, 0, DateTime.UtcNow);
         }
 
         store.AddRun(run, items);

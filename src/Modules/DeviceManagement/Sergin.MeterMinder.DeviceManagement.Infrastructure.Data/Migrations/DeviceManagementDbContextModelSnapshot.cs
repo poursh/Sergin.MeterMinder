@@ -340,6 +340,16 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("arguments");
 
+                    b.Property<DateTime?>("CancelRequestedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancel_requested_at_utc");
+
+                    b.Property<int>("Cancelled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("cancelled");
+
                     b.Property<string>("CommandName")
                         .IsRequired()
                         .HasColumnType("text")

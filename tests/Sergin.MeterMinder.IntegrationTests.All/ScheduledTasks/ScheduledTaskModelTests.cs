@@ -108,6 +108,21 @@ public sealed class ScheduledTaskModelTests(SerginWebApiFactory<Program> factory
     }
 
     [Fact]
+    public void Run_CarriesTheCancelColumns()
+    {
+        IEntityType runs = DesignModel().FindEntityType(typeof(ScheduledTaskRun))!;
+        var table = StoreObjectIdentifier.Table("scheduled_task_runs", "tst");
+        IProperty requested = runs.FindProperty(nameof(ScheduledTaskRun.CancelRequestedAtUtc))!;
+        IProperty cancelled = runs.FindProperty(nameof(ScheduledTaskRun.Cancelled))!;
+
+        Assert.Equal("cancel_requested_at_utc", requested.GetColumnName(table));
+        Assert.True(requested.IsNullable);
+        Assert.Equal("cancelled", cancelled.GetColumnName(table));
+        Assert.False(cancelled.IsNullable);
+        Assert.Equal(0, cancelled.GetDefaultValue());
+    }
+
+    [Fact]
     public void OneRunningRunPerTask_IsAPartialUniqueIndex()
     {
         IEntityType runs = Model().FindEntityType(typeof(ScheduledTaskRun))!;
@@ -199,7 +214,7 @@ public sealed class ScheduledTaskModelTests(SerginWebApiFactory<Program> factory
         var item = ScheduledTaskRunItem.Create(run.Id, target.TargetId, target.RootId, DateTime.UtcNow);
         item.MarkRunning(DateTime.UtcNow);
         item.MarkFailed("Code", "Description", DateTime.UtcNow);
-        run.Complete(succeeded: 0, failed: 1, DateTime.UtcNow);
+        run.Complete(succeeded: 0, failed: 1, cancelled: 0, DateTime.UtcNow);
 
         using (IServiceScope scope = host.Services.CreateScope())
         {
@@ -221,7 +236,9 @@ public sealed class ScheduledTaskModelTests(SerginWebApiFactory<Program> factory
             Assert.Equal(task.EngineTriggerId, stored.EngineTriggerId);
 
             ScheduledTaskRun storedRun = await context.ScheduledTaskRuns.SingleAsync(candidate => candidate.Id == run.Id);
-            Assert.Equal((ScheduledRunStatus.Completed, 1, 0, 1), (storedRun.Status, storedRun.Total, storedRun.Succeeded, storedRun.Failed));
+            Assert.Equal(
+                (ScheduledRunStatus.Completed, 1, 0, 1, 0, (DateTime?)null),
+                (storedRun.Status, storedRun.Total, storedRun.Succeeded, storedRun.Failed, storedRun.Cancelled, storedRun.CancelRequestedAtUtc));
 
             ScheduledTaskRunItem storedItem = await context.ScheduledTaskRunItems.SingleAsync(candidate => candidate.Id == item.Id);
             Assert.Equal((ScheduledRunItemStatus.Failed, 1, "Code"), (storedItem.Status, storedItem.Attempts, storedItem.ErrorCode));

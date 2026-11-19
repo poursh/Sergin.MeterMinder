@@ -407,7 +407,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
             item.MarkSucceeded(DateTime.UtcNow);
         }
 
-        run.Complete(1, 0, DateTime.UtcNow);
+        run.Complete(1, 0, 0, DateTime.UtcNow);
         await context.SaveChangesAsync();
     }
 

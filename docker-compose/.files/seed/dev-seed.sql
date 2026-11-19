@@ -369,6 +369,7 @@ FROM (VALUES
  ('fa','common.scheduled-tasks.errors.no-targets','دست‌کم یک رکورد انتخاب کنید.','Pick at least one record.'),
  ('fa','common.scheduled-tasks.errors.not-background','این فرمان در پس‌زمینه اجرا نمی‌شود.','This command does not run in the background.'),
  ('fa','common.scheduled-tasks.errors.not-schedulable','این فرمان را نمی‌توان زمان‌بندی کرد.','This command cannot be scheduled.'),
+ ('fa','common.scheduled-tasks.errors.run-finished','این اجرا پیش‌تر به پایان رسیده است.','This run has already finished.'),
  ('fa','common.scheduled-tasks.errors.target-without-root','هر رکورد انتخاب‌شده باید رکوردی را که به آن تعلق دارد مشخص کند.','Each picked record must name the record it belongs to.'),
  ('fa','common.scheduled-tasks.errors.too-many-targets','این فرمان را نمی‌توان برای این تعداد رکورد زمان‌بندی کرد.','This command cannot be scheduled for that many records.'),
  ('fa','common.scheduled-tasks.filtered-to','نمایش {Command}','Showing {Command}'),

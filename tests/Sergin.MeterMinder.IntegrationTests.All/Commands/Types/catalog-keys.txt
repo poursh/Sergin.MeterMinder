@@ -289,6 +289,7 @@ common.scheduled-tasks.errors.must-run-in-background
 common.scheduled-tasks.errors.no-targets
 common.scheduled-tasks.errors.not-background
 common.scheduled-tasks.errors.not-schedulable
+common.scheduled-tasks.errors.run-finished
 common.scheduled-tasks.errors.target-without-root
 common.scheduled-tasks.errors.too-many-targets
 common.scheduled-tasks.filtered-to
