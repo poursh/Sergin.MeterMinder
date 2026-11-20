@@ -165,6 +165,25 @@ internal sealed class WrappingTimedProbeCommandConfiguration : ICommandConfigura
         builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.InactivityTimeout(TimeSpan.FromSeconds(1)).Schedulable().Name("tst.probes.wrapping-timed"));
 }
 
+/// <summary>A background, schedulable task that declares <c>NotCancelable()</c>: its run cannot be cancelled by anyone.</summary>
+internal sealed record FixedProbeCommand(ScheduleProbeId Id, string Note)
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+internal sealed class FixedProbeCommandConfiguration : ICommandConfiguration<FixedProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<FixedProbeCommand> builder) =>
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.NotCancelable().Schedulable().Name("tst.probes.fixed"));
+}
+
+internal sealed class FixedProbeCommandHandler(ProbeGate gate) : ICommandHandler<FixedProbeCommand>
+{
+    public async Task<ErrorOr<Success>> Handle(FixedProbeCommand request, CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        return Result.Success;
+    }
+}
+
 internal sealed class SlowProbeCommandValidator : AbstractValidator<SlowProbeCommand>
 {
     public SlowProbeCommandValidator() => RuleFor(command => command.Note).NotEqual("invalid");

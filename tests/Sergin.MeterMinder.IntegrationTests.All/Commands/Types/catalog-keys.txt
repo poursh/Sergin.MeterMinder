@@ -260,6 +260,7 @@ common.tasks.activity.finished-failed
 common.tasks.activity.finished-partly
 common.tasks.activity.finished-partly-cancelled
 common.tasks.activity.finished-succeeded
+common.tasks.activity.not-cancelable
 common.tasks.activity.one-record
 common.tasks.activity.open-label
 common.tasks.activity.progress
@@ -299,6 +300,7 @@ common.tasks.errors.invalid-time-zone
 common.tasks.errors.max-duration-exceeded
 common.tasks.errors.must-run-as-task
 common.tasks.errors.no-targets
+common.tasks.errors.not-cancelable
 common.tasks.errors.not-schedulable
 common.tasks.errors.run-finished
 common.tasks.errors.target-without-id

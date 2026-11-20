@@ -354,6 +354,46 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         });
     }
 
+    // The popover content is not rendered in process (it needs the browser's popover service), so the row's action is
+    // rendered on its own: the Cancel button, or the note for a task that cannot be cancelled.
+    [Fact]
+    public async Task NotCancelableRunningRow_ShowsNoCancelButton()
+    {
+        string html = await RenderRowActionAsync(command: "tst.probes.fixed");
+
+        Assert.Contains("Can't be cancelled", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-label=\"Cancel\"", html, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task CancelableRunningRow_ShowsTheCancelButton()
+    {
+        string html = await RenderRowActionAsync(command: Command);
+
+        Assert.Contains("aria-label=\"Cancel\"", html, StringComparison.Ordinal);
+        Assert.DoesNotContain("Can't be cancelled", html, StringComparison.Ordinal);
+    }
+
+    private async Task<string> RenderRowActionAsync(string command)
+    {
+        await using AsyncServiceScope scope = host.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = caller;
+        bool cancelable = host.Services.GetRequiredService<TaskCatalog>().ByName(command)?.Settings.Cancelable ?? true;
+
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        return await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            HtmlRootComponent root = await renderer.RenderComponentAsync<SerginActivityRowAction>(
+                ParameterView.FromDictionary(new Dictionary<string, object?>
+                {
+                    [nameof(SerginActivityRowAction.Running)] = true,
+                    [nameof(SerginActivityRowAction.Cancelable)] = cancelable,
+                }));
+            return WebUtility.HtmlDecode(root.ToHtmlString());
+        });
+    }
+
     [Fact]
     public async Task CancelOnARunningRow_SendsTheCancel_AndReloads()
     {

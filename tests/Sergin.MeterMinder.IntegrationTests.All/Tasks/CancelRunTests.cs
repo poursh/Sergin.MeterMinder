@@ -39,6 +39,7 @@ public sealed class CancelRunTests(SerginWebApiFactory<Program> factory) : IAsyn
                 services.Replace(ServiceDescriptor.Singleton<ITaskEngine>(provider => provider.GetRequiredService<FakeTaskEngine>()));
                 services.AddSingleton<ProbeGate>();
                 services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<Success>>, SlowProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<FixedProbeCommand, ErrorOr<Success>>, FixedProbeCommandHandler>();
             }));
 
         await TaskTestHost.ResetSchemaAsync(host);
@@ -176,7 +177,37 @@ public sealed class CancelRunTests(SerginWebApiFactory<Program> factory) : IAsyn
         Assert.Equal((TaskRunStatus.Completed, 1), (stored.Status, stored.Cancelled));
     }
 
-    private async Task<TaskRunRef> StartAsync(TestCaller caller, int count)
+    [Fact]
+    public async Task NotCancelableTask_RefusesItsOwnUser()
+    {
+        TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
+        TaskRunRef run = await StartAsync(caller, 2, fixedTask: true);
+
+        ErrorOr<Success> cancelled = await CancelAsync(caller, run);
+
+        Assert.True(cancelled.IsError);
+        Assert.Equal(ErrorType.Conflict, cancelled.FirstError.Type);
+        Assert.Equal(TaskErrors.NotCancelable.Code, cancelled.FirstError.Code);
+        Assert.Equal("Tasks.NotCancelable", cancelled.FirstError.Code);
+        Assert.Equal(TaskTexts.NotCancelable.Default, cancelled.FirstError.Description);
+        await AssertUntouchedAsync(run);
+    }
+
+    [Fact]
+    public async Task NotCancelableTask_RefusesManageHolder()
+    {
+        TestCaller starter = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
+        TestCaller manager = await tree.CreateGrantedCallerAsync(tree.North, TaskPermissions.Manage.Permission);
+        TaskRunRef run = await StartAsync(starter, 2, fixedTask: true);
+
+        ErrorOr<Success> cancelled = await CancelAsync(manager, run);
+
+        Assert.True(cancelled.IsError);
+        Assert.Equal(TaskErrors.NotCancelable.Code, cancelled.FirstError.Code);
+        await AssertUntouchedAsync(run);
+    }
+
+    private async Task<TaskRunRef> StartAsync(TestCaller caller, int count, bool fixedTask = false)
     {
         List<TaskTarget> targets = [];
 
@@ -199,8 +230,10 @@ public sealed class CancelRunTests(SerginWebApiFactory<Program> factory) : IAsyn
         circuit.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = caller;
         circuit.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(tree.North);
 
-        ErrorOr<TaskRunStartedResponse> started = await circuit.ServiceProvider.GetRequiredService<ISerginDispatcher>()
-            .StartTaskAsync(new SlowProbeCommand(new(Guid.Empty), "slow"), targets);
+        ISerginDispatcher dispatcher = circuit.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        ErrorOr<TaskRunStartedResponse> started = fixedTask
+            ? await dispatcher.StartTaskAsync(new FixedProbeCommand(new(Guid.Empty), "fixed"), targets)
+            : await dispatcher.StartTaskAsync(new SlowProbeCommand(new(Guid.Empty), "slow"), targets);
         Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
 
         return started.Value.Run;

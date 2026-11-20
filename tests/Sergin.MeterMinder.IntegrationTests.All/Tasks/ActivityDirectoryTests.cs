@@ -72,6 +72,18 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
         Assert.All(activity, item => Assert.Equal(TaskRunStatus.Running, item.Status));
         Assert.Equal("dm.device.read-device-profile", activity[0].CommandName);
         Assert.Equal(1, activity[0].Unfinished);
+        Assert.All(activity, item => Assert.True(item.Cancelable));
+    }
+
+    [Fact]
+    public async Task ARunOfANotCancelableTask_IsListedAsNotCancelable()
+    {
+        TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+
+        await StartAsync(caller, new FixedProbeCommand(new(Guid.Empty), "fixed"), new TaskTarget(probe.Id.Value));
+
+        Assert.False(Assert.Single(await ListAsync(caller.Id)).Cancelable);
     }
 
     [Fact]

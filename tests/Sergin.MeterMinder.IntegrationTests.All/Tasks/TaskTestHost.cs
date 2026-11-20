@@ -34,6 +34,7 @@ internal static class TaskTestHost
         typeof(TouchOneProbeCommandConfiguration),
         typeof(StartOnlyProbeCommandConfiguration),
         typeof(SlowProbeCommandConfiguration),
+        typeof(FixedProbeCommandConfiguration),
         typeof(PacedProbeCommandConfiguration),
         typeof(CappedProbeCommandConfiguration),
         typeof(LongTimedProbeCommandConfiguration),

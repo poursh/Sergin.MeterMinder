@@ -443,6 +443,38 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
     }
 
     [Fact]
+    public async Task SchedulesSection_NotCancelableOneOffRun_HasNoCancel()
+    {
+        Guid probe = await CreateProbeAsync();
+        await GrantAsync(TaskPermissions.Manage, ScheduleProbePermissions.Touch);
+        await using (AsyncServiceScope starter = host.Services.CreateAsyncScope())
+        {
+            starter.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+            ErrorOr<TaskScheduleRunStartedResponse> started = await starter.ServiceProvider.GetRequiredService<ISerginDispatcher>().SendAsync(
+                new RunTaskOnceCommand(
+                    TasksDbContext.Schema,
+                    new FixedProbeCommand(new ScheduleProbeId(probe), "fixed"),
+                    [new TaskScheduleTarget(probe, null)]));
+            Assert.False(started.IsError, started.IsError ? started.FirstError.Description : string.Empty);
+        }
+
+        await using AsyncServiceScope scope = OpenScope(probe);
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            SectionHost.Section = null;
+            HtmlRootComponent root = await renderer.RenderComponentAsync<SectionHost>(
+                ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(SectionHost.TargetId)] = probe }));
+            string html = WebUtility.HtmlDecode(root.ToHtmlString());
+
+            Assert.Contains("sergin-one-off-progress", html, StringComparison.Ordinal);
+            Assert.DoesNotMatch(OneOffCancelButton(), html);
+            Assert.Contains("Can't be cancelled", html, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
     public async Task OneOffRuns_CancellingARunThatFinished_ReloadsSilently()
     {
         Guid probe = await CreateProbeAsync();
