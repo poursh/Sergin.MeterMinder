@@ -121,6 +121,21 @@ public sealed class TaskStartTests(SerginWebApiFactory<Program> factory) : IAsyn
     }
 
     [Fact]
+    public async Task Start_WithATargetWithoutId_ForEntityTask_IsRefused()
+    {
+        TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
+
+        ErrorOr<TaskRunStartedResponse> started = await StartLabelledAsync(caller, [new TaskTarget(null, "no id")]);
+
+        Assert.True(started.IsError);
+        Error error = Assert.Single(started.Errors);
+        Assert.Equal(ErrorType.Validation, error.Type);
+        Assert.Equal(nameof(StartTaskCommand.Targets), error.Code);
+        Assert.Equal(TaskTexts.TargetWithoutId.Default, error.Description);
+        await AssertNothingWrittenAsync();
+    }
+
+    [Fact]
     public async Task Labels_AreStoredPerItem()
     {
         TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);

@@ -520,25 +520,7 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
     {
         ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
 
-        // A schedule saved while the task was Schedulable(); its configuration has since dropped the call.
-        TaskScheduleId id;
-
-        using (IServiceScope scope = host.Services.CreateScope())
-        {
-            scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = manager;
-            scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(tree.North);
-            ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(Schema);
-            var task = TaskSchedule.Create(
-                "tst.probes.start-only",
-                TaskCommandFactory.ToArguments(StartOnly()),
-                [new TaskScheduleTarget(probe.Id.Value, null)],
-                Cron,
-                "UTC",
-                manager.Id);
-            store.AddTask(task);
-            await store.SaveAsync(CancellationToken.None);
-            id = task.Id;
-        }
+        TaskScheduleId id = await SaveStartOnlyScheduleAsync(probe);
 
         await FireAsync(id);
 
@@ -555,6 +537,20 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
             await SendAsync(manager, tree.North, new GetTaskSchedulesForTargetQuery(Schema, probe.Id.Value));
         Assert.False(listed.IsError, listed.IsError ? listed.FirstError.Code : string.Empty);
         Assert.Equal(id.Value, Assert.Single(listed.Value).Id);
+    }
+
+    [Fact]
+    public async Task RunNow_OfTaskThatLostSchedulable_IsRefused()
+    {
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+        TaskScheduleId id = await SaveStartOnlyScheduleAsync(probe);
+
+        ErrorOr<TaskScheduleRunStartedResponse> started = await SendAsync(manager, tree.North, new RunTaskScheduleNowCommand(Schema, id));
+
+        Error error = Assert.Single(started.Errors);
+        Assert.Equal(TaskErrors.NotSchedulableCode, error.Code);
+        Assert.Empty(await RunsAsync(id));
+        Assert.Empty(Engine.QueuedItems);
     }
 
     [Fact]
@@ -665,6 +661,29 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
         circuit.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(currentScope);
 
         return circuit;
+    }
+
+    /// <summary>
+    /// A schedule of the start-only task, written straight to the store as if saved while the task was Schedulable():
+    /// its configuration has since dropped the call.
+    /// </summary>
+    private async Task<TaskScheduleId> SaveStartOnlyScheduleAsync(ScheduleProbe probe)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = manager;
+        scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(tree.North);
+        ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(Schema);
+        var task = TaskSchedule.Create(
+            "tst.probes.start-only",
+            TaskCommandFactory.ToArguments(StartOnly()),
+            [new TaskScheduleTarget(probe.Id.Value, null)],
+            Cron,
+            "UTC",
+            manager.Id);
+        store.AddTask(task);
+        await store.SaveAsync(CancellationToken.None);
+
+        return task.Id;
     }
 
     private async Task FireAsync(TaskScheduleId id)
