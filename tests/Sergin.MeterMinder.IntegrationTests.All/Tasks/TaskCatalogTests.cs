@@ -47,7 +47,7 @@ public sealed class TaskCatalogTests(SerginWebApiFactory<Program> factory)
 
     [Theory]
     [InlineData(typeof(ReadDeviceProfileCommand), typeof(Device), "dm", "dm.device.read-device-profile")]
-    [InlineData(typeof(SyncProbesCommand), typeof(ScheduleProbe), null, "schedule-probe.sync-probes")]
+    [InlineData(typeof(SyncProbesCommand), typeof(ScheduleProbe), "tst", "tst.schedule-probe.sync-probes")]
     [InlineData(typeof(UnconfiguredProbeCommand), typeof(HTTPProbe), "tst", "tst.http-probe.unconfigured-probe")]
     public void Derive_KebabCasesRootAndCommand(Type request, Type root, string? schema, string expected) =>
         Assert.Equal(expected, TaskNames.Derive(schema, root, request));
@@ -115,6 +115,31 @@ public sealed class TaskCatalogTests(SerginWebApiFactory<Program> factory)
         Assert.Contains(typeof(DuplicateNameOneCommand).FullName!, message, StringComparison.Ordinal);
         Assert.Contains(typeof(DuplicateNameTwoCommand).FullName!, message, StringComparison.Ordinal);
         Assert.Contains("tst.schedule-probe.duplicate-name-one", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Refuses_DerivedNameInASourceWithNoSchema()
+    {
+        ModuleConfigurationSource[] sources =
+            [ModuleConfigurationSource.FromTypes(typeof(ScheduleProbeAggregateFeatureConfiguration), typeof(SyncProbesCommandConfiguration))];
+
+        string message = Assert.Throws<InvalidOperationException>(
+            () => TaskCatalog.FromSources(sources, CommandConfigurationRegistry.FromSources(sources))).Message;
+
+        Assert.Contains(typeof(SyncProbesCommand).FullName!, message, StringComparison.Ordinal);
+        Assert.Contains("no schema", message, StringComparison.Ordinal);
+        Assert.Contains("Name(...)", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void DeclaredNameInASourceWithNoSchema_IsAccepted()
+    {
+        ModuleConfigurationSource[] sources =
+            [ModuleConfigurationSource.FromTypes(typeof(ScheduleProbeAggregateFeatureConfiguration), typeof(TouchProbeCommandConfiguration))];
+
+        var catalog = TaskCatalog.FromSources(sources, CommandConfigurationRegistry.FromSources(sources));
+
+        Assert.Equal("tst.probes.touch", catalog.ByRequest(typeof(TouchProbeCommand))?.Name);
     }
 
     [Fact]

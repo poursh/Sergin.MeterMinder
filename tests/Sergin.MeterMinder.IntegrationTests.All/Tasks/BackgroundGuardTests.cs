@@ -16,7 +16,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
 /// A task is started, never sent: sent inline it is refused before anything else runs; inside a run item the same send
-/// passes.
+/// passes; a command that is not a task still sends inline.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) : IAsyncLifetime
@@ -40,6 +40,7 @@ public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) :
                 services.AddSingleton<ProbeGate>();
                 services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<Success>>, SlowProbeCommandHandler>();
                 services.AddScoped<IValidator<SlowProbeCommand>, SlowProbeCommandValidator>();
+                services.AddTransient<IRequestHandler<NoteProbeCommand, ErrorOr<Success>>, NoteProbeCommandHandler>();
             }));
 
         await TaskTestHost.ResetSchemaAsync(host);
@@ -77,6 +78,15 @@ public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) :
         TaskRunItem item = Assert.Single(await ItemsAsync(run));
         Assert.Equal(TaskRunItemStatus.Succeeded, item.Status);
         Assert.Equal(1, Gate.Entered);
+    }
+
+    [Fact]
+    public async Task NonTask_StillSendsInline()
+    {
+        // The scenario's default caller is the administrator at the root, and the probe command requires no permission.
+        ErrorOr<Success> result = await tree.TrySendAsync(new NoteProbeCommand(new(Guid.NewGuid()), new ProbeNote("inline")));
+
+        Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
     }
 
     private async Task<ScheduleProbe> CreateProbeAsync(Guid scopeId)

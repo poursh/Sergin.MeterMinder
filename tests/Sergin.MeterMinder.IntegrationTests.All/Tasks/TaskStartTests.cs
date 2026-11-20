@@ -115,9 +115,9 @@ public sealed class TaskStartTests(SerginWebApiFactory<Program> factory) : IAsyn
             await StartAsync(host, caller, new CheckedProbeCommand(new(Guid.Empty), new CheckedNote("inline")), probe);
 
         Assert.True(started.IsError);
-        Error refused = Assert.Single(started.Errors, error => error.Code == TaskErrors.NotBackground.Code);
-        Assert.Equal(ErrorType.Validation, refused.Type);
-        Assert.Equal(TaskTexts.NotBackground.Default, refused.Description);
+        Assert.Equal(ErrorType.Validation, started.FirstError.Type);
+        Assert.Equal(TaskErrors.NotBackground.Code, started.FirstError.Code);
+        Assert.Equal(TaskTexts.NotBackground.Default, started.FirstError.Description);
         await AssertNothingWrittenAsync();
     }
 

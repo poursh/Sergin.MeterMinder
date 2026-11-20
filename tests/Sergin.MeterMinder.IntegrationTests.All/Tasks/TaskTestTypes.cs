@@ -84,6 +84,15 @@ internal sealed class TouchProbeCommandValidator : AbstractValidator<TouchProbeC
             .OverridePropertyName(nameof(TouchProbeCommand.Note));
 }
 
+/// <summary>A non-task on the probe, unconfigured: the guard lets it through inline, as it does every command that is not a task.</summary>
+internal sealed record NoteProbeCommand(ScheduleProbeId Id, ProbeNote Note) : ICommand, IUpdateCommand<ScheduleProbe, ScheduleProbeId>;
+
+internal sealed class NoteProbeCommandHandler : ICommandHandler<NoteProbeCommand>
+{
+    public Task<ErrorOr<Success>> Handle(NoteProbeCommand request, CancellationToken cancellationToken) =>
+        Task.FromResult<ErrorOr<Success>>(Result.Success);
+}
+
 // ---- Run probes: valid declarations, in TaskTestHost.ProbeConfigurations; handlers registered per test host. ----
 
 /// <summary>A background command whose handler waits on the host's <see cref="ProbeGate"/> until a test releases it.</summary>
