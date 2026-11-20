@@ -30,3 +30,7 @@ internal sealed record ChildTargetTaskProbe(ScheduleProbeId RootId, ScheduleProb
 {
     ScheduleProbeChildId IChildEntityTarget<ScheduleProbe, ScheduleProbeId, ScheduleProbeChild, ScheduleProbeChildId>.Id => ChildId;
 }
+
+/// <summary>Nor a task on a root's child collection.</summary>
+internal sealed record RootTargetTaskProbe(ScheduleProbeId Id, ScheduleProbeId RootId)
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, IRootTarget<ScheduleProbe, ScheduleProbeId>;

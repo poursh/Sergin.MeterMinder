@@ -56,22 +56,30 @@ public sealed class TaskCommandTypeTests
         Assert.Null(Record.Exception(() => Check(typeof(EntityTaskProbe), typeof(CollectionTaskProbe), typeof(VersionedTaskProbe))));
 
     [Fact]
-    public void Guard_Refuses_TaskWithSecondEffect() => AssertRefused(typeof(TaskWithSecondEffectProbe));
+    public void Guard_Refuses_TaskWithSecondEffect() => AssertRefused(typeof(TaskWithSecondEffectProbe), "implements more than one effect");
 
     [Fact]
-    public void Guard_Refuses_BareMarker() => AssertRefused(typeof(BareTaskMarkerProbe));
+    public void Guard_Refuses_BareMarker() => AssertRefused(typeof(BareTaskMarkerProbe), "implements ITaskCommand alone");
+
+    // The general ISelectable rule is the refusal: a collection target, task or not, has no row to select.
+    [Fact]
+    public void Guard_Refuses_SelectableCollectionTask() =>
+        AssertRefused(typeof(SelectableCollectionTaskProbe), "is ISelectable but its target is Collection");
 
     [Fact]
-    public void Guard_Refuses_SelectableCollectionTask() => AssertRefused(typeof(SelectableCollectionTaskProbe));
+    public void Guard_Refuses_ChildTargetTask() => AssertRefused(typeof(ChildTargetTaskProbe), ChildTaskRefusal);
 
     [Fact]
-    public void Guard_Refuses_ChildTargetTask() => AssertRefused(typeof(ChildTargetTaskProbe));
+    public void Guard_Refuses_RootTargetTask() => AssertRefused(typeof(RootTargetTaskProbe), ChildTaskRefusal);
 
-    private static void AssertRefused(Type requestType)
+    private const string ChildTaskRefusal = "is a task on a child entity or a root's child collection";
+
+    /// <summary>Refused naming the type, with the given rule's reason right after the name.</summary>
+    private static void AssertRefused(Type requestType, string reason)
     {
         InvalidOperationException refused = Assert.Throws<InvalidOperationException>(() => Check(requestType));
 
-        Assert.Contains(requestType.FullName!, refused.Message, StringComparison.Ordinal);
+        Assert.Contains($"{requestType.FullName} {reason}", refused.Message, StringComparison.Ordinal);
     }
 
     private static void Check(params Type[] requests) =>
