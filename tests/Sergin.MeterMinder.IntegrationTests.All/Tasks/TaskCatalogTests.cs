@@ -57,7 +57,7 @@ public sealed class TaskCatalogTests(SerginWebApiFactory<Program> factory)
     {
         TaskCatalog catalog = Build(reusable);
 
-        Assert.True(catalog.TryGet("tst.probes.touch", out TaskDescriptor? command));
+        TaskDescriptor command = Assert.IsType<TaskDescriptor>(catalog.ByName("tst.probes.touch"));
         Assert.Equal(typeof(TouchProbeCommand), command.RequestType);
         Assert.Equal("tst", command.Schema);
         Assert.Equal(typeof(ScheduleProbe), command.Root);
@@ -73,7 +73,7 @@ public sealed class TaskCatalogTests(SerginWebApiFactory<Program> factory)
     [Fact]
     public void NonSelectable_IsNotSelectable()
     {
-        Assert.True(Build(reusable).TryGet("tst.probes.touch-one", out TaskDescriptor? command));
+        TaskDescriptor command = Assert.IsType<TaskDescriptor>(Build(reusable).ByName("tst.probes.touch-one"));
         Assert.False(command.Selectable);
     }
 

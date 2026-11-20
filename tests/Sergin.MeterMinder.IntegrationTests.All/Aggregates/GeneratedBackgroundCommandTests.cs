@@ -89,7 +89,7 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
         IReadOnlyList<Guid> devices = await DevicesAsync(dispatcher, 3);
 
         ViewSendResult result = await GeneratedViewSupport.StartManyAsync(
-            dispatcher, ReadProfile(), [.. devices.Select(device => new TaskTarget(device, null, "t-" + device))]);
+            dispatcher, ReadProfile(), [.. devices.Select(device => new TaskTarget(device, "t-" + device))]);
 
         TaskRunStartedResponse started = Assert.IsType<TaskRunStartedResponse>(result.Value);
         Assert.Equal(devices.Select(device => "t-" + device).Order(), (await LabelsAsync(started.Run)).Order());
@@ -103,7 +103,7 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
         IReadOnlyList<Guid> devices = await DevicesAsync(dispatcher, 3);
 
         ViewSendResult result = await GeneratedViewSupport.StartManyAsync(
-            dispatcher, ReadProfile(), [.. devices.Select(device => new TaskTarget(device, null, "t-" + device))]);
+            dispatcher, ReadProfile(), [.. devices.Select(device => new TaskTarget(device, "t-" + device))]);
 
         Assert.False(result.IsError, result.IsError ? result.Errors[0].Description : string.Empty);
         TaskRunStartedResponse started = Assert.IsType<TaskRunStartedResponse>(result.Value);

@@ -32,7 +32,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
 
         ErrorOr<Success> result = await dispatcher.SendAsync(new ReadDeviceProfileCommand(new DeviceIntenralId(id)));
 
-        Assert.Equal("Tasks.MustRunInBackground", result.FirstError.Code);
+        Assert.Equal("Tasks.MustRunAsTask", result.FirstError.Code);
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
 
         var clock = Stopwatch.StartNew();
         ErrorOr<TaskRunStartedResponse> started = await dispatcher.StartTaskAsync(
-            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new TaskTarget(id, null)]);
+            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new TaskTarget(id)]);
         clock.Stop();
 
         Assert.False(started.IsError, started.IsError ? started.FirstError.Description : string.Empty);
@@ -64,7 +64,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
         Guid id = await CreateDeviceAsync(dispatcher);
 
         ErrorOr<TaskRunStartedResponse> started = await dispatcher.StartTaskAsync(
-            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new TaskTarget(id, null)]);
+            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new TaskTarget(id)]);
         Assert.False(started.IsError, started.IsError ? started.FirstError.Description : string.Empty);
         (string status, _) = await TaskRunReader.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
 
@@ -81,7 +81,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
 
         ErrorOr<Versioned<DeviceQueryResponse>> before = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(id));
         ErrorOr<TaskRunStartedResponse> started = await dispatcher.StartTaskAsync(
-            new ReadDeviceProfileCommand(id), [new TaskTarget(id.Value, null)]);
+            new ReadDeviceProfileCommand(id), [new TaskTarget(id.Value)]);
         Assert.False(started.IsError);
         (string status, _) = await TaskRunReader.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
         ErrorOr<Versioned<DeviceQueryResponse>> after = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(id));
@@ -99,7 +99,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
         Assert.False((await dispatcher.SendAtDeviceVersionAsync(id, new DeleteDeviceCommand(new DeviceIntenralId(id)))).IsError);
 
         ErrorOr<TaskRunStartedResponse> started = await dispatcher.StartTaskAsync(
-            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new TaskTarget(id, null)]);
+            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new TaskTarget(id)]);
         Assert.False(started.IsError, started.IsError ? started.FirstError.Description : string.Empty);
         (_, IReadOnlyList<(string Status, string? ErrorCode)> items) =
             await TaskRunReader.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
@@ -119,7 +119,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
         TestCaller reader = await tree.CreateGrantedCallerAsync(AuthorizationScope.RootId, RbacScenario.Read);
 
         ErrorOr<TaskRunStartedResponse> result = await tree.TrySendAsync(
-            new StartTaskCommand(new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new TaskTarget(id, null)]), reader);
+            new StartTaskCommand(new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new TaskTarget(id)]), reader);
 
         Assert.Equal(ErrorType.Forbidden, result.FirstError.Type);
     }
@@ -129,7 +129,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
     {
         TaskCatalog catalog = factory.Services.GetRequiredService<TaskCatalog>();
 
-        Assert.True(catalog.TryGet("dm.device.read-device-profile", out TaskDescriptor? command));
+        TaskDescriptor command = Assert.IsType<TaskDescriptor>(catalog.ByName("dm.device.read-device-profile"));
         Assert.Equal(typeof(ReadDeviceProfileCommand), command.RequestType);
         Assert.Equal(TimeSpan.FromMinutes(2), command.Settings.InactivityTimeout);
         Assert.True(command.Settings.Schedulable);

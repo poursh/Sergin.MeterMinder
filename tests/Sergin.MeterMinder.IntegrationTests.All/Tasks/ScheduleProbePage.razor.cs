@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components;
 using MudBlazor;
-using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -77,7 +76,7 @@ public sealed partial class ScheduleProbePage
         bool saved = await Dialogs.ShowScheduleAsync(new SerginScheduleRequest(
             Schema,
             ScheduleProbeUiTexts.CommandTitle,
-            () => (IBaseCommand)new TouchProbeCommand(new ScheduleProbeId(Id), new ProbeNote(note)),
+            () => new TouchProbeCommand(new ScheduleProbeId(Id), new ProbeNote(note)),
             targets,
             [Id.ToString()],
             ArgumentsForm));

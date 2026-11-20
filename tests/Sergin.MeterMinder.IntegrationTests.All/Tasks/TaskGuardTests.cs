@@ -6,7 +6,10 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.ReadProfile;
+using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
+using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Domain.Tasks;
@@ -15,11 +18,11 @@ using Sergin.SharedKernel.IntegrationTests;
 namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
-/// A task is started, never sent: sent inline it is refused before anything else runs; inside a run item the same send
-/// passes; a command that is not a task still sends inline.
+/// A task is started, never sent: sent inline it is refused, by its type and before anything else runs, whether or not it
+/// is configured; inside a run item the same send passes; a command that is not a task still sends inline.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
-public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) : IAsyncLifetime
+public sealed class TaskGuardTests(SerginWebApiFactory<Program> factory) : IAsyncLifetime
 {
     private const string SlowName = "tst.probes.slow";
 
@@ -41,6 +44,9 @@ public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) :
                 services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<Success>>, SlowProbeCommandHandler>();
                 services.AddScoped<IValidator<SlowProbeCommand>, SlowProbeCommandValidator>();
                 services.AddTransient<IRequestHandler<NoteProbeCommand, ErrorOr<Success>>, NoteProbeCommandHandler>();
+                services.AddSingleton<InlineSendCounter>();
+                services.AddTransient<IRequestHandler<ReadDeviceProfileCommand, ErrorOr<Success>>, CountingReadProfileHandler>();
+                services.AddTransient<IRequestHandler<UnconfiguredProbeCommand, ErrorOr<Success>>, CountingUnconfiguredProbeHandler>();
             }));
 
         await TaskTestHost.ResetSchemaAsync(host);
@@ -54,13 +60,28 @@ public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) :
     }
 
     [Fact]
-    public async Task Inline_IsRefused()
+    public async Task TaskSentInline_IsRefused()
+    {
+        ErrorOr<Success> result = await SendInlineAsync(new ReadDeviceProfileCommand(new DeviceIntenralId(Guid.NewGuid())));
+
+        AssertRefused(result);
+    }
+
+    [Fact]
+    public async Task UnconfiguredTask_SentInline_IsRefused()
+    {
+        // No source declares it, so the registry holds no task settings for it: only its type makes it a task.
+        ErrorOr<Success> result = await SendInlineAsync(new UnconfiguredProbeCommand(new(Guid.NewGuid()), new ProbeNote("inline")));
+
+        AssertRefused(result);
+    }
+
+    [Fact]
+    public async Task ConfiguredTask_SentInline_IsRefused_BeforeItsHandler()
     {
         ErrorOr<Success> result = await tree.TrySendAsync(new SlowProbeCommand(new(Guid.NewGuid()), "inline"));
 
-        Assert.True(result.IsError);
-        Assert.Equal("Tasks.MustRunInBackground", result.FirstError.Code);
-        Assert.Equal(ErrorType.Validation, result.FirstError.Type);
+        AssertRefused(result);
         Assert.Equal(0, Gate.Entered);
     }
 
@@ -81,12 +102,28 @@ public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) :
     }
 
     [Fact]
-    public async Task NonTask_StillSendsInline()
+    public async Task NonTask_SentInline_Passes()
     {
         // The scenario's default caller is the administrator at the root, and the probe command requires no permission.
         ErrorOr<Success> result = await tree.TrySendAsync(new NoteProbeCommand(new(Guid.NewGuid()), new ProbeNote("inline")));
 
         Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
+    }
+
+    /// <summary>Sends <paramref name="request"/> straight through <see cref="ISender"/>, outside any run item.</summary>
+    private async Task<ErrorOr<Success>> SendInlineAsync(IRequest<ErrorOr<Success>> request)
+    {
+        using IServiceScope scope = host.Services.CreateScope();
+
+        return await scope.ServiceProvider.GetRequiredService<ISender>().Send(request);
+    }
+
+    private void AssertRefused(ErrorOr<Success> result)
+    {
+        Error error = Assert.Single(result.Errors);
+        Assert.Equal(TaskErrors.MustRunAsTaskCode, error.Code);
+        Assert.Equal(ErrorType.Validation, error.Type);
+        Assert.Equal(0, host.Services.GetRequiredService<InlineSendCounter>().Count);
     }
 
     private async Task<ScheduleProbe> CreateProbeAsync(Guid scopeId)
@@ -132,5 +169,33 @@ public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) :
         TasksDbContext context = scope.ServiceProvider.GetRequiredService<TasksDbContext>();
 
         return await context.TaskRunItems.AsNoTracking().Where(item => item.RunId == runId).ToListAsync();
+    }
+}
+
+/// <summary>Counts the handler calls the guard must prevent.</summary>
+internal sealed class InlineSendCounter
+{
+    private int count;
+
+    public int Count => Volatile.Read(ref count);
+
+    public void Hit() => Interlocked.Increment(ref count);
+}
+
+internal sealed class CountingReadProfileHandler(InlineSendCounter counter) : ICommandHandler<ReadDeviceProfileCommand>
+{
+    public Task<ErrorOr<Success>> Handle(ReadDeviceProfileCommand request, CancellationToken cancellationToken)
+    {
+        counter.Hit();
+        return Task.FromResult<ErrorOr<Success>>(Result.Success);
+    }
+}
+
+internal sealed class CountingUnconfiguredProbeHandler(InlineSendCounter counter) : ICommandHandler<UnconfiguredProbeCommand>
+{
+    public Task<ErrorOr<Success>> Handle(UnconfiguredProbeCommand request, CancellationToken cancellationToken)
+    {
+        counter.Hit();
+        return Task.FromResult<ErrorOr<Success>>(Result.Success);
     }
 }

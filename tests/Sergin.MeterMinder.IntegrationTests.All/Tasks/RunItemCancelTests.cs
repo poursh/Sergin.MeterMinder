@@ -288,7 +288,7 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
 
     private Task<TestCaller> CallerAsync() => tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
 
-    private async Task<TaskRunRef> StartAsync(TestCaller caller, IBaseCommand command)
+    private async Task<TaskRunRef> StartAsync(TestCaller caller, Sergin.SharedKernel.Application.Commands.Types.ITaskCommand command)
     {
         var probe = ScheduleProbe.Create();
 

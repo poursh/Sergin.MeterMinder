@@ -296,9 +296,8 @@ common.tasks.errors.command-changed
 common.tasks.errors.duplicate-targets
 common.tasks.errors.invalid-cron
 common.tasks.errors.invalid-time-zone
-common.tasks.errors.must-run-in-background
+common.tasks.errors.must-run-as-task
 common.tasks.errors.no-targets
-common.tasks.errors.not-background
 common.tasks.errors.not-schedulable
 common.tasks.errors.run-finished
 common.tasks.errors.target-without-root

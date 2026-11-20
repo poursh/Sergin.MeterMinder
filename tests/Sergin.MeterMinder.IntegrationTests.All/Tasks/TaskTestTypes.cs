@@ -76,6 +76,15 @@ internal sealed class TouchOneProbeCommandConfiguration : ICommandConfiguration<
         builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable().Name("tst.probes.touch-one"));
 }
 
+/// <summary>A configured task that is not <c>Schedulable()</c>: it can be started now, never saved on a schedule or run once.</summary>
+internal sealed record StartOnlyProbeCommand(ScheduleProbeId Id, ProbeNote Note) : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+internal sealed class StartOnlyProbeCommandConfiguration : ICommandConfiguration<StartOnlyProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<StartOnlyProbeCommand> builder) =>
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Name("tst.probes.start-only"));
+}
+
 internal sealed class TouchProbeCommandValidator : AbstractValidator<TouchProbeCommand>
 {
     public TouchProbeCommandValidator() =>

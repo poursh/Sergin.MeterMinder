@@ -291,7 +291,7 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
         return result.Value;
     }
 
-    private async Task<TaskRunRef> StartAsync(IUserContext caller, Sergin.SharedKernel.Application.Commands.IBaseCommand template, TaskTarget target)
+    private async Task<TaskRunRef> StartAsync(IUserContext caller, Sergin.SharedKernel.Application.Commands.Types.ITaskCommand template, TaskTarget target)
     {
         using IServiceScope circuit = host.Services.CreateScope();
         circuit.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = caller;

@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -20,7 +21,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
 /// Starting a background command: no Manage permission needed, only the command's own; refused at the click for a bad
-/// request (the command's own validator, a command that is not background, too many records); one run with one item per
+/// request (the command's own validator, no records, too many records); one run with one item per
 /// record, acting for the caller, each item checked live when it runs.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
@@ -106,18 +107,16 @@ public sealed class TaskStartTests(SerginWebApiFactory<Program> factory) : IAsyn
     }
 
     [Fact]
-    public async Task NonTask_IsRefused()
+    public async Task Start_WithNoTargets_ForEntityTask_IsRefused()
     {
         TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
-        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
 
-        ErrorOr<TaskRunStartedResponse> started =
-            await StartAsync(host, caller, new CheckedProbeCommand(new(Guid.Empty), new CheckedNote("inline")), probe);
+        ErrorOr<TaskRunStartedResponse> started = await StartAsync(host, caller, Slow("slow"));
 
         Assert.True(started.IsError);
-        Assert.Equal(ErrorType.Validation, started.FirstError.Type);
-        Assert.Equal(TaskErrors.NotBackground.Code, started.FirstError.Code);
-        Assert.Equal(TaskTexts.NotBackground.Default, started.FirstError.Description);
+        Error error = Assert.Single(started.Errors);
+        Assert.Equal(ErrorType.Validation, error.Type);
+        Assert.Equal(nameof(StartTaskCommand.Targets), error.Code);
         await AssertNothingWrittenAsync();
     }
 
@@ -130,7 +129,7 @@ public sealed class TaskStartTests(SerginWebApiFactory<Program> factory) : IAsyn
         string longLabel = new('x', 250);
 
         ErrorOr<TaskRunStartedResponse> started = await StartLabelledAsync(
-            caller, [new TaskTarget(first.Id.Value, null, "P-1"), new TaskTarget(second.Id.Value, null, longLabel)]);
+            caller, [new TaskTarget(first.Id.Value, "P-1"), new TaskTarget(second.Id.Value, longLabel)]);
 
         Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
         Dictionary<Guid, string?> labels = await LabelsAsync(started.Value.Run.RunId);
@@ -279,7 +278,7 @@ public sealed class TaskStartTests(SerginWebApiFactory<Program> factory) : IAsyn
     }
 
     private async Task<ErrorOr<TaskRunStartedResponse>> StartAsync(
-        WebApplicationFactory<Program> on, IUserContext caller, IBaseCommand template, params ScheduleProbe[] probes)
+        WebApplicationFactory<Program> on, IUserContext caller, ITaskCommand template, params ScheduleProbe[] probes)
     {
         using IServiceScope circuit = on.Services.CreateScope();
         circuit.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = caller;

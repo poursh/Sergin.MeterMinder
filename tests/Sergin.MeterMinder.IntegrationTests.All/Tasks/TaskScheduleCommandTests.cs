@@ -487,6 +487,77 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
     }
 
     [Fact]
+    public async Task CreateSchedule_ForNonSchedulableTask_IsRefused()
+    {
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+
+        ErrorOr<CreateTaskScheduleCommandResponse> created = await SendAsync(manager, tree.North, Create(StartOnly(), probe));
+
+        Error error = Assert.Single(created.Errors);
+        Assert.Equal(TaskErrors.NotSchedulableCode, error.Code);
+        Assert.Equal(ErrorType.Validation, error.Type);
+        await AssertNothingSavedAsync();
+    }
+
+    [Fact]
+    public async Task RunTaskOnce_ForNonSchedulableTask_IsRefused()
+    {
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+
+        ErrorOr<TaskScheduleRunStartedResponse> started =
+            await SendAsync(manager, tree.North, new RunTaskOnceCommand(Schema, StartOnly(), [new(probe.Id.Value, null)]));
+
+        Error error = Assert.Single(started.Errors);
+        Assert.Equal(TaskErrors.NotSchedulableCode, error.Code);
+        Assert.Equal(ErrorType.Validation, error.Type);
+        Assert.Empty(Engine.QueuedItems);
+        using IServiceScope scope = host.Services.CreateScope();
+        Assert.False(await scope.ServiceProvider.GetRequiredService<TasksDbContext>().TaskRuns.AnyAsync());
+    }
+
+    [Fact]
+    public async Task CronFire_OfTaskThatLostSchedulable_FailsTheRun()
+    {
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+
+        // A schedule saved while the task was Schedulable(); its configuration has since dropped the call.
+        TaskScheduleId id;
+
+        using (IServiceScope scope = host.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = manager;
+            scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(tree.North);
+            ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(Schema);
+            var task = TaskSchedule.Create(
+                "tst.probes.start-only",
+                TaskCommandFactory.ToArguments(StartOnly()),
+                [new TaskScheduleTarget(probe.Id.Value, null)],
+                Cron,
+                "UTC",
+                manager.Id);
+            store.AddTask(task);
+            await store.SaveAsync(CancellationToken.None);
+            id = task.Id;
+        }
+
+        await FireAsync(id);
+
+        TaskRun run = Assert.Single(await RunsAsync(id));
+        Assert.Equal(TaskRunStatus.Completed, run.Status);
+        Assert.Equal(1, run.Failed);
+        Assert.Equal(0, run.Succeeded);
+        TaskRunItem item = Assert.Single(await ItemsAsync(run.Id));
+        Assert.Equal(TaskRunItemStatus.Failed, item.Status);
+        Assert.Equal(TaskErrors.NotSchedulableCode, item.ErrorCode);
+        Assert.Empty(Engine.QueuedItems);
+
+        ErrorOr<IReadOnlyCollection<TaskScheduleListItem>> listed =
+            await SendAsync(manager, tree.North, new GetTaskSchedulesForTargetQuery(Schema, probe.Id.Value));
+        Assert.False(listed.IsError, listed.IsError ? listed.FirstError.Code : string.Empty);
+        Assert.Equal(id.Value, Assert.Single(listed.Value).Id);
+    }
+
+    [Fact]
     public void Registry_DerivesScopeAndVersion_FromTheSharedSource()
     {
         CommandConfigurationRegistry registry = host.Services.GetRequiredService<CommandConfigurationRegistry>();
@@ -527,11 +598,13 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
 
     private static TouchProbeCommand Touch(string note) => new(new(Guid.Empty), new ProbeNote(note));
 
-    private static CreateTaskScheduleCommand Create(Sergin.SharedKernel.Application.Commands.IBaseCommand template, params ScheduleProbe[] targets) =>
+    private static StartOnlyProbeCommand StartOnly() => new(new(Guid.Empty), new ProbeNote("x"));
+
+    private static CreateTaskScheduleCommand Create(Sergin.SharedKernel.Application.Commands.Types.ITaskCommand template, params ScheduleProbe[] targets) =>
         new(Schema, template, [.. targets.Select(probe => new TaskScheduleTarget(probe.Id.Value, null))], Cron, "UTC");
 
     private static UpdateTaskScheduleCommand Update(
-        TaskScheduleId id, Sergin.SharedKernel.Application.Commands.IBaseCommand template, params ScheduleProbe[] targets) =>
+        TaskScheduleId id, Sergin.SharedKernel.Application.Commands.Types.ITaskCommand template, params ScheduleProbe[] targets) =>
         new(Schema, id, template, [.. targets.Select(probe => new TaskScheduleTarget(probe.Id.Value, null))], Cron, "UTC");
 
     private WebApplicationFactory<Program> CreateHost(Action<IServiceCollection> engine) =>
