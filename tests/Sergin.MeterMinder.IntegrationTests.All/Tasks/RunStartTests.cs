@@ -270,7 +270,7 @@ public sealed class RunStartTests(SerginWebApiFactory<Program> factory) : IAsync
         scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(scopeId);
 
         var task = TaskSchedule.Create(
-            commandName, arguments, [.. targets.Select(probe => new TaskScheduleTarget(probe.Id.Value, null))], "0 * * * *", "UTC", user.Id);
+            commandName, arguments, [.. targets.Select(probe => new TaskScheduleTarget(probe.Id.Value))], "0 * * * *", "UTC", user.Id);
         ITaskStore store = Store(scope);
         store.AddTask(task);
         await store.SaveAsync(CancellationToken.None);

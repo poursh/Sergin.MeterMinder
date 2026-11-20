@@ -31,7 +31,7 @@ public sealed class DeviceReadProfileScheduleTests(SerginWebApiFactory<Program> 
         Guid second = await CreateDeviceAsync(dispatcher);
 
         ErrorOr<TaskScheduleRunStartedResponse> started = await dispatcher.SendAsync(new RunTaskOnceCommand(
-            Schema, new ReadDeviceProfileCommand(new DeviceIntenralId(Guid.Empty)), [new(first, null), new(second, null)]));
+            Schema, new ReadDeviceProfileCommand(new DeviceIntenralId(Guid.Empty)), [new(first), new(second)]));
         Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
 
         TaskRun run = await CompletedRunAsync(started.Value.RunId);
@@ -50,7 +50,7 @@ public sealed class DeviceReadProfileScheduleTests(SerginWebApiFactory<Program> 
         Guid id = await CreateDeviceAsync(dispatcher);
 
         ErrorOr<CreateTaskScheduleCommandResponse> created = await dispatcher.SendAsync(new CreateTaskScheduleCommand(
-            Schema, new ReadDeviceProfileCommand(new DeviceIntenralId(Guid.Empty)), [new(id, null)], "0 3 * * *", "UTC"));
+            Schema, new ReadDeviceProfileCommand(new DeviceIntenralId(Guid.Empty)), [new(id)], "0 3 * * *", "UTC"));
         Assert.False(created.IsError, created.IsError ? created.FirstError.Code : string.Empty);
         Assert.False((await dispatcher.SendAtDeviceVersionAsync(id, new DeleteDeviceCommand(new DeviceIntenralId(id)))).IsError);
 

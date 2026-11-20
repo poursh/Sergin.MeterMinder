@@ -304,7 +304,6 @@ common.tasks.errors.not-cancelable
 common.tasks.errors.not-schedulable
 common.tasks.errors.run-finished
 common.tasks.errors.target-without-id
-common.tasks.errors.target-without-root
 common.tasks.errors.timed-out
 common.tasks.errors.too-many-targets
 common.tasks.filtered-to

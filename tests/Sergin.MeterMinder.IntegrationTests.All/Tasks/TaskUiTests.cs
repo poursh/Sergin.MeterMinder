@@ -225,7 +225,7 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
                     { dialog => dialog.Schema, TasksDbContext.Schema },
                     { dialog => dialog.CommandTitle, ScheduleProbeUiTexts.CommandTitle },
                     { dialog => dialog.BuildTemplate, () => new TouchProbeCommand(new ScheduleProbeId(probe), new ProbeNote("note")) },
-                    { dialog => dialog.Targets, new[] { new TaskScheduleTarget(probe, null) } },
+                    { dialog => dialog.Targets, new[] { new TaskScheduleTarget(probe) } },
                     { dialog => dialog.TargetLabels, new[] { probe.ToString() } },
                 };
 
@@ -320,7 +320,7 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
                 { dialog => dialog.Schema, TasksDbContext.Schema },
                 { dialog => dialog.CommandTitle, ScheduleProbeUiTexts.CommandTitle },
                 { dialog => dialog.BuildTemplate, () => new TouchProbeCommand(new ScheduleProbeId(probe), new ProbeNote("note")) },
-                { dialog => dialog.Targets, new[] { new TaskScheduleTarget(probe, null) } },
+                { dialog => dialog.Targets, new[] { new TaskScheduleTarget(probe) } },
                 { dialog => dialog.TargetLabels, new[] { probe.ToString() } },
                 { dialog => dialog.EditingId, id },
             };
@@ -395,7 +395,7 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
                 { dialog => dialog.Schema, TasksDbContext.Schema },
                 { dialog => dialog.CommandTitle, ScheduleProbeUiTexts.CommandTitle },
                 { dialog => dialog.BuildTemplate, () => new TouchProbeCommand(new ScheduleProbeId(probe), new ProbeNote("note")) },
-                { dialog => dialog.Targets, new[] { new TaskScheduleTarget(probe, null) } },
+                { dialog => dialog.Targets, new[] { new TaskScheduleTarget(probe) } },
                 { dialog => dialog.TargetLabels, new[] { probe.ToString() } },
             };
 
@@ -454,7 +454,7 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
                 new RunTaskOnceCommand(
                     TasksDbContext.Schema,
                     new FixedProbeCommand(new ScheduleProbeId(probe), "fixed"),
-                    [new TaskScheduleTarget(probe, null)]));
+                    [new TaskScheduleTarget(probe)]));
             Assert.False(started.IsError, started.IsError ? started.FirstError.Description : string.Empty);
         }
 
@@ -566,7 +566,7 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
             new RunTaskOnceCommand(
                 TasksDbContext.Schema,
                 new TouchProbeCommand(new ScheduleProbeId(probe), new ProbeNote("note")),
-                [new TaskScheduleTarget(probe, null)]));
+                [new TaskScheduleTarget(probe)]));
         Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
 
         return result.Value.RunId;
@@ -591,9 +591,9 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
 
         var run = TaskRun.Start(
             new TaskRunDefinition(task, TaskRunTrigger.Schedule, users.Current!.Id, Scope.RootId.Value, path, TouchName, "{}"), 2, now);
-        var stopped = TaskRunItem.Create(run.Id, cancelled, null, now);
+        var stopped = TaskRunItem.Create(run.Id, cancelled, now);
         stopped.MarkCancelled(now);
-        var going = TaskRunItem.Create(run.Id, running, null, now);
+        var going = TaskRunItem.Create(run.Id, running, now);
         going.MarkRunning(now);
         going.SetProgress(progress);
 
@@ -680,7 +680,7 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
         using IServiceScope scope = host.Services.CreateScope();
         scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(Scope.RootId.Value);
 
-        var task = TaskSchedule.Create(commandName, arguments, [new TaskScheduleTarget(probe, null)], Cron, "UTC", delegating.Id);
+        var task = TaskSchedule.Create(commandName, arguments, [new TaskScheduleTarget(probe)], Cron, "UTC", delegating.Id);
         ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(TasksDbContext.Schema);
         store.AddTask(task);
         await store.SaveAsync(CancellationToken.None);

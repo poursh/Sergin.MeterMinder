@@ -448,6 +448,10 @@ internal sealed class VersionedProbeAggregateFeatureConfiguration : IAggregateFe
 
 internal sealed record GuardedProbeCommand(VersionedProbeId Id) : ICommand, IUpdateCommand<VersionedProbe, VersionedProbeId>;
 
+/// <summary>A task naming a child entity; the type guard refuses it at host start, the catalogue refuses it on its own.</summary>
+internal sealed record ChildTaskProbeCommand(ScheduleProbeId RootId, ScheduleProbeChildId Id)
+    : ICommand, ITaskCommand, IChildEntityTarget<ScheduleProbe, ScheduleProbeId, ScheduleProbeChild, ScheduleProbeChildId>;
+
 internal sealed record MalformedNameCommand(ScheduleProbeId Id) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
 internal sealed class MalformedNameCommandConfiguration : ICommandConfiguration<MalformedNameCommand>

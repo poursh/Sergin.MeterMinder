@@ -71,7 +71,7 @@ public sealed partial class ScheduleProbePage
 
     private async Task ScheduleAsync()
     {
-        IReadOnlyCollection<TaskScheduleTarget> targets = [new TaskScheduleTarget(Id, null)];
+        IReadOnlyCollection<TaskScheduleTarget> targets = [new TaskScheduleTarget(Id)];
 
         bool saved = await Dialogs.ShowScheduleAsync(new SerginScheduleRequest(
             Schema,

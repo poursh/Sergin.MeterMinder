@@ -645,7 +645,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         DateTime now = DateTime.UtcNow;
 
         var run = TaskRun.Start(definition, 1, now);
-        store.AddRun(run, [TaskRunItem.Create(run.Id, target ?? Guid.CreateVersion7(), null, now, label)]);
+        store.AddRun(run, [TaskRunItem.Create(run.Id, target ?? Guid.CreateVersion7(), now, label)]);
         await store.SaveAsync(CancellationToken.None);
 
         return run.Id;
@@ -660,7 +660,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
 
         var run = TaskRun.Start(definition, 3, now);
         IReadOnlyList<TaskRunItem> items =
-            [.. Enumerable.Range(1, 3).Select(index => TaskRunItem.Create(run.Id, Guid.CreateVersion7(), null, now, $"P-{index}"))];
+            [.. Enumerable.Range(1, 3).Select(index => TaskRunItem.Create(run.Id, Guid.CreateVersion7(), now, $"P-{index}"))];
         store.AddRun(run, items);
         await store.SaveAsync(CancellationToken.None);
 

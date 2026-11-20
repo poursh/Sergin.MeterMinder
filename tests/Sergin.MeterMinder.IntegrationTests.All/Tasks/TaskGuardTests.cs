@@ -149,7 +149,7 @@ public sealed class TaskGuardTests(SerginWebApiFactory<Program> factory) : IAsyn
             new TaskRunDefinition(null, TaskRunTrigger.Once, user.Id, scopeId, path, commandName, arguments),
             targets.Length,
             DateTime.UtcNow);
-        TaskRunItem[] items = [.. targets.Select(target => TaskRunItem.Create(run.Id, target, rootId: null, DateTime.UtcNow))];
+        TaskRunItem[] items = [.. targets.Select(target => TaskRunItem.Create(run.Id, target, DateTime.UtcNow))];
 
         ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(TasksDbContext.Schema);
         store.AddRun(run, items);

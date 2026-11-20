@@ -203,7 +203,7 @@ public sealed class TaskProgressTests(SerginWebApiFactory<Program> factory) : IA
             new TaskRunDefinition(null, TaskRunTrigger.Once, user.Id, tree.North, path, ProgressName, arguments),
             targets.Length,
             clock.UtcNow);
-        TaskRunItem[] items = [.. targets.Select(target => TaskRunItem.Create(run.Id, target, rootId: null, clock.UtcNow))];
+        TaskRunItem[] items = [.. targets.Select(target => TaskRunItem.Create(run.Id, target, clock.UtcNow))];
 
         ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(TasksDbContext.Schema);
         store.AddRun(run, items);

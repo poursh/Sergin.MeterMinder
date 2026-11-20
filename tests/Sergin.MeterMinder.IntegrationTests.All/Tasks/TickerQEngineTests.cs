@@ -85,7 +85,7 @@ public sealed class TickerQEngineTests(SerginWebApiFactory<Program> factory)
         ScheduleProbe probe = await fixture.CreateProbeAsync();
 
         ErrorOr<CreateTaskScheduleCommandResponse> created = await fixture.SendAsync(
-            new CreateTaskScheduleCommand(Schema, Touch("cron"), [new(probe.Id.Value, null)], "* * * * *", "UTC"));
+            new CreateTaskScheduleCommand(Schema, Touch("cron"), [new(probe.Id.Value)], "* * * * *", "UTC"));
         Assert.False(created.IsError, created.IsError ? created.FirstError.Code : string.Empty);
         var id = new TaskScheduleId(created.Value.Id);
 
@@ -107,7 +107,7 @@ public sealed class TickerQEngineTests(SerginWebApiFactory<Program> factory)
         ScheduleProbe probe = await fixture.CreateProbeAsync();
 
         ErrorOr<TaskScheduleRunStartedResponse> started = await fixture.SendAsync(
-            new RunTaskOnceCommand(Schema, Touch("once"), [new(probe.Id.Value, null)]));
+            new RunTaskOnceCommand(Schema, Touch("once"), [new(probe.Id.Value)]));
         Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
 
         TaskRunItem item = await fixture.EventuallyAsync(
@@ -127,7 +127,7 @@ public sealed class TickerQEngineTests(SerginWebApiFactory<Program> factory)
         fixture.Failures.ThrowTimes = 1;
 
         ErrorOr<TaskScheduleRunStartedResponse> started = await fixture.SendAsync(
-            new RunTaskOnceCommand(Schema, Touch("retried"), [new(probe.Id.Value, null)]));
+            new RunTaskOnceCommand(Schema, Touch("retried"), [new(probe.Id.Value)]));
         Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
 
         TaskRunItem item = await fixture.EventuallyAsync(

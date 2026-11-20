@@ -178,7 +178,6 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
             failed,
             unfinished,
             total == 1 ? targetId : null,
-            null,
             total == 1 ? label : null,
             total == 1 ? errorCode : null,
             total == 1 ? errorDescription : null,

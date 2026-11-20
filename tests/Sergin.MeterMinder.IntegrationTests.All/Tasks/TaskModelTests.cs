@@ -214,7 +214,7 @@ public sealed class TaskModelTests(SerginWebApiFactory<Program> factory) : IAsyn
     public async Task Task_Run_AndItems_RoundTrip()
     {
         var savedBy = new UserId(Guid.CreateVersion7());
-        var target = new TaskScheduleTarget(Guid.CreateVersion7(), RootId: null);
+        var target = new TaskScheduleTarget(Guid.CreateVersion7());
         var task = TaskSchedule.Create("tst.probes.touch", """{"Note":{"Value":"x"}}""", [target], "0 2 * * *", "Asia/Tehran", savedBy);
         task.LinkTrigger(Guid.CreateVersion7());
 
@@ -222,7 +222,7 @@ public sealed class TaskModelTests(SerginWebApiFactory<Program> factory) : IAsyn
             new TaskRunDefinition(task.Id, TaskRunTrigger.ScheduleNow, savedBy, Guid.CreateVersion7(), "root", task.CommandName, task.Arguments),
             total: 1,
             startedAtUtc: DateTime.UtcNow);
-        var item = TaskRunItem.Create(run.Id, target.TargetId, target.RootId, DateTime.UtcNow);
+        var item = TaskRunItem.Create(run.Id, target.TargetId, DateTime.UtcNow);
         item.MarkRunning(DateTime.UtcNow);
         item.MarkFailed("Code", "Description", DateTime.UtcNow);
         run.Complete(succeeded: 0, failed: 1, cancelled: 0, DateTime.UtcNow);

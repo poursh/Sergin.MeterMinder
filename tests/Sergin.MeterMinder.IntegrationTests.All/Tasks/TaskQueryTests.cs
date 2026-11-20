@@ -343,7 +343,7 @@ public sealed class TaskQueryTests(SerginWebApiFactory<Program> factory) : IAsyn
         scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(scopeId);
 
         var task = TaskSchedule.Create(
-            commandName, arguments, [.. targets.Select(probe => new TaskScheduleTarget(probe.Id.Value, null))], "0 * * * *", "UTC", user.Id);
+            commandName, arguments, [.. targets.Select(probe => new TaskScheduleTarget(probe.Id.Value))], "0 * * * *", "UTC", user.Id);
         ITaskStore store = Store(scope);
         store.AddTask(task);
         await store.SaveAsync(CancellationToken.None);
@@ -368,7 +368,7 @@ public sealed class TaskQueryTests(SerginWebApiFactory<Program> factory) : IAsyn
         var run = TaskRun.Start(
             new TaskRunDefinition(null, TaskRunTrigger.Once, manager.Id, scopeId, path, TouchName, arguments), 1, startedAtUtc);
         ITaskStore store = Store(scope);
-        store.AddRun(run, [TaskRunItem.Create(run.Id, targetId, null, DateTime.UtcNow)]);
+        store.AddRun(run, [TaskRunItem.Create(run.Id, targetId, DateTime.UtcNow)]);
         await store.SaveAsync(CancellationToken.None);
 
         return run.Id;

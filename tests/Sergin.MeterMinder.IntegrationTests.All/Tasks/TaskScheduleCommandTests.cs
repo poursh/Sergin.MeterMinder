@@ -76,7 +76,7 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
         Assert.Equal(manager.Id, task.DelegatingUserId);
         Assert.Equal(triggerId, task.EngineTriggerId);
         Assert.Equal("tst.probes.touch", task.CommandName);
-        Assert.Equal(new TaskScheduleTarget(probe.Id.Value, null), Assert.Single(task.Targets));
+        Assert.Equal(new TaskScheduleTarget(probe.Id.Value), Assert.Single(task.Targets));
         Assert.Equal(tree.North, scopeId);
         Assert.Equal(manager.Id.Value, createdBy);
     }
@@ -115,7 +115,7 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
         ErrorOr<CreateTaskScheduleCommandResponse> created = await SendAsync(
             manager,
             tree.North,
-            new CreateTaskScheduleCommand(Schema, Touch("x"), [new(probe.Id.Value, null), new(probe.Id.Value, null)], Cron, "UTC"));
+            new CreateTaskScheduleCommand(Schema, Touch("x"), [new(probe.Id.Value), new(probe.Id.Value)], Cron, "UTC"));
 
         Assert.Contains(created.Errors, error => error.Code == nameof(CreateTaskScheduleCommand.Targets));
         await AssertNothingSavedAsync();
@@ -406,7 +406,7 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
         ErrorOr<TaskScheduleRunStartedResponse> started = await SendAsync(
             manager,
             tree.North,
-            new RunTaskOnceCommand(Schema, Touch("once"), [new(first.Id.Value, null), new(second.Id.Value, null)]));
+            new RunTaskOnceCommand(Schema, Touch("once"), [new(first.Id.Value), new(second.Id.Value)]));
 
         Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
         await Engine.DrainAsync(host.Services);
@@ -434,7 +434,7 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
         TestCaller manageOnly = await tree.CreateGrantedCallerAsync(tree.North, TaskPermissions.Manage.Permission);
 
         ErrorOr<TaskScheduleRunStartedResponse> started =
-            await SendAsync(manageOnly, tree.North, new RunTaskOnceCommand(Schema, Touch("once"), [new(probe.Id.Value, null)]));
+            await SendAsync(manageOnly, tree.North, new RunTaskOnceCommand(Schema, Touch("once"), [new(probe.Id.Value)]));
 
         Assert.Equal(ErrorType.Forbidden, started.FirstError.Type);
         Assert.Empty(Engine.QueuedItems);
@@ -480,7 +480,7 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
         ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
 
         ErrorOr<TaskScheduleRunStartedResponse> started = await SendAsync(
-            manager, tree.North, new RunTaskOnceCommand(Schema, new UnconfiguredProbeCommand(new(Guid.Empty), new ProbeNote("x")), [new(probe.Id.Value, null)]));
+            manager, tree.North, new RunTaskOnceCommand(Schema, new UnconfiguredProbeCommand(new(Guid.Empty), new ProbeNote("x")), [new(probe.Id.Value)]));
 
         Assert.Contains(started.Errors, error => error.Code == TaskErrors.NotSchedulable.Code);
         Assert.Empty(Engine.QueuedItems);
@@ -505,7 +505,7 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
         ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
 
         ErrorOr<TaskScheduleRunStartedResponse> started =
-            await SendAsync(manager, tree.North, new RunTaskOnceCommand(Schema, StartOnly(), [new(probe.Id.Value, null)]));
+            await SendAsync(manager, tree.North, new RunTaskOnceCommand(Schema, StartOnly(), [new(probe.Id.Value)]));
 
         Error error = Assert.Single(started.Errors);
         Assert.Equal(TaskErrors.NotSchedulableCode, error.Code);
@@ -597,11 +597,11 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
     private static StartOnlyProbeCommand StartOnly() => new(new(Guid.Empty), new ProbeNote("x"));
 
     private static CreateTaskScheduleCommand Create(Sergin.SharedKernel.Application.Commands.Types.ITaskCommand template, params ScheduleProbe[] targets) =>
-        new(Schema, template, [.. targets.Select(probe => new TaskScheduleTarget(probe.Id.Value, null))], Cron, "UTC");
+        new(Schema, template, [.. targets.Select(probe => new TaskScheduleTarget(probe.Id.Value))], Cron, "UTC");
 
     private static UpdateTaskScheduleCommand Update(
         TaskScheduleId id, Sergin.SharedKernel.Application.Commands.Types.ITaskCommand template, params ScheduleProbe[] targets) =>
-        new(Schema, id, template, [.. targets.Select(probe => new TaskScheduleTarget(probe.Id.Value, null))], Cron, "UTC");
+        new(Schema, id, template, [.. targets.Select(probe => new TaskScheduleTarget(probe.Id.Value))], Cron, "UTC");
 
     private WebApplicationFactory<Program> CreateHost(Action<IServiceCollection> engine) =>
         TaskTestHost.Create(factory, builder => builder.ConfigureServices(services =>
@@ -676,7 +676,7 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
         var task = TaskSchedule.Create(
             "tst.probes.start-only",
             TaskCommandFactory.ToArguments(StartOnly()),
-            [new TaskScheduleTarget(probe.Id.Value, null)],
+            [new TaskScheduleTarget(probe.Id.Value)],
             Cron,
             "UTC",
             manager.Id);

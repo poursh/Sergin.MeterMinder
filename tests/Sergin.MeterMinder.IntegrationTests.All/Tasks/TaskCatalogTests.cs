@@ -99,6 +99,15 @@ public sealed class TaskCatalogTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public void Refuses_ChildEntityTask()
+    {
+        string message = Refusal(typeof(ChildTaskProbeCommand));
+
+        Assert.Contains(typeof(ChildTaskProbeCommand).FullName!, message, StringComparison.Ordinal);
+        Assert.Contains("child entity", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Refuses_NameOutsideSchema()
     {
         string message = Refusal(typeof(OutsideSchemaCommandConfiguration));

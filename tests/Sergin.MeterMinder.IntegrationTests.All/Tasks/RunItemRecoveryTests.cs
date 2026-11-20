@@ -246,7 +246,7 @@ public sealed class RunItemRecoveryTests(SerginWebApiFactory<Program> factory) :
         string arguments = TaskCommandFactory.ToArguments(new TouchProbeCommand(new(Guid.Empty), new ProbeNote("recovered")));
         var run = TaskRun.Start(
             new TaskRunDefinition(null, TaskRunTrigger.Once, user.Id, tree.North, path, TouchName, arguments), 1, clock.UtcNow);
-        var item = TaskRunItem.Create(run.Id, probe.Id.Value, null, clock.UtcNow);
+        var item = TaskRunItem.Create(run.Id, probe.Id.Value, clock.UtcNow);
 
         ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(Schema);
         store.AddRun(run, [item]);
@@ -272,7 +272,7 @@ public sealed class RunItemRecoveryTests(SerginWebApiFactory<Program> factory) :
         using IServiceScope scope = host.Services.CreateScope();
         scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(tree.North);
         string arguments = TaskCommandFactory.ToArguments(new TouchProbeCommand(new(Guid.Empty), new ProbeNote("scheduled")));
-        var task = TaskSchedule.Create(TouchName, arguments, [new TaskScheduleTarget(target.Id.Value, null)], "0 * * * *", "UTC", user.Id);
+        var task = TaskSchedule.Create(TouchName, arguments, [new TaskScheduleTarget(target.Id.Value)], "0 * * * *", "UTC", user.Id);
 
         ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(Schema);
         store.AddTask(task);

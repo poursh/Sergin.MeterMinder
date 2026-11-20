@@ -295,7 +295,7 @@ public sealed class TaskSchedulesSectionRefreshTests(SerginWebApiFactory<Program
         using IServiceScope scope = host.Services.CreateScope();
         scope.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(Scope.RootId.Value);
 
-        var task = TaskSchedule.Create(TouchName, arguments, [new TaskScheduleTarget(probe, null)], "15 3 * * *", "UTC", delegating.Id);
+        var task = TaskSchedule.Create(TouchName, arguments, [new TaskScheduleTarget(probe)], "15 3 * * *", "UTC", delegating.Id);
         ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(TasksDbContext.Schema);
         store.AddTask(task);
         await store.SaveAsync(CancellationToken.None);
@@ -311,7 +311,7 @@ public sealed class TaskSchedulesSectionRefreshTests(SerginWebApiFactory<Program
         ErrorOr.ErrorOr<TaskScheduleRunStartedResponse> result = await dispatcher.SendAsync(new RunTaskOnceCommand(
             TasksDbContext.Schema,
             new TouchProbeCommand(new ScheduleProbeId(probe), new ProbeNote("note")),
-            [new TaskScheduleTarget(probe, null)]));
+            [new TaskScheduleTarget(probe)]));
         Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
 
         return result.Value.RunId;

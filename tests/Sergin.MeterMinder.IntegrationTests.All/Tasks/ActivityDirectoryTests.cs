@@ -209,17 +209,15 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
     {
         var user = new UserId(Guid.CreateVersion7());
         var target = Guid.CreateVersion7();
-        var root = Guid.CreateVersion7();
         Guid many = await SeedRunAsync(
-            user, TaskRunTrigger.Manual, DateTime.UtcNow.AddSeconds(-1), targets: [(Guid.CreateVersion7(), null, "A-1"), (Guid.CreateVersion7(), null, "A-2")]);
+            user, TaskRunTrigger.Manual, DateTime.UtcNow.AddSeconds(-1), targets: [(Guid.CreateVersion7(), "A-1"), (Guid.CreateVersion7(), "A-2")]);
         Guid one = await SeedRunAsync(
-            user, TaskRunTrigger.Manual, DateTime.UtcNow, completed: true, failedWith: "Some.Code", targets: [(target, root, "P-1")]);
+            user, TaskRunTrigger.Manual, DateTime.UtcNow, completed: true, failedWith: "Some.Code", targets: [(target, "P-1")]);
 
         IReadOnlyList<ActivityItem> activity = await ListAsync(user);
 
         ActivityItem single = activity.Single(item => item.Ref.RunId == one);
         Assert.Equal(target, single.TargetId);
-        Assert.Equal(root, single.RootId);
         Assert.Equal("P-1", single.TargetLabel);
         Assert.Equal("Some.Code", single.FirstErrorCode);
         Assert.Equal("failed", single.FirstErrorDescription);
@@ -228,7 +226,6 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
 
         ActivityItem several = activity.Single(item => item.Ref.RunId == many);
         Assert.Null(several.TargetId);
-        Assert.Null(several.RootId);
         Assert.Null(several.TargetLabel);
         Assert.Null(several.FirstErrorCode);
         Assert.Null(several.FirstErrorDescription);
@@ -240,7 +237,7 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
     {
         var user = new UserId(Guid.CreateVersion7());
         Guid many = await SeedRunAsync(
-            user, TaskRunTrigger.Manual, DateTime.UtcNow.AddSeconds(-1), targets: [(Guid.CreateVersion7(), null, null), (Guid.CreateVersion7(), null, null)], progress: 70);
+            user, TaskRunTrigger.Manual, DateTime.UtcNow.AddSeconds(-1), targets: [(Guid.CreateVersion7(), null), (Guid.CreateVersion7(), null)], progress: 70);
         Guid one = await SeedRunAsync(user, TaskRunTrigger.Manual, DateTime.UtcNow, progress: 40);
 
         IReadOnlyList<ActivityItem> activity = await ListAsync(user);
@@ -259,7 +256,7 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
             ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(Tst);
             var definition = new TaskRunDefinition(null, TaskRunTrigger.Manual, user, tree.North, "root", "tst.probes.touch", "{}");
             var run = TaskRun.Start(definition, 3, DateTime.UtcNow);
-            TaskRunItem[] items = [.. Enumerable.Range(0, 3).Select(_ => TaskRunItem.Create(run.Id, Guid.CreateVersion7(), null, DateTime.UtcNow))];
+            TaskRunItem[] items = [.. Enumerable.Range(0, 3).Select(_ => TaskRunItem.Create(run.Id, Guid.CreateVersion7(), DateTime.UtcNow))];
             items[0].MarkSucceeded(DateTime.UtcNow);
             items[1].MarkCancelled(DateTime.UtcNow);
             items[2].MarkCancelled(DateTime.UtcNow);
@@ -322,16 +319,16 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
         DateTime startedAtUtc,
         bool completed = false,
         string? failedWith = null,
-        IReadOnlyList<(Guid TargetId, Guid? RootId, string? Label)>? targets = null,
+        IReadOnlyList<(Guid TargetId, string? Label)>? targets = null,
         int? progress = null)
     {
         using IServiceScope scope = host.Services.CreateScope();
         ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(Tst);
         var definition = new TaskRunDefinition(null, trigger, user, tree.North, "root", "tst.probes.touch", "{}");
-        targets ??= [(Guid.CreateVersion7(), null, null)];
+        targets ??= [(Guid.CreateVersion7(), null)];
 
         var run = TaskRun.Start(definition, targets.Count, startedAtUtc);
-        TaskRunItem[] items = [.. targets.Select(target => TaskRunItem.Create(run.Id, target.TargetId, target.RootId, startedAtUtc, target.Label))];
+        TaskRunItem[] items = [.. targets.Select(target => TaskRunItem.Create(run.Id, target.TargetId, startedAtUtc, target.Label))];
 
         if (progress is { } percent)
         {

@@ -147,7 +147,7 @@ public sealed class TriggerRebuildTests(SerginWebApiFactory<Program> factory) : 
         ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(Schema);
 
         var task = TaskSchedule.Create(
-            "tst.probes.touch", "{}", [new TaskScheduleTarget(Guid.CreateVersion7(), null)], Cron, "UTC", new UserId(Guid.CreateVersion7()));
+            "tst.probes.touch", "{}", [new TaskScheduleTarget(Guid.CreateVersion7())], Cron, "UTC", new UserId(Guid.CreateVersion7()));
         task.LinkTrigger(engineTriggerId);
 
         if (paused)

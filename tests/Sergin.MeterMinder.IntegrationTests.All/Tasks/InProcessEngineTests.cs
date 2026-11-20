@@ -103,7 +103,7 @@ public sealed class InProcessEngineTests(SerginWebApiFactory<Program> factory) :
         ScheduleProbe probe = await CreateProbeAsync();
 
         ErrorOr<TaskScheduleRunStartedResponse> started = await SendAsync(
-            new RunTaskOnceCommand(Schema, Touch("in process"), [new(probe.Id.Value, null)]));
+            new RunTaskOnceCommand(Schema, Touch("in process"), [new(probe.Id.Value)]));
         Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
 
         TaskRun run = await EventuallyAsync(async context => await context.TaskRuns.AsNoTracking()
@@ -125,7 +125,7 @@ public sealed class InProcessEngineTests(SerginWebApiFactory<Program> factory) :
         Failures.ThrowTimes = int.MaxValue;
 
         ErrorOr<TaskScheduleRunStartedResponse> started = await SendAsync(
-            new RunTaskOnceCommand(Schema, Touch("never"), [new(probe.Id.Value, null)]));
+            new RunTaskOnceCommand(Schema, Touch("never"), [new(probe.Id.Value)]));
         Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
 
         TaskRunItem item = await EventuallyAsync(async context => await context.TaskRunItems.AsNoTracking()
@@ -141,7 +141,7 @@ public sealed class InProcessEngineTests(SerginWebApiFactory<Program> factory) :
         ScheduleProbe probe = await CreateProbeAsync();
 
         ErrorOr<CreateTaskScheduleCommandResponse> created = await SendAsync(
-            new CreateTaskScheduleCommand(Schema, Touch("every second"), [new(probe.Id.Value, null)], "* * * * * *", "UTC"));
+            new CreateTaskScheduleCommand(Schema, Touch("every second"), [new(probe.Id.Value)], "* * * * * *", "UTC"));
         Assert.False(created.IsError, created.IsError ? created.FirstError.Code : string.Empty);
         var id = new TaskScheduleId(created.Value.Id);
 
@@ -160,7 +160,7 @@ public sealed class InProcessEngineTests(SerginWebApiFactory<Program> factory) :
     {
         ScheduleProbe probe = await CreateProbeAsync();
         ErrorOr<CreateTaskScheduleCommandResponse> created = await SendAsync(
-            new CreateTaskScheduleCommand(Schema, Touch("kept"), [new(probe.Id.Value, null)], "0 3 * * *", "UTC"));
+            new CreateTaskScheduleCommand(Schema, Touch("kept"), [new(probe.Id.Value)], "0 3 * * *", "UTC"));
         Assert.False(created.IsError, created.IsError ? created.FirstError.Code : string.Empty);
         var id = new TaskScheduleId(created.Value.Id);
         (Guid? triggerBefore, object versionBefore) = await TriggerAndVersionAsync(id);
@@ -257,7 +257,7 @@ public sealed class InProcessEngineTests(SerginWebApiFactory<Program> factory) :
 
         var run = TaskRun.Start(
             new TaskRunDefinition(null, TaskRunTrigger.Once, manager.Id, tree.North, path, TouchName, arguments), 1, longAgo);
-        var item = TaskRunItem.Create(run.Id, probe.Id.Value, rootId: null, longAgo);
+        var item = TaskRunItem.Create(run.Id, probe.Id.Value, longAgo);
 
         ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(Schema);
         store.AddRun(run, [item]);
