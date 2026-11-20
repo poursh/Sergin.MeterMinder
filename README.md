@@ -8,14 +8,16 @@
 [![Keycloak 26](https://img.shields.io/badge/Keycloak-26.7-4D4D4D)](docker-compose/.files/identity/sergin-realm.json)
 [![License: MIT](https://img.shields.io/badge/License-MIT-2E7D32)](LICENSE)
 
-Meter Minder is the hostable root of the **Sergin** platform. One process composes three modules: **DeviceManagement** (`dm`), the head-end system that owns devices, manufacturers and their device models, and **UserAccess** (`ua`), which owns users, the scope tree, roles and role assignments — the scoped RBAC every permission check is answered from, and **Settings** (`st`), which owns the platform's own configuration (languages and translations today). UserAccess and Settings sit together under `src/Modules/Administration/` and share one **Administration** group in the drawer. Each module is a Clean Architecture stack with its own PostgreSQL schema, its own migrations and its own Razor pages. The host is a twenty-line `Program.cs` that hands them to a shared bootstrap.
+Meter Minder is the hostable root of the **Sergin** platform. One process composes three modules: **DeviceManagement** (`dm`), the head-end system that owns devices, manufacturers and their device models; **UserAccess** (`ua`), which owns users, the scope tree, roles and role assignments — the scoped RBAC every permission check is answered from; and **Settings** (`st`), which owns the platform's own configuration (languages and translations today). UserAccess and Settings sit together under `src/Modules/Administration/` and share one **Administration** group in the drawer. Each module is a Clean Architecture stack with its own PostgreSQL schema, its own migrations and its own Razor pages. The host is a twenty-line `Program.cs` that hands them to a shared bootstrap.
 
 ## At a glance
 
 | | |
 |---|---|
 | **Runtime** | .NET 10. Warnings are errors: `AnalysisMode=All`, SonarAnalyzer, `EnforceCodeStyleInBuild`. |
-| **Front end** | Blazor Server + MudBlazor. One Razor Class Library per module; pages dispatch to handlers in-process through MediatR. |
+| **Front end** | Blazor Server + MudBlazor. One Razor Class Library per module; pages dispatch to handlers in-process through MediatR. Aggregate pages are generated from each aggregate's command types and a small view configuration. |
+| **Localization** | Every visible text is declared in code with its English default; translations live in the database and are edited in the Settings module. Right-to-left layout and the Persian calendar for `fa`. |
+| **Scheduled work** | Commands run later, on a cron or in the background, for picked records, as the user who started them. TickerQ behind an engine seam, with an in-process stand-in when no licence is configured. An app-bar indicator follows a user's runs. |
 | **Storage** | PostgreSQL 17, one schema per module. EF Core on the write side, Dapper and raw SQL on the read side. |
 | **Sign-in** | Keycloak over OpenID Connect. Keycloak authenticates; Sergin authorizes. A configuration-only `DevUser` mode for day-to-day local work. |
 | **Authorization** | Scoped RBAC: roles belong to a node of a scope tree and are assigned per scope; every check reads stored grants, so a change applies on the next request. The app bar's scope picker sets the working scope. |
@@ -100,6 +102,8 @@ rm -rf docker-compose/.containers/database   # Postgres data is a bind mount, so
 ```bash
 docker compose -f docker-compose/docker-compose.yml up --build
 ```
+
+Scheduled tasks run on an in-process stand-in engine by default: run-now and one-off work run, saved cron schedules never fire. To run real TickerQ, put a licence file in `docker-compose/.files/tickerq/` (gitignored) and set `SERGIN_TICKERQ_LICENSE_FILE` in `docker-compose/.env` to its file name. For `dotnet run`, set the file's absolute path as the user secret `Sergin:ScheduledTasks:TickerQ:LicensePath`. Never commit a licence file.
 
 To try the scoped RBAC with realistic data, two **development-only** psql scripts fill the Compose database once the app has migrated it. `dev-seed.sql` adds a scope tree (4 regions, 12 areas), 5 manufacturers, 11 models and `device_count` devices; `dev-seed-users.sql` adds users, roles and scoped grants for the realm's mock users — `admin.root`, `north.manager`, `tabriz.operator`, `south.viewer`, `multi.auditor`, `expired.user` and `inactive.user`, each with password = username — so each one sees a different part of the tree — plus 40 local `demo.user.<n>` rows, more roles and a mix of assignments for the user and role pages. Both are idempotent; never run them against a real environment.
 
@@ -189,7 +193,7 @@ DeviceManagement adds a gRPC trio — `.Presentation.Grpc.Contracts` compiles th
 ```mermaid
 flowchart LR
     Page["Blazor page"] -->|"SendAsync"| D["ISerginDispatcher<br/>fresh DI scope per send"]
-    D --> P1["PermissionCheck<br/>behavior"] --> PV["ExpectedVersion<br/>behavior"] --> P2["Validation<br/>behavior"]
+    D --> PB["BackgroundCommandGuard<br/>behavior"] --> P1["PermissionCheck<br/>behavior"] --> PV["ExpectedVersion<br/>behavior"] --> P2["Validation<br/>behavior"]
     P2 --> H["Handler<br/>(Local module)"]
     P2 -.-> R["RemoteForwardingHandler"] -.->|"gRPC"| S["Module hosted elsewhere"]
     H --> DB[("PostgreSQL")]
@@ -197,7 +201,7 @@ flowchart LR
 
 Pages inject `ISerginDispatcher`, never `ISender`. In Blazor Server a scoped service lives as long as the circuit — the user's whole tab session — so resolving `ISender` there would share one `DbContext` across every interaction. The dispatcher opens a fresh scope per send, carries the caller's `IUserContext` into it, and resolves `ISender` inside; a WebApi endpoint already gets a scope per request and injects `ISender` directly.
 
-Whether a module is **Local** or **Remote** is decided at composition time, not by configuration: `AddSerginCore` takes a `localModules` collection and an optional `remoteModules` one, and which collection a module is passed in *is* the choice. A Remote module registers a `RemoteForwardingHandler<TRequest, TResponse>` per feature — a real MediatR handler that forwards over gRPC — so a remote call traverses the same permission and validation behaviors as an in-process one. Today the host registers every module as Local; the gRPC projects are exercised by the integration tests only.
+Whether a module is **Local** or **Remote** is decided at composition time, not by configuration: `AddSerginCore` takes a `localModules` collection and an optional `remoteModules` one, and which collection a module is passed in *is* the choice. A Remote module registers a `RemoteForwardingHandler<TRequest, TResponse>` per feature — a real MediatR handler that forwards over gRPC — so a remote call traverses the same pipeline behaviors as an in-process one. Today the host registers every module as Local; the gRPC projects are exercised by the integration tests only.
 
 ### Reads and writes
 
@@ -205,6 +209,18 @@ Whether a module is **Local** or **Remote** is decided at composition time, not 
 - **Reads** go through per-feature query repositories that run raw SQL over `IDbConnectionFactory`, bypassing EF. Every list feature declares its own request record deriving from the abstract `ListQuery<TItem>`, which is what lets a command configuration require a permission for it.
 - **Permissions** are opt-in per slice: a `<RecordName>Configuration : ICommandConfiguration<<RecordName>>` in the module's `.Application.Configurations` calls `RequirePermissions(<Aggregate>Permissions.X)` (a `PermissionDefinition` registered by the aggregate's configuration), enforced by `PermissionCheckPipelineBehavior` from stored grants — on the current scope for a scoped aggregate (`Device`), on any scope for an unscoped one, the aggregate being the one the record's command type names. The type also decides the version: a command on an existing entity of a versioned root carries the version the page loaded (none is a 428, a stale one a 412) unless its configuration says `WithoutExpectedVersion()`.
 - **Aggregate features** are declared once per aggregate root in a `<Root>AggregateFeatureConfiguration` — `Audited()`, `SoftDeletable()`, `Versioned()`, `Scoped()` — and SharedKernel turns them into columns, query filters and save interceptors. Each one turned on ships with its migration.
+
+### Generated pages
+
+Every aggregate's list, detail and form pages are generated. A request record's type says which aggregate it targets and what it does (`ICreateCommand`, `IUpdateCommand`, `ITransitionCommand`, `IDeleteCommand`, `IListOf<TRoot>`, …), and a `<Root>ViewConfiguration` in the module's Blazor library adds what the types cannot say: titles, links, slot components, inline edits, a tree. A page file is `@page`, `@layout SerginPageLayout` and one `SerginGenerated…View<TRoot>`. Host start is refused when a configuration and the command types disagree. `Devices/DeviceViewConfiguration.cs` in DeviceManagement is the plainest reference.
+
+### Localization
+
+Each slice declares its texts in code (`<Aggregate>Texts` in `.Application.Configurations`, `<Aggregate>UiTexts` in the Blazor library), each with an English default and a dot-separated key such as `device-management.devices.fields.device-id.label`. Shared components take a `TextDefinition`, not a string, so a literal label does not compile. The Settings module (`/st/languages`) adds languages, publishes them and edits translations; a draft language is visible to translators only. The app bar's language switcher sets the culture cookie. A right-to-left culture renders `dir="rtl"` with a self-hosted Vazirmatn font, and `fa` uses the Persian calendar and digits. A pseudo-locale test sweep fails on any visible text that is not declared.
+
+### Scheduled and background commands
+
+A command whose configuration calls `Schedulable(name)` can be scheduled from a record's detail page: run now, once at a time, or on a cron, for one or many picked records. It always runs as the user who saved it, and grants are checked live for every run item. A command that also calls `Background(timeout)` cannot be sent inline; a page starts it with `ISerginDispatcher.StartAsync`, and the app-bar activity indicator shows its progress, lets the user cancel it, and reports the outcome. DeviceManagement's Read profile is the first such command. The engine is TickerQ behind `IScheduledTaskEngine`; without a licence an in-process stand-in runs one-off work only.
 
 ### Events and the outbox
 
@@ -249,9 +265,13 @@ dotnet ef migrations add <Name> \
 dotnet ef migrations add <Name> \
   --project src/Modules/Administration/UserAccess/Sergin.Administration.UserAccess.Infrastructure.Data \
   --startup-project src/Hosts/Sergin.MeterMinder.Hosts.All
+
+dotnet ef migrations add <Name> \
+  --project src/Modules/Administration/Settings/Sergin.Administration.Settings.Infrastructure.Data \
+  --startup-project src/Hosts/Sergin.MeterMinder.Hosts.All
 ```
 
-Each module has exactly one migration, `InitialCreate` (UserAccess's also seeds the Root scope and the `administrator` and `viewer` roles). A schema change adds a new migration after it; the scaffolded file needs converting to a file-scoped namespace by hand before it builds, and `InitialCreate` shows the shape. Migrations apply automatically at startup in the Development environment only — which is why `docker-compose.yml` keeps `ASPNETCORE_ENVIRONMENT: Development` even in `Keycloak` mode.
+Every module starts from `InitialCreate` (UserAccess's also seeds the Root scope and the `administrator` and `viewer` roles). DeviceManagement adds four migrations for scheduled tasks after it: `AddScheduledTasks`, `AddRunActivity`, `AddRunCancellation` and `AddRunItemProgress`. A schema change adds a new migration; the scaffolded file needs converting to a file-scoped namespace by hand before it builds, and `InitialCreate` shows the shape. Migrations apply automatically at startup in the Development environment only — which is why `docker-compose.yml` keeps `ASPNETCORE_ENVIRONMENT: Development` even in `Keycloak` mode.
 
 > [!TIP]
 > The design-time factories read `Sergin:ConnectionStrings:Database` from `appsettings.Development.json` only — not from environment variables or user secrets. `migrations add` scaffolds fine without one; `database update` from the CLI needs the key added to that file locally.
@@ -270,11 +290,13 @@ dotnet test tests/Sergin.Administration.UserAccess.UnitTests/Sergin.Administrati
 
 | Folder | Covers |
 |---|---|
-| `Shell/` | Pages render interactively, nav groups and visibility, breadcrumbs, page types and views, the scope picker, the app name, the home slot |
+| `Shell/` | Pages render interactively, nav groups and visibility, breadcrumbs, page types and views, trees, the scope picker, the activity indicator, the app name, the home slot |
+| `Localization/` | The text catalog and lookup, culture selection, right-to-left, culture formatting, each module's texts, the Settings pages, the field-text guard, the pseudo-locale sweep |
+| `ScheduledTasks/` | Scheduled and background commands: catalog, runs and run items, retries, recovery, cancel, progress, activity, the TickerQ adapter (end-to-end tests skipped without a licence) |
 | `Authentication/` | Claims to `IUserContext`, the dispatcher-scope regression, first-sign-in provisioning, `Sergin:Auth` validation |
 | `Authorization/` | Scoped RBAC acceptance criteria and rules, the current scope, the scope directory, the `X-Sergin-Scope` header |
 | `Permissions/` | Permission definitions, the catalogue per module, its host-start refusals |
-| `Commands/`, `Aggregates/` | Request policy and aggregate-feature registries, and the configuration placement guard |
+| `Commands/`, `Aggregates/` | Request policy, command types and aggregate-feature registries, the configuration placement guard, the generated views and their host-start refusals |
 | `Validation/` | Validator discovery, rendering, repository rules, the form validator |
 | `Audit/`, `SoftDelete/`, `Concurrency/`, `Scoping/` | Each aggregate feature end to end |
 | `Users/`, `Devices/`, `Manufacturers/`, `Updates/`, `Lists/` | Feature slices, read models, list search/sort/filter SQL, the gRPC round trip |
@@ -287,9 +309,9 @@ dotnet test tests/Sergin.Administration.UserAccess.UnitTests/Sergin.Administrati
 ### Where the reasoning lives
 
 - [`.claude/CLAUDE.md`](.claude/CLAUDE.md) — the full architecture and convention reference, written for Claude Code and equally useful to people. Each submodule and the DeviceManagement module carry their own.
-- [`docs/superpowers/specs/`](docs/superpowers/specs/) and [`docs/superpowers/plans/`](docs/superpowers/plans/) — the design decisions behind module registration, the Blazor shell, dual-mode dispatch, the contracts split, domain events and the outbox, validation, aggregate features, optimistic concurrency, command configuration, scoped RBAC and the page types, in the order they were made.
+- [`docs/superpowers/specs/`](docs/superpowers/specs/) and [`docs/superpowers/plans/`](docs/superpowers/plans/) — the design decisions behind module registration, the Blazor shell, dual-mode dispatch, the contracts split, domain events and the outbox, validation, aggregate features, optimistic concurrency, command configuration, scoped RBAC, the page types, localization, scheduled and background commands and the generated views, in the order they were made.
 - `/add-feature` and `/add-module` — Claude Code skills that scaffold a CQRS vertical slice or a whole module in the shape described above.
 
 ## License
 
-[MIT](LICENSE) © Pejman Pourshirazi. `SharedKernel` and `UserAccess` are separate repositories, each under its own MIT license.
+[MIT](LICENSE) © Pejman Pourshirazi. `SharedKernel`, `UserAccess` and `Settings` are separate repositories, each under its own MIT license.
