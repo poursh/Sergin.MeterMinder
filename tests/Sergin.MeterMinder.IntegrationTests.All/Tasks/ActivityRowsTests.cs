@@ -82,11 +82,11 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
     {
         ActivityRow row = Build(Item(
             ReadProfile, total: 1, unfinished: 0, failed: 1, targetId: Guid.CreateVersion7(), label: "MTR-1",
-            errorCode: "Tasks.TimedOut", errorDescription: "The command ran longer than its timeout of 00:10:00."));
+            errorCode: "Tasks.TimedOut", errorDescription: "Timed out after 00:10:00 without progress."));
 
         Assert.Equal(ActivityState.Failed, row.State);
         Assert.Equal("Tasks.TimedOut", row.FirstErrorCode);
-        Assert.Equal("The command ran longer than its timeout of 00:10:00.", row.FirstErrorDescription);
+        Assert.Equal("Timed out after 00:10:00 without progress.", row.FirstErrorDescription);
     }
 
     [Fact]

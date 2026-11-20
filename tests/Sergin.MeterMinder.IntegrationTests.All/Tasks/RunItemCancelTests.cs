@@ -19,9 +19,9 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
 /// A cancel reaches an item that is already running: the executor's heartbeat reads the run's cancel request (sent from
-/// another scope, standing in for another process) and stops the command, which ends Cancelled, never retried, before
-/// its timeout; a send that finished first keeps its outcome; a cancel that lands between the claim and the read sends
-/// nothing; a send that fails retryably once its run was cancelled ends Cancelled, not Retrying, even when the cancel
+/// another scope, standing in for another process) and stops the command, which ends Cancelled, never retried (beating
+/// a timeout: <see cref="TaskTimeoutTests"/>); a send that finished first keeps its outcome; a cancel that lands between
+/// the claim and the read sends nothing; a send that fails retryably once its run was cancelled ends Cancelled, not Retrying, even when the cancel
 /// commits just before the Retrying save; a delivery of a waiting item of a cancelled run cancels it; and a cancelled item
 /// keeps the last progress its command reported.
 /// </summary>
@@ -51,7 +51,6 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
                 services.AddSingleton<ProbeRunCanceller>();
                 services.AddSingleton<CancelAfterClaim>();
                 services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<Success>>, SlowProbeCommandHandler>();
-                services.AddTransient<IRequestHandler<LongTimedProbeCommand, ErrorOr<Success>>, LongTimedProbeCommandHandler>();
                 services.AddSingleton<ProgressProbe>();
                 services.AddTransient<IRequestHandler<ProgressProbeCommand, ErrorOr<Success>>, ProgressProbeCommandHandler>();
                 services.AddTransient<IRequestHandler<CancelThenThrowProbeCommand, ErrorOr<Success>>, CancelThenThrowProbeCommandHandler>();
@@ -91,34 +90,6 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
         Assert.Equal(1, item.Attempts);
         Assert.Equal((TaskRunStatus.Completed, 1, 0, 0), (stored.Status, stored.Cancelled, stored.Succeeded, stored.Failed));
         Assert.Empty(Engine.QueuedItems);
-    }
-
-    [Fact]
-    public async Task CancelBeatsTimeout()
-    {
-        TestCaller caller = await CallerAsync();
-        // A three-second timeout around a thirty-second send, cancelled at about 300 ms: ample slack for the cancel to win.
-        TaskRunRef run = await StartAsync(caller, new LongTimedProbeCommand(new(Guid.Empty)));
-        DateTime startedAt = DateTime.UtcNow;
-
-        Task drain = Engine.DrainAsync(host.Services);
-        await WaitUntilAsync(async () => (await ReadAsync(run)).Item.Status == TaskRunItemStatus.Running);
-        TimeSpan untilCancel = TimeSpan.FromMilliseconds(300) - (DateTime.UtcNow - startedAt);
-
-        if (untilCancel > TimeSpan.Zero)
-        {
-            await Task.Delay(untilCancel);
-        }
-
-        ErrorOr<Success> cancelled = await CancelAsync(caller, run);
-        Assert.False(cancelled.IsError, cancelled.IsError ? cancelled.FirstError.Code : string.Empty);
-        await drain.WaitAsync(WaitLimit);
-
-        (TaskRun stored, TaskRunItem item) = await ReadAsync(run);
-        Assert.Equal(TaskRunItemStatus.Cancelled, item.Status);
-        Assert.NotEqual(TaskErrors.TimedOutCode, item.ErrorCode);
-        Assert.Equal(1, item.Attempts);
-        Assert.Equal((TaskRunStatus.Completed, 1, 0), (stored.Status, stored.Cancelled, stored.Failed));
     }
 
     [Fact]

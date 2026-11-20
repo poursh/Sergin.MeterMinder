@@ -108,8 +108,12 @@ internal sealed class NoteProbeCommandHandler : ICommandHandler<NoteProbeCommand
 internal sealed record SlowProbeCommand(ScheduleProbeId Id, string Note)
     : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
-/// <summary>A background command with a one-second timeout whose handler takes thirty.</summary>
-internal sealed record TimedProbeCommand(ScheduleProbeId Id)
+/// <summary>A task with a one-second inactivity timeout whose handler runs <see cref="PacedProbe.Script"/>.</summary>
+internal sealed record PacedProbeCommand(ScheduleProbeId Id)
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+/// <summary>A task with a one-second inactivity timeout and a two-second cap whose handler runs <see cref="PacedProbe.Script"/>.</summary>
+internal sealed record CappedProbeCommand(ScheduleProbeId Id)
     : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
 internal sealed class SlowProbeCommandConfiguration : ICommandConfiguration<SlowProbeCommand>
@@ -118,13 +122,20 @@ internal sealed class SlowProbeCommandConfiguration : ICommandConfiguration<Slow
         builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable().Name("tst.probes.slow"));
 }
 
-internal sealed class TimedProbeCommandConfiguration : ICommandConfiguration<TimedProbeCommand>
+internal sealed class PacedProbeCommandConfiguration : ICommandConfiguration<PacedProbeCommand>
 {
-    public void Configure(CommandConfigurationBuilder<TimedProbeCommand> builder) =>
-        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.InactivityTimeout(TimeSpan.FromSeconds(1)).Schedulable().Name("tst.probes.timed"));
+    public void Configure(CommandConfigurationBuilder<PacedProbeCommand> builder) =>
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.InactivityTimeout(TimeSpan.FromSeconds(1)).Name("tst.probes.paced"));
 }
 
-/// <summary>A background command with a three-second timeout whose handler takes thirty: a cancel well before it wins.</summary>
+internal sealed class CappedProbeCommandConfiguration : ICommandConfiguration<CappedProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<CappedProbeCommand> builder) =>
+        builder.RequirePermissions(ScheduleProbePermissions.Touch)
+            .Task(task => task.InactivityTimeout(TimeSpan.FromSeconds(1)).MaxDuration(TimeSpan.FromSeconds(2)).Name("tst.probes.capped"));
+}
+
+/// <summary>A task with a three-second inactivity timeout whose handler is silent for thirty: a cancel well before it wins.</summary>
 internal sealed record LongTimedProbeCommand(ScheduleProbeId Id)
     : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
@@ -138,7 +149,7 @@ internal sealed class LongTimedProbeCommandConfiguration : ICommandConfiguration
 internal sealed record GatedTimedProbeCommand(ScheduleProbeId Id)
     : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
-/// <summary>A background command with a one-second timeout whose handler turns the cancellation into another exception.</summary>
+/// <summary>A task with a one-second inactivity timeout, silent, whose handler turns the cancellation into another exception.</summary>
 internal sealed record WrappingTimedProbeCommand(ScheduleProbeId Id)
     : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
@@ -238,11 +249,48 @@ internal sealed class WrappingTimedProbeCommandHandler : ICommandHandler<Wrappin
     }
 }
 
-internal sealed class TimedProbeCommandHandler : ICommandHandler<TimedProbeCommand>
+/// <summary>
+/// What every <see cref="PacedProbeCommand"/> and <see cref="CappedProbeCommand"/> send does: the test sets
+/// <see cref="Script"/>, which gets the send's <see cref="ITaskProgress"/> and token.
+/// </summary>
+internal sealed class PacedProbe
 {
-    public async Task<ErrorOr<Success>> Handle(TimedProbeCommand request, CancellationToken cancellationToken)
+    public Func<ITaskProgress, CancellationToken, Task> Script { get; set; } = (_, _) => Task.CompletedTask;
+
+    /// <summary>
+    /// A script that calls <paramref name="beat"/> every <paramref name="every"/> for <paramref name="total"/>, waiting on
+    /// the send's token.
+    /// </summary>
+    public static Func<ITaskProgress, CancellationToken, Task> Every(
+        TimeSpan every, TimeSpan total, Func<ITaskProgress, int, CancellationToken, ValueTask> beat) =>
+        async (progress, ct) =>
+        {
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            int step = 0;
+
+            while (watch.Elapsed < total)
+            {
+                await Task.Delay(every, ct);
+                step++;
+                await beat(progress, step, ct);
+            }
+        };
+}
+
+internal sealed class PacedProbeCommandHandler(PacedProbe probe, ITaskProgress progress) : ICommandHandler<PacedProbeCommand>
+{
+    public async Task<ErrorOr<Success>> Handle(PacedProbeCommand request, CancellationToken cancellationToken)
     {
-        await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
+        await probe.Script(progress, cancellationToken);
+        return Result.Success;
+    }
+}
+
+internal sealed class CappedProbeCommandHandler(PacedProbe probe, ITaskProgress progress) : ICommandHandler<CappedProbeCommand>
+{
+    public async Task<ErrorOr<Success>> Handle(CappedProbeCommand request, CancellationToken cancellationToken)
+    {
+        await probe.Script(progress, cancellationToken);
         return Result.Success;
     }
 }

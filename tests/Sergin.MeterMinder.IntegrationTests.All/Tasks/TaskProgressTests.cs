@@ -18,9 +18,9 @@ using Sergin.SharedKernel.IntegrationTests;
 namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
-/// A run item's progress: <see cref="ITaskProgress"/> does nothing outside a run item; inside one it clamps the value to
-/// 0–100, writes at most once per two seconds (the first report at once), publishes the change, and the last value
-/// reported is kept on the finished item whatever the throttle held back. The host's clock stands still unless a test
+/// A run item's progress: <see cref="ITaskProgress"/> does nothing outside a run item (a report or a keep-alive); inside
+/// one it clamps the value to 0–100, writes at most once per two seconds (the first report at once), publishes the
+/// change, and the last value reported is kept on the finished item whatever the throttle held back. The host's clock stands still unless a test
 /// moves it, so the throttle is decided by the clock, never by how fast the test runs.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
@@ -75,6 +75,25 @@ public sealed class TaskProgressTests(SerginWebApiFactory<Program> factory) : IA
         using (IServiceScope scope = host.Services.CreateScope())
         {
             await scope.ServiceProvider.GetRequiredService<ITaskProgress>().ReportAsync(50);
+        }
+
+        Assert.Empty(heard);
+    }
+
+    [Fact]
+    public async Task KeepAlive_OutsideARunItem_DoesNothing()
+    {
+        TestCaller user = await TouchCallerAsync();
+        var heard = new ConcurrentQueue<RunChanged>();
+        using IDisposable subscription = host.Services.GetRequiredService<IRunNotifier>().Subscribe(user.Id, change =>
+        {
+            heard.Enqueue(change);
+            return Task.CompletedTask;
+        });
+
+        using (IServiceScope scope = host.Services.CreateScope())
+        {
+            await scope.ServiceProvider.GetRequiredService<ITaskProgress>().KeepAliveAsync();
         }
 
         Assert.Empty(heard);

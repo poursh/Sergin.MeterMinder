@@ -17,14 +17,13 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
 /// A run item that takes longer than the stale period keeps its activity fresh while it runs (the heartbeat), so the
-/// recovery never takes it for lost and sends it again; a background command that outruns its declared timeout is failed
-/// as <c>Tasks.TimedOut</c>, once, and the run completes; a host shutdown is not a timeout.
+/// recovery never takes it for lost and sends it again; a cancellation no token caused is retried. The timeouts, and a host
+/// shutdown that is not one, are <see cref="TaskTimeoutTests"/>'.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) : IAsyncLifetime
 {
     private const string SlowName = "tst.probes.slow";
-    private const string TimedName = "tst.probes.timed";
 
     private static readonly TimeSpan WaitLimit = TimeSpan.FromSeconds(15);
 
@@ -48,9 +47,6 @@ public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) 
                 services.Replace(ServiceDescriptor.Singleton<ITaskEngine>(provider => provider.GetRequiredService<FakeTaskEngine>()));
                 services.AddSingleton<ProbeGate>();
                 services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<Success>>, SlowProbeCommandHandler>();
-                services.AddTransient<IRequestHandler<TimedProbeCommand, ErrorOr<Success>>, TimedProbeCommandHandler>();
-                services.AddTransient<IRequestHandler<GatedTimedProbeCommand, ErrorOr<Success>>, GatedTimedProbeCommandHandler>();
-                services.AddTransient<IRequestHandler<WrappingTimedProbeCommand, ErrorOr<Success>>, WrappingTimedProbeCommandHandler>();
                 services.AddScoped<IValidator<SlowProbeCommand>, SlowProbeCommandValidator>();
                 services.AddTransient<IRequestHandler<TouchOneProbeCommand, ErrorOr<Success>>, SelfCancelingProbeCommandHandler>();
             });
@@ -90,40 +86,6 @@ public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) 
     }
 
     [Fact]
-    public async Task Timeout_FailsTheItemWithoutRetry()
-    {
-        TestCaller user = await TouchCallerAsync(tree.North);
-        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
-        string arguments = TaskCommandFactory.ToArguments(new TimedProbeCommand(new(Guid.Empty)));
-        Guid run = await StartRunAsync(user, tree.North, TimedName, arguments, probe.Id.Value);
-
-        await Engine.DrainAsync(host.Services);
-
-        TaskRunItem item = Assert.Single(await ItemsAsync(run));
-        Assert.Equal(TaskRunItemStatus.Failed, item.Status);
-        Assert.Equal("Tasks.TimedOut", item.ErrorCode);
-        Assert.Equal(1, item.Attempts);
-        Assert.Equal(TaskRunStatus.Completed, (await RunAsync(run)).Status);
-    }
-
-    [Fact]
-    public async Task Timeout_WrappedInAnotherException_IsStillATimeout()
-    {
-        TestCaller user = await TouchCallerAsync(tree.North);
-        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
-        string arguments = TaskCommandFactory.ToArguments(new WrappingTimedProbeCommand(new(Guid.Empty)));
-        Guid run = await StartRunAsync(user, tree.North, "tst.probes.wrapping-timed", arguments, probe.Id.Value);
-
-        await Engine.DrainAsync(host.Services);
-
-        TaskRunItem item = Assert.Single(await ItemsAsync(run));
-        Assert.Equal(TaskRunItemStatus.Failed, item.Status);
-        Assert.Equal("Tasks.TimedOut", item.ErrorCode);
-        Assert.Equal(1, item.Attempts);
-        Assert.Equal(TaskRunStatus.Completed, (await RunAsync(run)).Status);
-    }
-
-    [Fact]
     public async Task Touch_OnAFinishedItem_ChangesNothing()
     {
         TestCaller user = await TouchCallerAsync(tree.North);
@@ -145,33 +107,6 @@ public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) 
 
         Assert.Equal(new RunItemHeartbeat(Touched: false, CancelRequested: false), touched);
         Assert.Equal(finished.LastActivityAtUtc, Assert.Single(await ItemsAsync(run)).LastActivityAtUtc);
-    }
-
-    [Fact]
-    public async Task HostShutdown_IsNotATimeout()
-    {
-        TestCaller user = await TouchCallerAsync(tree.North);
-        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
-        // A command with a timeout (far longer than the test), so a shutdown could be mistaken for one.
-        string arguments = TaskCommandFactory.ToArguments(new GatedTimedProbeCommand(new(Guid.Empty)));
-        Guid run = await StartRunAsync(user, tree.North, "tst.probes.gated-timed", arguments, probe.Id.Value);
-        Guid itemId = Assert.Single(await ItemsAsync(run)).Id;
-
-        using IServiceScope scope = host.Services.CreateScope();
-        TaskRunItemExecutor executor = scope.ServiceProvider.GetRequiredService<TaskRunItemExecutor>();
-        using var shutdown = new CancellationTokenSource();
-
-        Task<bool> execution = executor.ExecuteAsync(TasksDbContext.Schema, itemId, shutdown.Token);
-        await WaitUntilAsync(() => Gate.Entered == 1);
-        await shutdown.CancelAsync();
-
-        // The send's own cancellation, unchanged: nothing was attempted after it (a save on the cancelled token would
-        // throw a plain OperationCanceledException instead).
-        await Assert.ThrowsAsync<ProbeCanceledException>(() => execution);
-
-        TaskRunItem item = Assert.Single(await ItemsAsync(run));
-        Assert.Equal(TaskRunItemStatus.Running, item.Status);
-        Assert.Null(item.ErrorCode);
     }
 
     [Fact]
