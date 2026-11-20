@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <None Include="Commands\Types\catalog-keys.txt" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Tasks\task-names.txt" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

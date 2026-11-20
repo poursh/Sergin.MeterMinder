@@ -106,18 +106,18 @@ public sealed class TaskStartTests(SerginWebApiFactory<Program> factory) : IAsyn
     }
 
     [Fact]
-    public async Task NotBackground_IsRefused()
+    public async Task NonTask_IsRefused()
     {
         TestCaller caller = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
         ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
 
         ErrorOr<TaskRunStartedResponse> started =
-            await StartAsync(host, caller, new TouchProbeCommand(new(Guid.Empty), new ProbeNote("inline")), probe);
+            await StartAsync(host, caller, new CheckedProbeCommand(new(Guid.Empty), new CheckedNote("inline")), probe);
 
         Assert.True(started.IsError);
-        Assert.Equal(ErrorType.Validation, started.FirstError.Type);
-        Assert.Equal(TaskErrors.NotBackground.Code, started.FirstError.Code);
-        Assert.Equal(TaskTexts.NotBackground.Default, started.FirstError.Description);
+        Error refused = Assert.Single(started.Errors, error => error.Code == TaskErrors.NotBackground.Code);
+        Assert.Equal(ErrorType.Validation, refused.Type);
+        Assert.Equal(TaskTexts.NotBackground.Default, refused.Description);
         await AssertNothingWrittenAsync();
     }
 

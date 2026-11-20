@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.Application.Commands;
+using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Types;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -27,6 +28,10 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 public sealed class RunItemExecutionTests(SerginWebApiFactory<Program> factory) : IAsyncLifetime
 {
     private const string TouchName = "tst.probes.touch";
+
+    // What a hand-built descriptor declares: every default; only the factory reads it, and it reads none of this.
+    private static readonly TaskSettings Settings =
+        new("tst.probes.hand-built", TaskSettings.DefaultInactivityTimeout, MaxDuration: null, Cancelable: true, Schedulable: false);
 
     private WebApplicationFactory<Program> host = default!;
     private RbacScenario tree = default!;
@@ -161,10 +166,10 @@ public sealed class RunItemExecutionTests(SerginWebApiFactory<Program> factory) 
     {
         TaskDescriptor command = new(
             "tst.probes.checked", TasksDbContext.Schema, typeof(CheckedProbeCommand), typeof(ScheduleProbe),
-            CommandTargetKind.Entity, typeof(ScheduleProbeId), RootIdType: null, Selectable: false);
+            CommandTargetKind.Entity, typeof(ScheduleProbeId), Selectable: false, Settings);
 
-        ErrorOr<IBaseCommand> refused = TaskCommandFactory.Build(command, """{"Note":{"Value":"refused"}}""", Guid.CreateVersion7(), rootId: null);
-        ErrorOr<IBaseCommand> accepted = TaskCommandFactory.Build(command, """{"Note":{"Value":"fine"}}""", Guid.CreateVersion7(), rootId: null);
+        ErrorOr<IBaseCommand> refused = TaskCommandFactory.Build(command, """{"Note":{"Value":"refused"}}""", Guid.CreateVersion7());
+        ErrorOr<IBaseCommand> accepted = TaskCommandFactory.Build(command, """{"Note":{"Value":"fine"}}""", Guid.CreateVersion7());
 
         Assert.Equal(TaskErrors.ArgumentsInvalid.Code, refused.FirstError.Code);
         Assert.Equal("fine", Assert.IsType<CheckedProbeCommand>(accepted.Value).Note.Value);
@@ -175,9 +180,9 @@ public sealed class RunItemExecutionTests(SerginWebApiFactory<Program> factory) 
     {
         TaskDescriptor command = new(
             "tst.probes.bad-id", TasksDbContext.Schema, typeof(TouchProbeCommand), typeof(ScheduleProbe),
-            CommandTargetKind.Entity, typeof(ProbeNote), RootIdType: null, Selectable: false);
+            CommandTargetKind.Entity, typeof(ProbeNote), Selectable: false, Settings);
 
-        ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, """{"Note":{"Value":"x"}}""", Guid.CreateVersion7(), rootId: null);
+        ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, """{"Note":{"Value":"x"}}""", Guid.CreateVersion7());
 
         Assert.Equal(TaskErrors.ArgumentsInvalid.Code, built.FirstError.Code);
     }
@@ -248,7 +253,7 @@ public sealed class RunItemExecutionTests(SerginWebApiFactory<Program> factory) 
         var targetId = Guid.CreateVersion7();
 
         string arguments = TaskCommandFactory.ToArguments(new TouchProbeCommand(new(Guid.Empty), new ProbeNote("hello")));
-        ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, targetId, rootId: null);
+        ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, targetId);
 
         Assert.False(JsonNode.Parse(arguments)!.AsObject().ContainsKey("Id"));
         TouchProbeCommand touch = Assert.IsType<TouchProbeCommand>(built.Value);
@@ -261,7 +266,7 @@ public sealed class RunItemExecutionTests(SerginWebApiFactory<Program> factory) 
     {
         TaskDescriptor command = Catalog().Commands.Single(one => one.Name == TouchName);
 
-        ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, """{"Note":42}""", Guid.CreateVersion7(), rootId: null);
+        ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, """{"Note":42}""", Guid.CreateVersion7());
 
         Assert.Equal(TaskErrors.ArgumentsInvalid.Code, built.FirstError.Code);
     }

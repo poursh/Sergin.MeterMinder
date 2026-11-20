@@ -119,7 +119,7 @@ public sealed class GeneratedDeviceViewTests(SerginWebApiFactory<Program> factor
         AggregateViewModel model = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Device>();
         CommandView readProfile = Assert.Single(model.Commands, command => command.Request == typeof(ReadDeviceProfileCommand));
         Assert.True(readProfile.Selectable);
-        Assert.NotNull(readProfile.ScheduleName);
+        Assert.True(readProfile.Task?.Schedulable);
 
         GetDeviceListItem[] items =
         [

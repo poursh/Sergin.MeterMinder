@@ -61,19 +61,19 @@ internal sealed record TouchProbeCommand(ScheduleProbeId Id, ProbeNote Note)
 
 internal sealed record TouchOneProbeCommand(ScheduleProbeId Id, ProbeNote Note) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
-/// <summary>Typed but never configured, so never schedulable.</summary>
+/// <summary>A task never configured: every default, its name derived, and not schedulable.</summary>
 internal sealed record UnconfiguredProbeCommand(ScheduleProbeId Id, ProbeNote Note) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
 internal sealed class TouchProbeCommandConfiguration : ICommandConfiguration<TouchProbeCommand>
 {
     public void Configure(CommandConfigurationBuilder<TouchProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.touch").RequirePermissions(ScheduleProbePermissions.Touch);
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable().Name("tst.probes.touch"));
 }
 
 internal sealed class TouchOneProbeCommandConfiguration : ICommandConfiguration<TouchOneProbeCommand>
 {
     public void Configure(CommandConfigurationBuilder<TouchOneProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.touch-one").RequirePermissions(ScheduleProbePermissions.Touch);
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable().Name("tst.probes.touch-one"));
 }
 
 internal sealed class TouchProbeCommandValidator : AbstractValidator<TouchProbeCommand>
@@ -84,7 +84,7 @@ internal sealed class TouchProbeCommandValidator : AbstractValidator<TouchProbeC
             .OverridePropertyName(nameof(TouchProbeCommand.Note));
 }
 
-// ---- Background probes: valid declarations, in TaskTestHost.ProbeConfigurations; handlers registered per test host. ----
+// ---- Run probes: valid declarations, in TaskTestHost.ProbeConfigurations; handlers registered per test host. ----
 
 /// <summary>A background command whose handler waits on the host's <see cref="ProbeGate"/> until a test releases it.</summary>
 internal sealed record SlowProbeCommand(ScheduleProbeId Id, string Note)
@@ -96,15 +96,14 @@ internal sealed record TimedProbeCommand(ScheduleProbeId Id)
 
 internal sealed class SlowProbeCommandConfiguration : ICommandConfiguration<SlowProbeCommand>
 {
-    // The name is shared with BackgroundProbeCommandConfiguration (Task 1's fixture), which lives in a separate source.
     public void Configure(CommandConfigurationBuilder<SlowProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.slow").Background().RequirePermissions(ScheduleProbePermissions.Touch);
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable().Name("tst.probes.slow"));
 }
 
 internal sealed class TimedProbeCommandConfiguration : ICommandConfiguration<TimedProbeCommand>
 {
     public void Configure(CommandConfigurationBuilder<TimedProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.timed").Background(TimeSpan.FromSeconds(1)).RequirePermissions(ScheduleProbePermissions.Touch);
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.InactivityTimeout(TimeSpan.FromSeconds(1)).Schedulable().Name("tst.probes.timed"));
 }
 
 /// <summary>A background command with a three-second timeout whose handler takes thirty: a cancel well before it wins.</summary>
@@ -114,7 +113,7 @@ internal sealed record LongTimedProbeCommand(ScheduleProbeId Id)
 internal sealed class LongTimedProbeCommandConfiguration : ICommandConfiguration<LongTimedProbeCommand>
 {
     public void Configure(CommandConfigurationBuilder<LongTimedProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.long-timed").Background(TimeSpan.FromSeconds(3)).RequirePermissions(ScheduleProbePermissions.Touch);
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.InactivityTimeout(TimeSpan.FromSeconds(3)).Schedulable().Name("tst.probes.long-timed"));
 }
 
 /// <summary>A background command with a timeout far longer than any test, whose handler waits on the <see cref="ProbeGate"/>.</summary>
@@ -128,13 +127,13 @@ internal sealed record WrappingTimedProbeCommand(ScheduleProbeId Id)
 internal sealed class GatedTimedProbeCommandConfiguration : ICommandConfiguration<GatedTimedProbeCommand>
 {
     public void Configure(CommandConfigurationBuilder<GatedTimedProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.gated-timed").Background(TimeSpan.FromMinutes(1)).RequirePermissions(ScheduleProbePermissions.Touch);
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.InactivityTimeout(TimeSpan.FromMinutes(1)).Schedulable().Name("tst.probes.gated-timed"));
 }
 
 internal sealed class WrappingTimedProbeCommandConfiguration : ICommandConfiguration<WrappingTimedProbeCommand>
 {
     public void Configure(CommandConfigurationBuilder<WrappingTimedProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.wrapping-timed").Background(TimeSpan.FromSeconds(1)).RequirePermissions(ScheduleProbePermissions.Touch);
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.InactivityTimeout(TimeSpan.FromSeconds(1)).Schedulable().Name("tst.probes.wrapping-timed"));
 }
 
 internal sealed class SlowProbeCommandValidator : AbstractValidator<SlowProbeCommand>
@@ -249,7 +248,7 @@ internal sealed record CancelThenThrowProbeCommand(ScheduleProbeId Id)
 internal sealed class CancelThenThrowProbeCommandConfiguration : ICommandConfiguration<CancelThenThrowProbeCommand>
 {
     public void Configure(CommandConfigurationBuilder<CancelThenThrowProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.cancel-then-throw").Background().RequirePermissions(ScheduleProbePermissions.Touch);
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable().Name("tst.probes.cancel-then-throw"));
 }
 
 /// <summary>The run a <see cref="CancelThenThrowProbeCommandHandler"/> cancels; set by the test before the drain.</summary>
@@ -281,7 +280,7 @@ internal sealed record ProgressProbeCommand(ScheduleProbeId Id)
 internal sealed class ProgressProbeCommandConfiguration : ICommandConfiguration<ProgressProbeCommand>
 {
     public void Configure(CommandConfigurationBuilder<ProgressProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.progress").Background().RequirePermissions(ScheduleProbePermissions.Touch);
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable().Name("tst.probes.progress"));
 }
 
 /// <summary>
@@ -364,43 +363,11 @@ internal sealed class VersionedProbeAggregateFeatureConfiguration : IAggregateFe
 
 internal sealed record GuardedProbeCommand(VersionedProbeId Id) : ICommand, IUpdateCommand<VersionedProbe, VersionedProbeId>;
 
-internal sealed class GuardedProbeCommandConfiguration : ICommandConfiguration<GuardedProbeCommand>
-{
-    public void Configure(CommandConfigurationBuilder<GuardedProbeCommand> builder) => builder.Schedulable("tst.guarded.touch");
-}
-
-internal sealed class WaivedGuardedProbeCommandConfiguration : ICommandConfiguration<GuardedProbeCommand>
-{
-    public void Configure(CommandConfigurationBuilder<GuardedProbeCommand> builder) =>
-        builder.Schedulable("tst.guarded.touch").WithoutExpectedVersion();
-}
-
-internal sealed record CreateProbeCommand(string Name) : ICommand, ICreateCommand<ScheduleProbe, ScheduleProbeId>;
-
-internal sealed class CreateProbeCommandConfiguration : ICommandConfiguration<CreateProbeCommand>
-{
-    public void Configure(CommandConfigurationBuilder<CreateProbeCommand> builder) => builder.Schedulable("tst.probes.create");
-}
-
-internal sealed record SystemProbeCommand : ICommand, ISystemCommand;
-
-internal sealed class SystemProbeCommandConfiguration : ICommandConfiguration<SystemProbeCommand>
-{
-    public void Configure(CommandConfigurationBuilder<SystemProbeCommand> builder) => builder.Schedulable("tst.probes.system");
-}
-
-internal sealed record UntypedProbeCommand : ICommand;
-
-internal sealed class UntypedProbeCommandConfiguration : ICommandConfiguration<UntypedProbeCommand>
-{
-    public void Configure(CommandConfigurationBuilder<UntypedProbeCommand> builder) => builder.Schedulable("tst.probes.untyped");
-}
-
 internal sealed record MalformedNameCommand(ScheduleProbeId Id) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
 internal sealed class MalformedNameCommandConfiguration : ICommandConfiguration<MalformedNameCommand>
 {
-    public void Configure(CommandConfigurationBuilder<MalformedNameCommand> builder) => builder.Schedulable("Tst.Bad");
+    public void Configure(CommandConfigurationBuilder<MalformedNameCommand> builder) => builder.Task(task => task.Name("Tst.Bad"));
 }
 
 internal sealed record DuplicateNameOneCommand(ScheduleProbeId Id) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
@@ -409,19 +376,21 @@ internal sealed record DuplicateNameTwoCommand(ScheduleProbeId Id) : ITaskComman
 
 internal sealed class DuplicateNameOneCommandConfiguration : ICommandConfiguration<DuplicateNameOneCommand>
 {
-    public void Configure(CommandConfigurationBuilder<DuplicateNameOneCommand> builder) => builder.Schedulable("tst.probes.dup");
+    // No Name(...): its derived name is tst.schedule-probe.duplicate-name-one, the one DuplicateNameTwo takes.
+    public void Configure(CommandConfigurationBuilder<DuplicateNameOneCommand> builder) => builder.Task(task => task.Schedulable());
 }
 
 internal sealed class DuplicateNameTwoCommandConfiguration : ICommandConfiguration<DuplicateNameTwoCommand>
 {
-    public void Configure(CommandConfigurationBuilder<DuplicateNameTwoCommand> builder) => builder.Schedulable("tst.probes.dup");
+    public void Configure(CommandConfigurationBuilder<DuplicateNameTwoCommand> builder) =>
+        builder.Task(task => task.Name("tst.schedule-probe.duplicate-name-one"));
 }
 
 internal sealed record OutsideSchemaCommand(ScheduleProbeId Id) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
 internal sealed class OutsideSchemaCommandConfiguration : ICommandConfiguration<OutsideSchemaCommand>
 {
-    public void Configure(CommandConfigurationBuilder<OutsideSchemaCommand> builder) => builder.Schedulable("dm.x");
+    public void Configure(CommandConfigurationBuilder<OutsideSchemaCommand> builder) => builder.Task(task => task.Name("dm.x"));
 }
 
 // ---- Argument-template fixtures: built directly, never configured or registered. ----
@@ -444,66 +413,47 @@ internal sealed record CheckedNote
 
 internal sealed record CheckedProbeCommand(ScheduleProbeId Id, CheckedNote Note) : ICommand;
 
-// ---- Background declaration fixtures: never added to TaskTestHost.ProbeConfigurations. ----
+// ---- Task declaration fixtures: never added to TaskTestHost.ProbeConfigurations. ----
 
-internal sealed record BackgroundProbeCommand(ScheduleProbeId Id) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
+internal sealed record DeclaredProbeCommand(ScheduleProbeId Id) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
-internal sealed class BackgroundProbeCommandConfiguration : ICommandConfiguration<BackgroundProbeCommand>
+internal sealed class DeclaredProbeCommandConfiguration : ICommandConfiguration<DeclaredProbeCommand>
 {
-    public void Configure(CommandConfigurationBuilder<BackgroundProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.slow").Background(TimeSpan.FromMinutes(2));
+    public void Configure(CommandConfigurationBuilder<DeclaredProbeCommand> builder) =>
+        builder.Task(task => task
+            .InactivityTimeout(TimeSpan.FromMinutes(2))
+            .MaxDuration(TimeSpan.FromMinutes(10))
+            .NotCancelable()
+            .Schedulable()
+            .Name("tst.probes.old"));
 }
 
-internal sealed class BackgroundOnlyProbeCommandConfiguration : ICommandConfiguration<BackgroundProbeCommand>
+internal sealed class ZeroInactivityProbeCommandConfiguration : ICommandConfiguration<DeclaredProbeCommand>
 {
-    public void Configure(CommandConfigurationBuilder<BackgroundProbeCommand> builder) => builder.Background();
+    public void Configure(CommandConfigurationBuilder<DeclaredProbeCommand> builder) =>
+        builder.Task(task => task.InactivityTimeout(TimeSpan.Zero));
 }
 
-internal sealed class BackgroundZeroProbeCommandConfiguration : ICommandConfiguration<BackgroundProbeCommand>
+internal sealed class LongInactivityProbeCommandConfiguration : ICommandConfiguration<DeclaredProbeCommand>
 {
-    public void Configure(CommandConfigurationBuilder<BackgroundProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.slow").Background(TimeSpan.Zero);
+    public void Configure(CommandConfigurationBuilder<DeclaredProbeCommand> builder) =>
+        builder.Task(task => task.InactivityTimeout(TimeSpan.FromMinutes(61)));
 }
 
-internal sealed class BackgroundNegativeProbeCommandConfiguration : ICommandConfiguration<BackgroundProbeCommand>
+internal sealed class ShortMaxDurationProbeCommandConfiguration : ICommandConfiguration<DeclaredProbeCommand>
 {
-    public void Configure(CommandConfigurationBuilder<BackgroundProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.slow").Background(TimeSpan.FromSeconds(-1));
+    public void Configure(CommandConfigurationBuilder<DeclaredProbeCommand> builder) =>
+        builder.Task(task => task.InactivityTimeout(TimeSpan.FromMinutes(10)).MaxDuration(TimeSpan.FromMinutes(5)));
 }
 
-internal sealed class BackgroundTooLongProbeCommandConfiguration : ICommandConfiguration<BackgroundProbeCommand>
+// ---- Collection probe: a task on every probe of the run's scope, with no record. Task 8 adds its handler. ----
+
+internal sealed record SyncProbesCommand : ITaskCommand<ScheduleProbe>;
+
+internal sealed class SyncProbesCommandConfiguration : ICommandConfiguration<SyncProbesCommand>
 {
-    public void Configure(CommandConfigurationBuilder<BackgroundProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.slow").Background(TimeSpan.FromMinutes(61));
-}
-
-/// <summary>A set-property command: the generated views send it with a value, so it may not be a background command.</summary>
-internal sealed record BackgroundSetPropertyProbeCommand(ScheduleProbeId Id, ProbeNote Note)
-    : ICommand, ISetPropertyCommand<ScheduleProbe, ScheduleProbeId>;
-
-internal sealed class BackgroundSetPropertyProbeCommandConfiguration : ICommandConfiguration<BackgroundSetPropertyProbeCommand>
-{
-    public void Configure(CommandConfigurationBuilder<BackgroundSetPropertyProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.background-set").Background();
-}
-
-/// <summary>A child's transition: the generated views start only a root's.</summary>
-internal sealed record BackgroundChildTransitionProbeCommand(ScheduleProbeId RootId, ScheduleProbeChildId Id)
-    : ICommand, ITransitionCommand<ScheduleProbe, ScheduleProbeId, ScheduleProbeChild, ScheduleProbeChildId>;
-
-internal sealed class BackgroundChildTransitionProbeCommandConfiguration : ICommandConfiguration<BackgroundChildTransitionProbeCommand>
-{
-    public void Configure(CommandConfigurationBuilder<BackgroundChildTransitionProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.background-child").Background();
-}
-
-/// <summary>A deletion: the generated views confirm and send it, so it may not be a background command.</summary>
-internal sealed record BackgroundDeleteProbeCommand(ScheduleProbeId Id) : ICommand, IDeleteCommand<ScheduleProbe, ScheduleProbeId>;
-
-internal sealed class BackgroundDeleteProbeCommandConfiguration : ICommandConfiguration<BackgroundDeleteProbeCommand>
-{
-    public void Configure(CommandConfigurationBuilder<BackgroundDeleteProbeCommand> builder) =>
-        builder.Schedulable("tst.probes.background-delete").Background();
+    public void Configure(CommandConfigurationBuilder<SyncProbesCommand> builder) =>
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable());
 }
 
 /// <summary>Throws a cancellation no token caused, as an HTTP client's timeout does.</summary>

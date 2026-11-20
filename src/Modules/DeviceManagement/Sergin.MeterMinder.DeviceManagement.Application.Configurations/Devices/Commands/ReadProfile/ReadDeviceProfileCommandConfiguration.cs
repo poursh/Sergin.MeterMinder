@@ -6,7 +6,8 @@ namespace Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices
 internal sealed class ReadDeviceProfileCommandConfiguration : ICommandConfiguration<ReadDeviceProfileCommand>
 {
     public void Configure(CommandConfigurationBuilder<ReadDeviceProfileCommand> builder) =>
-        builder.Schedulable("dm.devices.read-profile")
-            .Background(TimeSpan.FromMinutes(10))
-            .RequirePermissions(DevicePermissions.ReadProfile);
+        builder.RequirePermissions(DevicePermissions.ReadProfile)
+            .Task(task => task
+                .InactivityTimeout(TimeSpan.FromMinutes(2))
+                .Schedulable());
 }

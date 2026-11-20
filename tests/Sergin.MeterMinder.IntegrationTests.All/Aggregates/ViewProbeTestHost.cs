@@ -11,17 +11,6 @@ using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
-/// <summary>
-/// Run as a test host schedules it: from the record's id, with no version (a version stored with a task is stale by the
-/// next run). The registry tests read <see cref="RunViewProbeCommandConfiguration"/>, which keeps the version guard; a
-/// host builds the scheduled-command catalogue, which refuses that, so the probe host registers this one instead.
-/// </summary>
-internal sealed class HostedRunViewProbeCommandConfiguration : ICommandConfiguration<RunViewProbeCommand>
-{
-    public void Configure(CommandConfigurationBuilder<RunViewProbeCommand> builder) =>
-        builder.RequirePermissions(ViewProbePermissions.Run).Schedulable("tst.view-probes.run").WithoutExpectedVersion();
-}
-
 /// <summary>The probe records the handlers below read and write, by id; nothing reaches a database.</summary>
 internal sealed class ViewProbeStore
 {
@@ -111,7 +100,7 @@ internal static class ViewProbeTestHost
     {
         services.AddSingleton(ModuleConfigurationSource.FromTypes(
             typeof(ViewProbeAggregateFeatureConfiguration),
-            typeof(HostedRunViewProbeCommandConfiguration),
+            typeof(RunViewProbeCommandConfiguration),
             typeof(GetViewProbeQuery),
             typeof(GetViewProbeOverviewQuery),
             typeof(GetViewProbeAuditQuery),

@@ -100,12 +100,12 @@ public static class ViewProbeListFields
 
 internal sealed record CreateViewProbeCommand(ViewProbeName Name, ViewOwnerId OwnerId) : ICommand, ICreateCommand<ViewProbe, ViewProbeId>;
 
-internal sealed record RunViewProbeCommand(ViewProbeId Id) : ICommand, ITransitionCommand<ViewProbe, ViewProbeId>, ISelectable;
+internal sealed record RunViewProbeCommand(ViewProbeId Id) : ITaskCommand<ViewProbe, ViewProbeId>, ISelectable;
 
 internal sealed class RunViewProbeCommandConfiguration : ICommandConfiguration<RunViewProbeCommand>
 {
     public void Configure(CommandConfigurationBuilder<RunViewProbeCommand> builder) =>
-        builder.RequirePermissions(ViewProbePermissions.Run).Schedulable("tst.view-probes.run");
+        builder.RequirePermissions(ViewProbePermissions.Run).Task(task => task.Schedulable().Name("tst.view-probes.run"));
 }
 
 internal sealed record DeleteViewProbeCommand(ViewProbeId Id) : ICommand, IDeleteCommand<ViewProbe, ViewProbeId>;
@@ -1191,7 +1191,7 @@ internal sealed class EditRouteWithoutUpdateViewProbeViewConfiguration : IAggreg
     }
 }
 
-// ---- Refusal: a schedulable command a detail view cannot build from the id ----
+// ---- Refusal: a schedulable task a detail view cannot build from the id ----
 
 internal sealed record EditScheduledProbeId(Guid Value);
 
@@ -1215,19 +1215,19 @@ internal sealed class EditScheduledProbeAggregateFeatureConfiguration : IAggrega
 }
 
 internal sealed record UpdateEditScheduledProbeCommand(EditScheduledProbeId Id, EditScheduledProbeName Name)
-    : ICommand, IUpdateCommand<EditScheduledProbe, EditScheduledProbeId>;
+    : ITaskCommand<EditScheduledProbe, EditScheduledProbeId>;
 
 internal sealed class UpdateEditScheduledProbeCommandConfiguration : ICommandConfiguration<UpdateEditScheduledProbeCommand>
 {
     public void Configure(CommandConfigurationBuilder<UpdateEditScheduledProbeCommand> builder) =>
-        builder.Schedulable("tst.edit-scheduled-probes.update");
+        builder.Task(task => task.Schedulable());
 }
 
 internal sealed class EditScheduledProbeViewConfiguration : IAggregateViewConfiguration<EditScheduledProbe>
 {
-    public void Configure(AggregateViewBuilder<EditScheduledProbe> view)
-    {
-    }
+    // A task has no default label yet (it is a transition until its own role lands), so it declares one.
+    public void Configure(AggregateViewBuilder<EditScheduledProbe> view) =>
+        view.Command<UpdateEditScheduledProbeCommand>().Label(EditScheduledProbeTexts.Singular);
 }
 
 // ---- Refusal: a form command with no public constructor ----

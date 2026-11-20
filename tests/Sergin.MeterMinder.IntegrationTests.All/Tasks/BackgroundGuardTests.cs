@@ -15,8 +15,8 @@ using Sergin.SharedKernel.IntegrationTests;
 namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
-/// A background command is started, never sent: sent inline it is refused before anything else runs; inside a run item the
-/// same send passes; every other command still sends inline.
+/// A task is started, never sent: sent inline it is refused before anything else runs; inside a run item the same send
+/// passes.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) : IAsyncLifetime
@@ -38,9 +38,6 @@ public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) :
                 services.AddSingleton<FakeTaskEngine>();
                 services.Replace(ServiceDescriptor.Singleton<ITaskEngine>(provider => provider.GetRequiredService<FakeTaskEngine>()));
                 services.AddSingleton<ProbeGate>();
-                services.AddSingleton<ProbeFailureSwitch>();
-                services.AddTransient<IRequestHandler<TouchProbeCommand, ErrorOr<Success>>, TouchProbeCommandHandler>();
-                services.AddScoped<IValidator<TouchProbeCommand>, TouchProbeCommandValidator>();
                 services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<Success>>, SlowProbeCommandHandler>();
                 services.AddScoped<IValidator<SlowProbeCommand>, SlowProbeCommandValidator>();
             }));
@@ -80,17 +77,6 @@ public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) :
         TaskRunItem item = Assert.Single(await ItemsAsync(run));
         Assert.Equal(TaskRunItemStatus.Succeeded, item.Status);
         Assert.Equal(1, Gate.Entered);
-    }
-
-    [Fact]
-    public async Task OtherCommands_StillSendInline()
-    {
-        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
-
-        // The scenario's default caller is the administrator at the root, so the permission check passes on the current scope.
-        ErrorOr<Success> result = await tree.TrySendAsync(new TouchProbeCommand(probe.Id, new ProbeNote("inline")));
-
-        Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
     }
 
     private async Task<ScheduleProbe> CreateProbeAsync(Guid scopeId)

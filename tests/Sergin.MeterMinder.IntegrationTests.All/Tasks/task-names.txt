@@ -1,0 +1,1 @@
+dm.device.read-device-profile

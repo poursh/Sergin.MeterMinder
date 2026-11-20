@@ -37,7 +37,7 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
     [Fact]
     public void ReadProfile_CommandView_IsBackground()
     {
-        Assert.NotNull(ReadProfile().Background);
+        Assert.NotNull(ReadProfile().Task);
     }
 
     [Fact]
@@ -122,7 +122,7 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
         ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
             .Initialize("http://localhost/", $"http://localhost/dm/devices/{device}");
         ActivityPanelState activity = scope.ServiceProvider.GetRequiredService<ActivityPanelState>();
-        string commandName = ReadProfile().ScheduleName!;
+        string commandName = ReadProfile().Task!.Name;
         await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
 
         await renderer.Dispatcher.InvokeAsync(async () =>

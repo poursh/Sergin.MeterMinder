@@ -22,7 +22,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
 {
-    private const string ReadProfile = "dm.devices.read-profile";
+    private const string ReadProfile = "dm.device.read-device-profile";
 
     [Fact]
     public void AOneDeviceReadProfile_HasTheReadProfileLabel_TheDeviceLabel_AndTheDeviceLink()

@@ -129,9 +129,10 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
     {
         TaskCatalog catalog = factory.Services.GetRequiredService<TaskCatalog>();
 
-        Assert.True(catalog.TryGet("dm.devices.read-profile", out TaskDescriptor? command));
+        Assert.True(catalog.TryGet("dm.device.read-device-profile", out TaskDescriptor? command));
         Assert.Equal(typeof(ReadDeviceProfileCommand), command.RequestType);
-        Assert.Equal(TimeSpan.FromMinutes(10), command.Background!.Timeout);
+        Assert.Equal(TimeSpan.FromMinutes(2), command.Settings.InactivityTimeout);
+        Assert.True(command.Settings.Schedulable);
     }
 
     private async Task<int?> ProgressOfAsync(Guid runId)

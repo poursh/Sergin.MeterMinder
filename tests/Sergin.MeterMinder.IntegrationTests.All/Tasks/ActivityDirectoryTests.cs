@@ -70,7 +70,7 @@ public sealed class ActivityDirectoryTests(SerginWebApiFactory<Program> factory)
         Assert.Equal([Dm, Tst], activity.Select(item => item.Ref.Schema));
         Assert.All(activity, item => Assert.Equal(TaskRunTrigger.Manual, item.Trigger));
         Assert.All(activity, item => Assert.Equal(TaskRunStatus.Running, item.Status));
-        Assert.Equal("dm.devices.read-profile", activity[0].CommandName);
+        Assert.Equal("dm.device.read-device-profile", activity[0].CommandName);
         Assert.Equal(1, activity[0].Unfinished);
     }
 
