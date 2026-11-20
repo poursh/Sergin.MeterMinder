@@ -293,6 +293,8 @@ common.tasks.dialog.trigger
 common.tasks.edit-title
 common.tasks.empty
 common.tasks.engine-off
+common.tasks.errors.already-running
+common.tasks.errors.collection-targets
 common.tasks.errors.command-changed
 common.tasks.errors.duplicate-targets
 common.tasks.errors.invalid-cron

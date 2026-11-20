@@ -86,6 +86,31 @@ public sealed class DeviceManagementTasksModelTests(SerginWebApiFactory<Program>
     }
 
     [Fact]
+    public void DmModel_CarriesTheCollectionIndex_TheTargetKind_AndANullableTargetId()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        IModel model = Assert.IsAssignableFrom<DbContext>(scope.ServiceProvider.GetRequiredService<IDeviceManagementDbContext>()).GetService<IDesignTimeModel>().Model;
+        IEntityType runs = model.FindEntityType(typeof(TaskRun))!;
+        IEntityType items = model.FindEntityType(typeof(TaskRunItem))!;
+
+        IIndex collection = Assert.Single(runs.GetIndexes(), index => index.GetDatabaseName() == "ix_task_runs_collection_running");
+        Assert.True(collection.IsUnique);
+        Assert.Equal(["command_name", "scope_id"], [.. collection.Properties.Select(property => property.GetColumnName())]);
+        Assert.Equal("status = 'Running' AND target_kind = 'Collection'", collection.GetFilter());
+
+        IProperty kind = runs.FindProperty(nameof(TaskRun.TargetKind))!;
+        Assert.Equal("target_kind", kind.GetColumnName(StoreObjectIdentifier.Table("task_runs", "dm")));
+        Assert.False(kind.IsNullable);
+
+        IProperty target = items.FindProperty(nameof(TaskRunItem.TargetId))!;
+        Assert.Equal("target_id", target.GetColumnName(StoreObjectIdentifier.Table("task_run_items", "dm")));
+        Assert.True(target.IsNullable);
+
+        Assert.DoesNotContain(runs.GetProperties(), property => property.GetColumnName() == "root_id");
+        Assert.DoesNotContain(items.GetProperties(), property => property.GetColumnName() == "root_id");
+    }
+
+    [Fact]
     public void DmContext_IsATasksContext()
     {
         using IServiceScope scope = factory.Services.CreateScope();

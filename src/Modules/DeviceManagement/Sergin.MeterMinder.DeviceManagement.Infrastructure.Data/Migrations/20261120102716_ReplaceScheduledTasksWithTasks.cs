@@ -11,6 +11,7 @@ public partial class ReplaceScheduledTasksWithTasks : Migration
     private static readonly string[] RunItemTargetIdRunIdColumns = ["target_id", "run_id"];
     private static readonly string[] RunItemStatusLastActivityColumns = ["status", "last_activity_at_utc"];
     private static readonly string[] RunActingUserIdStartedAtColumns = ["acting_user_id", "started_at_utc"];
+    private static readonly string[] RunCommandNameScopeIdColumns = ["command_name", "scope_id"];
     private static readonly string[] RunScheduleIdStartedAtColumns = ["schedule_id", "started_at_utc"];
     private static readonly string[] RunTaskIdStartedAtColumns = ["task_id", "started_at_utc"];
     private static readonly bool[] StartedAtDescending = [false, true];
@@ -76,6 +77,7 @@ public partial class ReplaceScheduledTasksWithTasks : Migration
                 scope_path = table.Column<string>(type: "ltree", nullable: false),
                 command_name = table.Column<string>(type: "text", nullable: false),
                 arguments = table.Column<string>(type: "jsonb", nullable: false),
+                target_kind = table.Column<string>(type: "text", nullable: false),
                 status = table.Column<string>(type: "text", nullable: false),
                 started_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                 completed_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -104,7 +106,6 @@ public partial class ReplaceScheduledTasksWithTasks : Migration
             {
                 target_id = table.Column<Guid>(type: "uuid", nullable: false),
                 schedule_id = table.Column<Guid>(type: "uuid", nullable: false),
-                root_id = table.Column<Guid>(type: "uuid", nullable: true),
                 created_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
                 created_by = table.Column<Guid>(type: "uuid", nullable: false),
                 modified_at_utc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -129,8 +130,7 @@ public partial class ReplaceScheduledTasksWithTasks : Migration
             {
                 id = table.Column<Guid>(type: "uuid", nullable: false),
                 run_id = table.Column<Guid>(type: "uuid", nullable: false),
-                target_id = table.Column<Guid>(type: "uuid", nullable: false),
-                root_id = table.Column<Guid>(type: "uuid", nullable: true),
+                target_id = table.Column<Guid>(type: "uuid", nullable: true),
                 target_label = table.Column<string>(type: "text", nullable: true),
                 status = table.Column<string>(type: "text", nullable: false),
                 attempts = table.Column<int>(type: "integer", nullable: false),
@@ -179,6 +179,14 @@ public partial class ReplaceScheduledTasksWithTasks : Migration
             table: "task_runs",
             columns: RunActingUserIdStartedAtColumns,
             descending: StartedAtDescending);
+
+        migrationBuilder.CreateIndex(
+            name: "ix_task_runs_collection_running",
+            schema: "dm",
+            table: "task_runs",
+            columns: RunCommandNameScopeIdColumns,
+            unique: true,
+            filter: "status = 'Running' AND target_kind = 'Collection'");
 
         migrationBuilder.CreateIndex(
             name: "ix_task_runs_schedule_id_running",

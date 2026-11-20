@@ -535,7 +535,7 @@ internal sealed class ShortMaxDurationProbeCommandConfiguration : ICommandConfig
         builder.Task(task => task.InactivityTimeout(TimeSpan.FromMinutes(10)).MaxDuration(TimeSpan.FromMinutes(5)));
 }
 
-// ---- Collection probe: a task on every probe of the run's scope, with no record. Task 8 adds its handler. ----
+// ---- Collection probe: a task on every probe of the run's scope, with no record. ----
 
 internal sealed record SyncProbesCommand : ITaskCommand<ScheduleProbe>;
 
@@ -543,6 +543,13 @@ internal sealed class SyncProbesCommandConfiguration : ICommandConfiguration<Syn
 {
     public void Configure(CommandConfigurationBuilder<SyncProbesCommand> builder) =>
         builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable());
+}
+
+/// <summary>Succeeds at once; a collection run stays Running only while its item waits on the (fake) engine.</summary>
+internal sealed class SyncProbesCommandHandler : ICommandHandler<SyncProbesCommand>
+{
+    public Task<ErrorOr<Success>> Handle(SyncProbesCommand request, CancellationToken cancellationToken) =>
+        Task.FromResult<ErrorOr<Success>>(Result.Success);
 }
 
 /// <summary>Throws a cancellation no token caused, as an HTTP client's timeout does.</summary>

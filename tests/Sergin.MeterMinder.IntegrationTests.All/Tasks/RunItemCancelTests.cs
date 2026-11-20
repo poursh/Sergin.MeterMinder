@@ -345,6 +345,9 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
 
         public Task<bool> HasUnfinishedRunAsync(TaskScheduleId id, CancellationToken ct) => inner.HasUnfinishedRunAsync(id, ct);
 
+        public Task<bool> HasRunningCollectionRunAsync(string commandName, Guid scopeId, CancellationToken ct) =>
+            inner.HasRunningCollectionRunAsync(commandName, scopeId, ct);
+
         public Task<(TaskRun Run, TaskRunItem Item)?> GetRunItemAsync(Guid runItemId, CancellationToken ct) =>
             inner.GetRunItemAsync(runItemId, ct);
 
@@ -374,7 +377,7 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
 
         public Task<int> PurgeAsync(DateTime olderThanUtc, CancellationToken ct) => inner.PurgeAsync(olderThanUtc, ct);
 
-        public Task<bool> TrySaveStartedRunAsync(CancellationToken ct) => inner.TrySaveStartedRunAsync(ct);
+        public Task<StartedRunSave> TrySaveStartedRunAsync(CancellationToken ct) => inner.TrySaveStartedRunAsync(ct);
 
         public async Task SaveAsync(CancellationToken ct)
         {

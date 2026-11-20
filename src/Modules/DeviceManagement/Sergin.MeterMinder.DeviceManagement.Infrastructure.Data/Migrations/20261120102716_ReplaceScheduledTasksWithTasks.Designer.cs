@@ -12,7 +12,7 @@ using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
 namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(DeviceManagementDbContext))]
-    [Migration("20261120075221_ReplaceScheduledTasksWithTasks")]
+    [Migration("20261120102716_ReplaceScheduledTasksWithTasks")]
     partial class ReplaceScheduledTasksWithTasks
     {
         /// <inheritdoc />
@@ -292,6 +292,11 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("succeeded");
 
+                    b.Property<string>("TargetKind")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("target_kind");
+
                     b.Property<int>("Total")
                         .HasColumnType("integer")
                         .HasColumnName("total");
@@ -312,6 +317,11 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                     b.HasIndex("ActingUserId", "StartedAtUtc")
                         .IsDescending(false, true)
                         .HasDatabaseName("ix_task_runs_acting_user_id_started_at_utc");
+
+                    b.HasIndex("CommandName", "ScopeId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_task_runs_collection_running")
+                        .HasFilter("status = 'Running' AND target_kind = 'Collection'");
 
                     b.HasIndex("ScheduleId", "StartedAtUtc")
                         .IsDescending(false, true)
@@ -355,10 +365,6 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("progress");
 
-                    b.Property<Guid?>("RootId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("root_id");
-
                     b.Property<Guid>("RunId")
                         .HasColumnType("uuid")
                         .HasColumnName("run_id");
@@ -372,7 +378,7 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasColumnType("text")
                         .HasColumnName("status");
 
-                    b.Property<Guid>("TargetId")
+                    b.Property<Guid?>("TargetId")
                         .HasColumnType("uuid")
                         .HasColumnName("target_id");
 
@@ -640,10 +646,6 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                             b1.Property<Guid?>("ModifiedBy")
                                 .HasColumnType("uuid")
                                 .HasColumnName("modified_by");
-
-                            b1.Property<Guid?>("RootId")
-                                .HasColumnType("uuid")
-                                .HasColumnName("root_id");
 
                             b1.HasKey("ScheduleId", "TargetId")
                                 .HasName("pk_task_schedule_targets");

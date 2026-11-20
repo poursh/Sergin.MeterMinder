@@ -138,10 +138,37 @@ public sealed class TaskModelTests(SerginWebApiFactory<Program> factory) : IAsyn
     {
         IEntityType runs = Model().FindEntityType(typeof(TaskRun))!;
 
-        IIndex index = Assert.Single(runs.GetIndexes(), one => one.IsUnique);
+        IIndex index = Assert.Single(runs.GetIndexes(), one => one.GetDatabaseName() == "ix_task_runs_schedule_id_running");
+        Assert.True(index.IsUnique);
         Assert.Equal(nameof(TaskRun.ScheduleId), Names(index));
         Assert.Equal("status = 'Running'", index.GetFilter());
-        Assert.Equal("ix_task_runs_schedule_id_running", index.GetDatabaseName());
+    }
+
+    [Fact]
+    public void OneRunningCollectionRunPerNameAndScope_IsAPartialUniqueIndex()
+    {
+        IEntityType runs = Model().FindEntityType(typeof(TaskRun))!;
+
+        Assert.Equal(2, runs.GetIndexes().Count(one => one.IsUnique));
+        IIndex index = Assert.Single(runs.GetIndexes(), one => one.GetDatabaseName() == "ix_task_runs_collection_running");
+        Assert.True(index.IsUnique);
+        Assert.Equal($"{nameof(TaskRun.CommandName)},{nameof(TaskRun.ScopeId)}", Names(index));
+        Assert.Equal("status = 'Running' AND target_kind = 'Collection'", index.GetFilter());
+    }
+
+    [Fact]
+    public void Run_TargetKind_IsARequiredName_AndItemTargetIdIsNullable_WithNoRootId()
+    {
+        IModel model = DesignModel();
+        IProperty kind = model.FindEntityType(typeof(TaskRun))!.FindProperty(nameof(TaskRun.TargetKind))!;
+        IEntityType items = model.FindEntityType(typeof(TaskRunItem))!;
+
+        Assert.Equal("target_kind", kind.GetColumnName(StoreObjectIdentifier.Table("task_runs", "tst")));
+        Assert.False(kind.IsNullable);
+        Assert.Equal(typeof(string), kind.GetProviderClrType());
+        Assert.True(items.FindProperty(nameof(TaskRunItem.TargetId))!.IsNullable);
+        Assert.DoesNotContain(items.GetProperties(), property => property.Name == "RootId");
+        Assert.DoesNotContain(model.FindEntityType(typeof(TaskRun))!.GetProperties(), property => property.Name == "RootId");
     }
 
     [Fact]

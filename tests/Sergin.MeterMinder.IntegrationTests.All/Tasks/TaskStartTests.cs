@@ -193,7 +193,7 @@ public sealed class TaskStartTests(SerginWebApiFactory<Program> factory) : IAsyn
         List<TaskRunItem> items = await context.TaskRunItems.AsNoTracking().Where(item => item.RunId == run.Id).ToListAsync();
         Assert.Equal(3, items.Count);
         Assert.All(items, item => Assert.Equal(TaskRunItemStatus.Pending, item.Status));
-        Assert.Equal(probes.Select(probe => probe.Id.Value).Order(), items.Select(item => item.TargetId).Order());
+        Assert.Equal(probes.Select(probe => probe.Id.Value).Order(), items.Select(item => item.TargetId!.Value).Order());
         Assert.Equal(3, Engine.QueuedItems.Count);
     }
 
@@ -289,7 +289,7 @@ public sealed class TaskStartTests(SerginWebApiFactory<Program> factory) : IAsyn
         using IServiceScope scope = host.Services.CreateScope();
         TasksDbContext context = scope.ServiceProvider.GetRequiredService<TasksDbContext>();
 
-        return await context.TaskRunItems.AsNoTracking().Where(item => item.RunId == runId).ToDictionaryAsync(item => item.TargetId, item => item.TargetLabel);
+        return await context.TaskRunItems.AsNoTracking().Where(item => item.RunId == runId).ToDictionaryAsync(item => item.TargetId!.Value, item => item.TargetLabel);
     }
 
     private async Task<ErrorOr<TaskRunStartedResponse>> StartAsync(

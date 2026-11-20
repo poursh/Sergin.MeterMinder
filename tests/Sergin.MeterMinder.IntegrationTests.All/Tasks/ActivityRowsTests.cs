@@ -47,6 +47,17 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public void ACollectionRun_IsNamedByItsScope_OrItsShortIdWhenTheScopeIsNotListed()
+    {
+        var north = Guid.CreateVersion7();
+        ActivityItem item = Item(ReadProfile, total: 1, unfinished: 1) with { ScopeId = north };
+
+        Assert.Equal("North", Build(item, id => id == north ? "North" : null).Target);
+        Assert.Equal(north.ToString("N")[..8], Build(item, _ => null).Target);
+        Assert.Null(Build(item).Href);
+    }
+
+    [Fact]
     public void AOneTargetRunWithNoLabel_StartedBeforeLabelsWereStored_SaysOneRecord()
     {
         ActivityRow row = Build(Item(ReadProfile, total: 1, unfinished: 0, succeeded: 1, targetId: Guid.CreateVersion7(), label: null));
@@ -139,7 +150,7 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
             factory.Services.GetRequiredService<TaskCatalog>(),
             factory.Services.GetRequiredService<AggregateViewRegistry>()));
 
-    private ActivityRow Build(ActivityItem item)
+    private ActivityRow Build(ActivityItem item, Func<Guid, string?>? scopeName = null)
     {
         using IServiceScope scope = factory.Services.CreateScope();
         Func<int, string> records = ActivityRows.RecordsText(
@@ -150,7 +161,8 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
             factory.Services.GetRequiredService<TaskCatalog>(),
             factory.Services.GetRequiredService<AggregateViewRegistry>(),
             records,
-            ActivityRows.ModuleCaption(factory.Services.GetRequiredService<SerginUiModuleCatalog>())));
+            ActivityRows.ModuleCaption(factory.Services.GetRequiredService<SerginUiModuleCatalog>()),
+            scopeName));
     }
 
     private static ActivityItem Item(
