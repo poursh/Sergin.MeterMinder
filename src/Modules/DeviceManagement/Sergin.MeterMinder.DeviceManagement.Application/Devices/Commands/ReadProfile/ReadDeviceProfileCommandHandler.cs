@@ -1,11 +1,11 @@
 using Sergin.MeterMinder.DeviceManagement.Application.Contracts.Devices.Commands.ReadProfile;
 using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.SharedKernel.Application.Commands;
-using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.Tasks;
 
 namespace Sergin.MeterMinder.DeviceManagement.Application.Devices.Commands.ReadProfile;
 
-internal sealed class ReadDeviceProfileCommandHandler(IDeviceRepository repository, IRunProgress progress)
+internal sealed class ReadDeviceProfileCommandHandler(IDeviceRepository repository, ITaskProgress progress)
     : ICommandHandler<ReadDeviceProfileCommand>
 {
     /// <summary>One simulated step of the read; the read takes <see cref="StepProgress"/>'s length of them.</summary>

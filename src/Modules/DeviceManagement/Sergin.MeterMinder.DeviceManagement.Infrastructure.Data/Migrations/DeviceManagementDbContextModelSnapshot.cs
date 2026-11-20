@@ -224,7 +224,176 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasAnnotation("Sergin:Versioned", true);
                 });
 
-            modelBuilder.Entity("Sergin.SharedKernel.Domain.ScheduledTasks.ScheduledTask", b =>
+            modelBuilder.Entity("Sergin.SharedKernel.Domain.Tasks.TaskRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ActingUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("acting_user_id");
+
+                    b.Property<string>("Arguments")
+                        .IsRequired()
+                        .HasColumnType("jsonb")
+                        .HasColumnName("arguments");
+
+                    b.Property<DateTime?>("CancelRequestedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("cancel_requested_at_utc");
+
+                    b.Property<int>("Cancelled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("cancelled");
+
+                    b.Property<string>("CommandName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("command_name");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at_utc");
+
+                    b.Property<int>("Failed")
+                        .HasColumnType("integer")
+                        .HasColumnName("failed");
+
+                    b.Property<Guid?>("ScheduleId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("schedule_id");
+
+                    b.Property<Guid>("ScopeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("scope_id");
+
+                    b.Property<string>("ScopePath")
+                        .IsRequired()
+                        .HasColumnType("ltree")
+                        .HasColumnName("scope_path");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at_utc");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<int>("Succeeded")
+                        .HasColumnType("integer")
+                        .HasColumnName("succeeded");
+
+                    b.Property<int>("Total")
+                        .HasColumnType("integer")
+                        .HasColumnName("total");
+
+                    b.Property<string>("Trigger")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("trigger");
+
+                    b.HasKey("Id")
+                        .HasName("pk_task_runs");
+
+                    b.HasIndex("ScheduleId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_task_runs_schedule_id_running")
+                        .HasFilter("status = 'Running'");
+
+                    b.HasIndex("ActingUserId", "StartedAtUtc")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_task_runs_acting_user_id_started_at_utc");
+
+                    b.HasIndex("ScheduleId", "StartedAtUtc")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_task_runs_schedule_id_started_at_utc");
+
+                    b.ToTable("task_runs", "dm");
+                });
+
+            modelBuilder.Entity("Sergin.SharedKernel.Domain.Tasks.TaskRunItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at_utc");
+
+                    b.Property<Guid?>("EngineJobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("engine_job_id");
+
+                    b.Property<string>("ErrorCode")
+                        .HasColumnType("text")
+                        .HasColumnName("error_code");
+
+                    b.Property<string>("ErrorDescription")
+                        .HasColumnType("text")
+                        .HasColumnName("error_description");
+
+                    b.Property<DateTime>("LastActivityAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_activity_at_utc");
+
+                    b.Property<short?>("Progress")
+                        .HasColumnType("smallint")
+                        .HasColumnName("progress");
+
+                    b.Property<Guid?>("RootId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("root_id");
+
+                    b.Property<Guid>("RunId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("run_id");
+
+                    b.Property<DateTime?>("StartedAtUtc")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_at_utc");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("target_id");
+
+                    b.Property<string>("TargetLabel")
+                        .HasColumnType("text")
+                        .HasColumnName("target_label");
+
+                    b.HasKey("Id")
+                        .HasName("pk_task_run_items");
+
+                    b.HasIndex("RunId")
+                        .HasDatabaseName("ix_task_run_items_run_id");
+
+                    b.HasIndex("Status", "LastActivityAtUtc")
+                        .HasDatabaseName("ix_task_run_items_unfinished_last_activity")
+                        .HasFilter("status IN ('Pending', 'Running', 'Retrying')");
+
+                    b.HasIndex("TargetId", "RunId")
+                        .HasDatabaseName("ix_task_run_items_target_id_run_id");
+
+                    b.ToTable("task_run_items", "dm");
+                });
+
+            modelBuilder.Entity("Sergin.SharedKernel.Domain.Tasks.TaskSchedule", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid")
@@ -302,19 +471,19 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasColumnName("time_zone_id");
 
                     b.HasKey("Id")
-                        .HasName("pk_scheduled_tasks");
+                        .HasName("pk_task_schedules");
 
                     b.HasIndex("ScopeId")
-                        .HasDatabaseName("ix_scheduled_tasks_scope_id");
+                        .HasDatabaseName("ix_task_schedules_scope_id");
 
                     b.HasIndex("ScopePath")
-                        .HasDatabaseName("ix_scheduled_tasks_scope_path");
+                        .HasDatabaseName("ix_task_schedules_scope_path");
 
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("ScopePath"), "gist");
 
-                    b.ToTable("scheduled_tasks", "dm", t =>
+                    b.ToTable("task_schedules", "dm", t =>
                         {
-                            t.HasCheckConstraint("ck_scheduled_tasks_soft_delete", "(deleted_at_utc IS NULL) = (deleted_by IS NULL)");
+                            t.HasCheckConstraint("ck_task_schedules_soft_delete", "(deleted_at_utc IS NULL) = (deleted_by IS NULL)");
                         });
 
                     b
@@ -322,175 +491,6 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasAnnotation("Sergin:Scoped", true)
                         .HasAnnotation("Sergin:SoftDeletable", true)
                         .HasAnnotation("Sergin:Versioned", true);
-                });
-
-            modelBuilder.Entity("Sergin.SharedKernel.Domain.ScheduledTasks.ScheduledTaskRun", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("ActingUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("acting_user_id");
-
-                    b.Property<string>("Arguments")
-                        .IsRequired()
-                        .HasColumnType("jsonb")
-                        .HasColumnName("arguments");
-
-                    b.Property<DateTime?>("CancelRequestedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("cancel_requested_at_utc");
-
-                    b.Property<int>("Cancelled")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0)
-                        .HasColumnName("cancelled");
-
-                    b.Property<string>("CommandName")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("command_name");
-
-                    b.Property<DateTime?>("CompletedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("completed_at_utc");
-
-                    b.Property<int>("Failed")
-                        .HasColumnType("integer")
-                        .HasColumnName("failed");
-
-                    b.Property<Guid>("ScopeId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("scope_id");
-
-                    b.Property<string>("ScopePath")
-                        .IsRequired()
-                        .HasColumnType("ltree")
-                        .HasColumnName("scope_path");
-
-                    b.Property<DateTime>("StartedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("started_at_utc");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("status");
-
-                    b.Property<int>("Succeeded")
-                        .HasColumnType("integer")
-                        .HasColumnName("succeeded");
-
-                    b.Property<Guid?>("TaskId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("task_id");
-
-                    b.Property<int>("Total")
-                        .HasColumnType("integer")
-                        .HasColumnName("total");
-
-                    b.Property<string>("Trigger")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("trigger");
-
-                    b.HasKey("Id")
-                        .HasName("pk_scheduled_task_runs");
-
-                    b.HasIndex("TaskId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_scheduled_task_runs_task_id_running")
-                        .HasFilter("status = 'Running'");
-
-                    b.HasIndex("ActingUserId", "StartedAtUtc")
-                        .IsDescending(false, true)
-                        .HasDatabaseName("ix_scheduled_task_runs_acting_user_id_started_at_utc");
-
-                    b.HasIndex("TaskId", "StartedAtUtc")
-                        .IsDescending(false, true)
-                        .HasDatabaseName("ix_scheduled_task_runs_task_id_started_at_utc");
-
-                    b.ToTable("scheduled_task_runs", "dm");
-                });
-
-            modelBuilder.Entity("Sergin.SharedKernel.Domain.ScheduledTasks.ScheduledTaskRunItem", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<int>("Attempts")
-                        .HasColumnType("integer")
-                        .HasColumnName("attempts");
-
-                    b.Property<DateTime?>("CompletedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("completed_at_utc");
-
-                    b.Property<Guid?>("EngineJobId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("engine_job_id");
-
-                    b.Property<string>("ErrorCode")
-                        .HasColumnType("text")
-                        .HasColumnName("error_code");
-
-                    b.Property<string>("ErrorDescription")
-                        .HasColumnType("text")
-                        .HasColumnName("error_description");
-
-                    b.Property<DateTime>("LastActivityAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("last_activity_at_utc");
-
-                    b.Property<short?>("Progress")
-                        .HasColumnType("smallint")
-                        .HasColumnName("progress");
-
-                    b.Property<Guid?>("RootId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("root_id");
-
-                    b.Property<Guid>("RunId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("run_id");
-
-                    b.Property<DateTime?>("StartedAtUtc")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("started_at_utc");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("status");
-
-                    b.Property<Guid>("TargetId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("target_id");
-
-                    b.Property<string>("TargetLabel")
-                        .HasColumnType("text")
-                        .HasColumnName("target_label");
-
-                    b.HasKey("Id")
-                        .HasName("pk_scheduled_task_run_items");
-
-                    b.HasIndex("RunId")
-                        .HasDatabaseName("ix_scheduled_task_run_items_run_id");
-
-                    b.HasIndex("Status", "LastActivityAtUtc")
-                        .HasDatabaseName("ix_scheduled_task_run_items_unfinished_last_activity")
-                        .HasFilter("status IN ('Pending', 'Running', 'Retrying')");
-
-                    b.HasIndex("TargetId", "RunId")
-                        .HasDatabaseName("ix_scheduled_task_run_items_target_id_run_id");
-
-                    b.ToTable("scheduled_task_run_items", "dm");
                 });
 
             modelBuilder.Entity("Sergin.SharedKernel.Infrastructure.Data.EFCore.Outbox.InboxMessage", b =>
@@ -590,13 +590,32 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                         .HasConstraintName("fk_device_model_manufacturer_manufacturer_id");
                 });
 
-            modelBuilder.Entity("Sergin.SharedKernel.Domain.ScheduledTasks.ScheduledTask", b =>
+            modelBuilder.Entity("Sergin.SharedKernel.Domain.Tasks.TaskRun", b =>
                 {
-                    b.OwnsMany("Sergin.SharedKernel.Domain.ScheduledTasks.ScheduledTaskTarget", "Targets", b1 =>
+                    b.HasOne("Sergin.SharedKernel.Domain.Tasks.TaskSchedule", null)
+                        .WithMany()
+                        .HasForeignKey("ScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_task_runs_task_schedules_schedule_id");
+                });
+
+            modelBuilder.Entity("Sergin.SharedKernel.Domain.Tasks.TaskRunItem", b =>
+                {
+                    b.HasOne("Sergin.SharedKernel.Domain.Tasks.TaskRun", null)
+                        .WithMany()
+                        .HasForeignKey("RunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_task_run_items_task_runs_run_id");
+                });
+
+            modelBuilder.Entity("Sergin.SharedKernel.Domain.Tasks.TaskSchedule", b =>
+                {
+                    b.OwnsMany("Sergin.SharedKernel.Domain.Tasks.TaskScheduleTarget", "Targets", b1 =>
                         {
-                            b1.Property<Guid>("TaskId")
+                            b1.Property<Guid>("ScheduleId")
                                 .HasColumnType("uuid")
-                                .HasColumnName("task_id");
+                                .HasColumnName("schedule_id");
 
                             b1.Property<Guid>("TargetId")
                                 .ValueGeneratedOnAdd()
@@ -623,44 +642,25 @@ namespace Sergin.MeterMinder.DeviceManagement.Infrastructure.Data.Migrations
                                 .HasColumnType("uuid")
                                 .HasColumnName("root_id");
 
-                            b1.HasKey("TaskId", "TargetId")
-                                .HasName("pk_scheduled_task_targets");
+                            b1.HasKey("ScheduleId", "TargetId")
+                                .HasName("pk_task_schedule_targets");
 
                             b1.HasIndex("TargetId")
-                                .HasDatabaseName("ix_scheduled_task_targets_target_id");
+                                .HasDatabaseName("ix_task_schedule_targets_target_id");
 
-                            b1.ToTable("scheduled_task_targets", "dm");
+                            b1.ToTable("task_schedule_targets", "dm");
 
                             b1
                                 .HasAnnotation("Sergin:Audited", true)
-                                .HasAnnotation("Sergin:ScopeRoot", "Sergin.SharedKernel.Domain.ScheduledTasks.ScheduledTask")
-                                .HasAnnotation("Sergin:VersionRoot", "Sergin.SharedKernel.Domain.ScheduledTasks.ScheduledTask");
+                                .HasAnnotation("Sergin:ScopeRoot", "Sergin.SharedKernel.Domain.Tasks.TaskSchedule")
+                                .HasAnnotation("Sergin:VersionRoot", "Sergin.SharedKernel.Domain.Tasks.TaskSchedule");
 
                             b1.WithOwner()
-                                .HasForeignKey("TaskId")
-                                .HasConstraintName("fk_scheduled_task_targets_scheduled_tasks_task_id");
+                                .HasForeignKey("ScheduleId")
+                                .HasConstraintName("fk_task_schedule_targets_task_schedules_schedule_id");
                         });
 
                     b.Navigation("Targets");
-                });
-
-            modelBuilder.Entity("Sergin.SharedKernel.Domain.ScheduledTasks.ScheduledTaskRun", b =>
-                {
-                    b.HasOne("Sergin.SharedKernel.Domain.ScheduledTasks.ScheduledTask", null)
-                        .WithMany()
-                        .HasForeignKey("TaskId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_scheduled_task_runs_scheduled_tasks_task_id");
-                });
-
-            modelBuilder.Entity("Sergin.SharedKernel.Domain.ScheduledTasks.ScheduledTaskRunItem", b =>
-                {
-                    b.HasOne("Sergin.SharedKernel.Domain.ScheduledTasks.ScheduledTaskRun", null)
-                        .WithMany()
-                        .HasForeignKey("RunId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_scheduled_task_run_items_scheduled_task_runs_run_id");
                 });
 
             modelBuilder.Entity("Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.Manufacturer", b =>

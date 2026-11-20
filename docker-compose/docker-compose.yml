@@ -29,7 +29,7 @@ services:
       # TickerQ licence: blank runs the in-process stand-in (saved schedules never fire). To run real TickerQ, put the
       # licence file in ./.files/tickerq/ (gitignored) and set SERGIN_TICKERQ_LICENSE_FILE to its file name in
       # docker-compose/.env (also gitignored). In Development the host creates the tickerq tables on first start.
-      Sergin__ScheduledTasks__TickerQ__LicensePath: ${SERGIN_TICKERQ_LICENSE_FILE:+/run/tickerq/${SERGIN_TICKERQ_LICENSE_FILE}}
+      Sergin__Tasks__TickerQ__LicensePath: ${SERGIN_TICKERQ_LICENSE_FILE:+/run/tickerq/${SERGIN_TICKERQ_LICENSE_FILE}}
     volumes:
       - ./.files/tickerq:/run/tickerq:ro
     depends_on:

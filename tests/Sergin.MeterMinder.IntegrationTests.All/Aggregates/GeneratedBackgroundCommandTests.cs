@@ -13,9 +13,9 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Devices;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.IntegrationTests.All.Lists;
-using Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
-using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
-using Sergin.SharedKernel.Domain.ScheduledTasks;
+using Sergin.MeterMinder.IntegrationTests.All.Tasks;
+using Sergin.SharedKernel.Application.Tasks.Commands;
+using Sergin.SharedKernel.Domain.Tasks;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -24,7 +24,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Runtime;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
+using Sergin.SharedKernel.Presentation.Blazor.Tasks;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 
@@ -41,10 +41,10 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
     }
 
     [Fact]
-    public void BackgroundTrigger_HasItsOwnText()
+    public void ManualTrigger_HasItsOwnText()
     {
-        Assert.Equal(ScheduledTaskUiTexts.Runs.Background, ScheduledTaskUiFormat.TriggerText(ScheduledRunTrigger.Background));
-        Assert.Equal(ScheduledTaskUiTexts.Runs.OneOff, ScheduledTaskUiFormat.TriggerText(ScheduledRunTrigger.OneOff));
+        Assert.Equal(TaskUiTexts.Runs.Background, TaskUiFormat.TriggerText(TaskRunTrigger.Manual));
+        Assert.Equal(TaskUiTexts.Runs.OneOff, TaskUiFormat.TriggerText(TaskRunTrigger.Once));
     }
 
     [Fact]
@@ -58,12 +58,12 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
 
         Assert.False(result.IsError, result.IsError ? result.Errors[0].Description : string.Empty);
         Assert.Null(result.Version);
-        BackgroundRunStartedResponse started = Assert.IsType<BackgroundRunStartedResponse>(result.Value);
+        TaskRunStartedResponse started = Assert.IsType<TaskRunStartedResponse>(result.Value);
         Assert.Equal("dm", started.Run.Schema);
-        Assert.Equal("Background", await TriggerOfAsync(started.Run));
+        Assert.Equal("Manual", await TriggerOfAsync(started.Run));
 
         (string status, IReadOnlyList<(string Status, string? ErrorCode)> items) =
-            await BackgroundRuns.WaitAsync(factory.Services, started.Run, RunTimeout);
+            await TaskRunReader.WaitAsync(factory.Services, started.Run, RunTimeout);
         Assert.Equal("Completed", status);
         Assert.Equal("Succeeded", Assert.Single(items).Status);
     }
@@ -77,7 +77,7 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
 
         ViewSendResult result = await GeneratedViewSupport.SendFromIdAsync(dispatcher, ReadProfile(), device, version: null, label: "DEV-TITLE");
 
-        BackgroundRunStartedResponse started = Assert.IsType<BackgroundRunStartedResponse>(result.Value);
+        TaskRunStartedResponse started = Assert.IsType<TaskRunStartedResponse>(result.Value);
         Assert.Equal(["DEV-TITLE"], await LabelsAsync(started.Run));
     }
 
@@ -89,9 +89,9 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
         IReadOnlyList<Guid> devices = await DevicesAsync(dispatcher, 3);
 
         ViewSendResult result = await GeneratedViewSupport.StartManyAsync(
-            dispatcher, ReadProfile(), [.. devices.Select(device => new BackgroundTarget(device, null, "t-" + device))]);
+            dispatcher, ReadProfile(), [.. devices.Select(device => new TaskTarget(device, null, "t-" + device))]);
 
-        BackgroundRunStartedResponse started = Assert.IsType<BackgroundRunStartedResponse>(result.Value);
+        TaskRunStartedResponse started = Assert.IsType<TaskRunStartedResponse>(result.Value);
         Assert.Equal(devices.Select(device => "t-" + device).Order(), (await LabelsAsync(started.Run)).Order());
     }
 
@@ -103,12 +103,12 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
         IReadOnlyList<Guid> devices = await DevicesAsync(dispatcher, 3);
 
         ViewSendResult result = await GeneratedViewSupport.StartManyAsync(
-            dispatcher, ReadProfile(), [.. devices.Select(device => new BackgroundTarget(device, null, "t-" + device))]);
+            dispatcher, ReadProfile(), [.. devices.Select(device => new TaskTarget(device, null, "t-" + device))]);
 
         Assert.False(result.IsError, result.IsError ? result.Errors[0].Description : string.Empty);
-        BackgroundRunStartedResponse started = Assert.IsType<BackgroundRunStartedResponse>(result.Value);
+        TaskRunStartedResponse started = Assert.IsType<TaskRunStartedResponse>(result.Value);
         (string status, IReadOnlyList<(string Status, string? ErrorCode)> items) =
-            await BackgroundRuns.WaitAsync(factory.Services, started.Run, RunTimeout);
+            await TaskRunReader.WaitAsync(factory.Services, started.Run, RunTimeout);
         Assert.Equal("Completed", status);
         Assert.Equal(3, items.Count);
         Assert.All(items, item => Assert.Equal("Succeeded", item.Status));
@@ -152,7 +152,7 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
     private const string Spinner = "sergin-action-busy";
 
     private static ActivityRow Row(string commandName, Guid target, ActivityState state) =>
-        new(new BackgroundRunRef("dm", Guid.CreateVersion7()), null, commandName, "DEV", null, state, DateTime.UtcNow, null, 0, 1, null, null, target, null, null, 0);
+        new(new TaskRunRef("dm", Guid.CreateVersion7()), null, commandName, "DEV", null, state, DateTime.UtcNow, null, 0, 1, null, null, target, null, null, 0);
 
     /// <summary>The popover provider the split button's menu renders into, and the device's generated detail view.</summary>
     private sealed class DetailHost : ComponentBase
@@ -190,12 +190,12 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
         return devices;
     }
 
-    private async Task<IReadOnlyList<string?>> LabelsAsync(BackgroundRunRef run)
+    private async Task<IReadOnlyList<string?>> LabelsAsync(TaskRunRef run)
     {
         using IServiceScope scope = factory.Services.CreateScope();
         using DbConnection connection = await scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>().CreateConnectionAsync();
         await using DbCommand command = connection.CreateCommand();
-        command.CommandText = "SELECT target_label FROM dm.scheduled_task_run_items WHERE run_id = @id";
+        command.CommandText = "SELECT target_label FROM dm.task_run_items WHERE run_id = @id";
         DbParameter parameter = command.CreateParameter();
         parameter.ParameterName = "id";
         parameter.Value = run.RunId;
@@ -212,12 +212,12 @@ public sealed class GeneratedBackgroundCommandTests(SerginWebApiFactory<Program>
         return labels;
     }
 
-    private async Task<string?> TriggerOfAsync(BackgroundRunRef run)
+    private async Task<string?> TriggerOfAsync(TaskRunRef run)
     {
         using IServiceScope scope = factory.Services.CreateScope();
         using DbConnection connection = await scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>().CreateConnectionAsync();
         await using DbCommand command = connection.CreateCommand();
-        command.CommandText = """SELECT "trigger" FROM dm.scheduled_task_runs WHERE id = @id""";
+        command.CommandText = """SELECT "trigger" FROM dm.task_runs WHERE id = @id""";
         DbParameter parameter = command.CreateParameter();
         parameter.ParameterName = "id";
         parameter.Value = run.RunId;

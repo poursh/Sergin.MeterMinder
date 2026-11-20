@@ -7,9 +7,9 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers;
 using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.DeviceManagement.Infrastructure.Data;
 using Sergin.MeterMinder.IntegrationTests.All.Concurrency;
-using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
-using Sergin.SharedKernel.Domain.ScheduledTasks;
-using Sergin.SharedKernel.Infrastructure.Data.EFCore.ScheduledTasks;
+using Sergin.SharedKernel.Application.Tasks.Commands;
+using Sergin.SharedKernel.Domain.Tasks;
+using Sergin.SharedKernel.Infrastructure.Data.EFCore.Tasks;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 
@@ -30,16 +30,16 @@ public sealed class DeviceReadProfileScheduleTests(SerginWebApiFactory<Program> 
         Guid first = await CreateDeviceAsync(dispatcher);
         Guid second = await CreateDeviceAsync(dispatcher);
 
-        ErrorOr<ScheduledRunStartedResponse> started = await dispatcher.SendAsync(new RunCommandOnceCommand(
+        ErrorOr<TaskScheduleRunStartedResponse> started = await dispatcher.SendAsync(new RunTaskOnceCommand(
             Schema, new ReadDeviceProfileCommand(new DeviceIntenralId(Guid.Empty)), [new(first, null), new(second, null)]));
         Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
 
-        ScheduledTaskRun run = await CompletedRunAsync(started.Value.RunId);
+        TaskRun run = await CompletedRunAsync(started.Value.RunId);
 
         Assert.Equal(2, run.Succeeded);
-        IReadOnlyCollection<ScheduledTaskRunItem> items = await ItemsAsync(run.Id);
+        IReadOnlyCollection<TaskRunItem> items = await ItemsAsync(run.Id);
         Assert.Equal(2, items.Count);
-        Assert.All(items, item => Assert.Equal(ScheduledRunItemStatus.Succeeded, item.Status));
+        Assert.All(items, item => Assert.Equal(TaskRunItemStatus.Succeeded, item.Status));
     }
 
     [Fact]
@@ -49,27 +49,27 @@ public sealed class DeviceReadProfileScheduleTests(SerginWebApiFactory<Program> 
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         Guid id = await CreateDeviceAsync(dispatcher);
 
-        ErrorOr<CreateScheduledTaskCommandResponse> created = await dispatcher.SendAsync(new CreateScheduledTaskCommand(
+        ErrorOr<CreateTaskScheduleCommandResponse> created = await dispatcher.SendAsync(new CreateTaskScheduleCommand(
             Schema, new ReadDeviceProfileCommand(new DeviceIntenralId(Guid.Empty)), [new(id, null)], "0 3 * * *", "UTC"));
         Assert.False(created.IsError, created.IsError ? created.FirstError.Code : string.Empty);
         Assert.False((await dispatcher.SendAtDeviceVersionAsync(id, new DeleteDeviceCommand(new DeviceIntenralId(id)))).IsError);
 
-        ErrorOr<ScheduledRunStartedResponse> started = await dispatcher.SendAsync(
-            new RunScheduledTaskNowCommand(Schema, new ScheduledTaskId(created.Value.Id)));
+        ErrorOr<TaskScheduleRunStartedResponse> started = await dispatcher.SendAsync(
+            new RunTaskScheduleNowCommand(Schema, new TaskScheduleId(created.Value.Id)));
         Assert.False(started.IsError, started.IsError ? started.FirstError.Code : string.Empty);
 
-        ScheduledTaskRun run = await CompletedRunAsync(started.Value.RunId);
+        TaskRun run = await CompletedRunAsync(started.Value.RunId);
 
         Assert.Equal(1, run.Failed);
-        ScheduledTaskRunItem item = Assert.Single(await ItemsAsync(run.Id));
-        Assert.Equal(ScheduledRunItemStatus.Failed, item.Status);
+        TaskRunItem item = Assert.Single(await ItemsAsync(run.Id));
+        Assert.Equal(TaskRunItemStatus.Failed, item.Status);
         Assert.Equal("General.NotFound", item.ErrorCode);
     }
 
-    private static IScheduledTasksDbContext Tasks(IServiceScope scope) =>
-        Assert.IsAssignableFrom<IScheduledTasksDbContext>(scope.ServiceProvider.GetRequiredService<IDeviceManagementDbContext>());
+    private static ITasksDbContext Tasks(IServiceScope scope) =>
+        Assert.IsAssignableFrom<ITasksDbContext>(scope.ServiceProvider.GetRequiredService<IDeviceManagementDbContext>());
 
-    private async Task<ScheduledTaskRun> CompletedRunAsync(Guid runId)
+    private async Task<TaskRun> CompletedRunAsync(Guid runId)
     {
         DateTime deadline = DateTime.UtcNow + Patience;
 
@@ -77,7 +77,7 @@ public sealed class DeviceReadProfileScheduleTests(SerginWebApiFactory<Program> 
         {
             using IServiceScope scope = factory.Services.CreateScope();
 
-            if (await Tasks(scope).ScheduledTaskRuns.AsNoTracking().FirstOrDefaultAsync(run => run.Id == runId && run.Status == ScheduledRunStatus.Completed) is { } found)
+            if (await Tasks(scope).TaskRuns.AsNoTracking().FirstOrDefaultAsync(run => run.Id == runId && run.Status == TaskRunStatus.Completed) is { } found)
             {
                 return found;
             }
@@ -88,10 +88,10 @@ public sealed class DeviceReadProfileScheduleTests(SerginWebApiFactory<Program> 
         throw new TimeoutException("The run did not complete.");
     }
 
-    private async Task<IReadOnlyCollection<ScheduledTaskRunItem>> ItemsAsync(Guid runId)
+    private async Task<IReadOnlyCollection<TaskRunItem>> ItemsAsync(Guid runId)
     {
         using IServiceScope scope = factory.Services.CreateScope();
-        return await Tasks(scope).ScheduledTaskRunItems.AsNoTracking().Where(item => item.RunId == runId).ToListAsync();
+        return await Tasks(scope).TaskRunItems.AsNoTracking().Where(item => item.RunId == runId).ToListAsync();
     }
 
     private static async Task<Guid> CreateDeviceAsync(ISerginDispatcher dispatcher)

@@ -15,9 +15,9 @@ using Microsoft.Extensions.Logging;
 using MudBlazor;
 using Sergin.Administration.UserAccess.Domain.Scopes;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
-using Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
+using Sergin.MeterMinder.IntegrationTests.All.Tasks;
 using Sergin.SharedKernel.Application.Concurrency;
-using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Securities;
@@ -38,7 +38,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 /// <summary>
 /// The generated detail view as the prerender draws it on the test-only <c>/tst/view-probes/{id}</c> page: the fields
 /// from the GetOne response, the header buttons, the actions from the probe's commands (hidden without their
-/// permission), the split button and scheduled-tasks section of a schedulable command, and the not-found panel.
+/// permission), the split button and task schedules section of a schedulable command, and the not-found panel.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory) : IAsyncLifetime
@@ -56,7 +56,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
 
     public async Task InitializeAsync()
     {
-        host = ScheduledTaskTestHost.Create(factory, builder => builder.ConfigureServices(services =>
+        host = TaskTestHost.Create(factory, builder => builder.ConfigureServices(services =>
         {
             ProbeHandlers.AddTo(services);
             ScheduleProbeUiModule.AddTo(services);
@@ -82,7 +82,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
         confirmStore = host.Services.GetRequiredService<ConfirmProbeStore>();
         parentStore = host.Services.GetRequiredService<ParentProbeStore>();
         notified = host.Services.GetRequiredService<NotifiedErrors>();
-        await ScheduledTaskTestHost.ResetSchemaAsync(host);
+        await TaskTestHost.ResetSchemaAsync(host);
         tree = await RbacScenario.BuildAsync(host);
     }
 
@@ -120,7 +120,7 @@ public sealed class GeneratedViewProbeTests(SerginWebApiFactory<Program> factory
     public async Task ProbeDetail_SchedulableCommand_RendersSplitButtonWithScheduleItems()
     {
         Guid probe = store.Add("Probe beta");
-        await GrantAsync(ViewProbePermissions.Run, ScheduledTaskPermissions.Manage);
+        await GrantAsync(ViewProbePermissions.Run, TaskPermissions.Manage);
 
         string html = await GetAsync($"/tst/view-probes/{probe}");
 

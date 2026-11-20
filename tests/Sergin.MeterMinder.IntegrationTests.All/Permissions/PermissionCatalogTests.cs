@@ -90,8 +90,8 @@ public sealed class PermissionCatalogTests
 
     [Fact]
     public void Catalog_ASharedKernelAggregate_RegistersSys() =>
-        Assert.True(Build(typeof(Sergin.SharedKernel.Application.ScheduledTasks.ScheduledTaskAggregateFeatureConfiguration))
-            .Contains(Sergin.SharedKernel.Application.ScheduledTasks.ScheduledTaskPermissions.Manage));
+        Assert.True(Build(typeof(Sergin.SharedKernel.Application.Tasks.TaskScheduleAggregateFeatureConfiguration))
+            .Contains(Sergin.SharedKernel.Application.Tasks.TaskPermissions.Manage));
 
     [Fact]
     public void Catalog_WithAMalformedDefinition_FailsNamingTheClass()

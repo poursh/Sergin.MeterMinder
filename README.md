@@ -103,7 +103,7 @@ rm -rf docker-compose/.containers/database   # Postgres data is a bind mount, so
 docker compose -f docker-compose/docker-compose.yml up --build
 ```
 
-Scheduled tasks run on an in-process stand-in engine by default: run-now and one-off work run, saved cron schedules never fire. To run real TickerQ, put a licence file in `docker-compose/.files/tickerq/` (gitignored) and set `SERGIN_TICKERQ_LICENSE_FILE` in `docker-compose/.env` to its file name. For `dotnet run`, set the file's absolute path as the user secret `Sergin:ScheduledTasks:TickerQ:LicensePath`. Never commit a licence file.
+Scheduled tasks run on an in-process stand-in engine by default: run-now and one-off work run, saved cron schedules never fire. To run real TickerQ, put a licence file in `docker-compose/.files/tickerq/` (gitignored) and set `SERGIN_TICKERQ_LICENSE_FILE` in `docker-compose/.env` to its file name. For `dotnet run`, set the file's absolute path as the user secret `Sergin:Tasks:TickerQ:LicensePath`. Never commit a licence file.
 
 To try the scoped RBAC with realistic data, two **development-only** psql scripts fill the Compose database once the app has migrated it. `dev-seed.sql` adds a scope tree (4 regions, 12 areas), 5 manufacturers, 11 models and `device_count` devices; `dev-seed-users.sql` adds users, roles and scoped grants for the realm's mock users — `admin.root`, `north.manager`, `tabriz.operator`, `south.viewer`, `multi.auditor`, `expired.user` and `inactive.user`, each with password = username — so each one sees a different part of the tree — plus 40 local `demo.user.<n>` rows, more roles and a mix of assignments for the user and role pages. Both are idempotent; never run them against a real environment.
 
@@ -220,7 +220,7 @@ Each slice declares its texts in code (`<Aggregate>Texts` in `.Application.Confi
 
 ### Scheduled and background commands
 
-A command whose configuration calls `Schedulable(name)` can be scheduled from a record's detail page: run now, once at a time, or on a cron, for one or many picked records. It always runs as the user who saved it, and grants are checked live for every run item. A command that also calls `Background(timeout)` cannot be sent inline; a page starts it with `ISerginDispatcher.StartAsync`, and the app-bar activity indicator shows its progress, lets the user cancel it, and reports the outcome. DeviceManagement's Read profile is the first such command. The engine is TickerQ behind `IScheduledTaskEngine`; without a licence an in-process stand-in runs one-off work only.
+A command whose configuration calls `Schedulable(name)` can be scheduled from a record's detail page: run now, once at a time, or on a cron, for one or many picked records. It always runs as the user who saved it, and grants are checked live for every run item. A command that also calls `Background(timeout)` cannot be sent inline; a page starts it with `ISerginDispatcher.StartTaskAsync`, and the app-bar activity indicator shows its progress, lets the user cancel it, and reports the outcome. DeviceManagement's Read profile is the first such command. The engine is TickerQ behind `ITaskEngine`; without a licence an in-process stand-in runs one-off work only.
 
 ### Events and the outbox
 
@@ -271,7 +271,7 @@ dotnet ef migrations add <Name> \
   --startup-project src/Hosts/Sergin.MeterMinder.Hosts.All
 ```
 
-Every module starts from `InitialCreate` (UserAccess's also seeds the Root scope and the `administrator` and `viewer` roles). DeviceManagement adds four migrations for scheduled tasks after it: `AddScheduledTasks`, `AddRunActivity`, `AddRunCancellation` and `AddRunItemProgress`. A schema change adds a new migration; the scaffolded file needs converting to a file-scoped namespace by hand before it builds, and `InitialCreate` shows the shape. Migrations apply automatically at startup in the Development environment only — which is why `docker-compose.yml` keeps `ASPNETCORE_ENVIRONMENT: Development` even in `Keycloak` mode.
+Every module starts from `InitialCreate` (UserAccess's also seeds the Root scope and the `administrator` and `viewer` roles). DeviceManagement adds five migrations for tasks after it: `AddScheduledTasks`, `AddRunActivity`, `AddRunCancellation`, `AddRunItemProgress`, and `ReplaceScheduledTasksWithTasks`, which drops the four `scheduled_task*` tables and creates the `task_*` tables in their place. A schema change adds a new migration; the scaffolded file needs converting to a file-scoped namespace by hand before it builds, and `InitialCreate` shows the shape. Migrations apply automatically at startup in the Development environment only — which is why `docker-compose.yml` keeps `ASPNETCORE_ENVIRONMENT: Development` even in `Keycloak` mode.
 
 > [!TIP]
 > The design-time factories read `Sergin:ConnectionStrings:Database` from `appsettings.Development.json` only — not from environment variables or user secrets. `migrations add` scaffolds fine without one; `database update` from the CLI needs the key added to that file locally.
@@ -292,7 +292,7 @@ dotnet test tests/Sergin.Administration.UserAccess.UnitTests/Sergin.Administrati
 |---|---|
 | `Shell/` | Pages render interactively, nav groups and visibility, breadcrumbs, page types and views, trees, the scope picker, the activity indicator, the app name, the home slot |
 | `Localization/` | The text catalog and lookup, culture selection, right-to-left, culture formatting, each module's texts, the Settings pages, the field-text guard, the pseudo-locale sweep |
-| `ScheduledTasks/` | Scheduled and background commands: catalog, runs and run items, retries, recovery, cancel, progress, activity, the TickerQ adapter (end-to-end tests skipped without a licence) |
+| `Tasks/` | Scheduled and background commands: catalog, runs and run items, retries, recovery, cancel, progress, activity, the TickerQ adapter (end-to-end tests skipped without a licence) |
 | `Authentication/` | Claims to `IUserContext`, the dispatcher-scope regression, first-sign-in provisioning, `Sergin:Auth` validation |
 | `Authorization/` | Scoped RBAC acceptance criteria and rules, the current scope, the scope directory, the `X-Sergin-Scope` header |
 | `Permissions/` | Permission definitions, the catalogue per module, its host-start refusals |

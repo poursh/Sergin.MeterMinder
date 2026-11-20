@@ -8,7 +8,7 @@ using System.Net;
 using Sergin.Administration.UserAccess.Domain.Scopes;
 using Sergin.MeterMinder.DeviceManagement.Application.Configurations.Devices;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
-using Sergin.SharedKernel.Application.ScheduledTasks;
+using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -47,7 +47,7 @@ public sealed class SplitButtonRenderingTests(SerginWebApiFactory<Program> facto
     {
         string html = await RenderAsync<SerginActionBar>(
             [Held],
-            Parameters(nameof(SerginActionBar.Actions), new[] { Action(Held, Item(ScheduledTaskPermissions.Manage)) }));
+            Parameters(nameof(SerginActionBar.Actions), new[] { Action(Held, Item(TaskPermissions.Manage)) }));
 
         Assert.Contains(ReadProfile, html, StringComparison.Ordinal);
         Assert.DoesNotContain(MoreActions, html, StringComparison.Ordinal);
@@ -83,7 +83,7 @@ public sealed class SplitButtonRenderingTests(SerginWebApiFactory<Program> facto
     [Fact]
     public async Task ActionMenu_RendersForAVisibleAction_AndItsItemsAreFilteredByTheSameRule()
     {
-        PermissionDefinition manage = ScheduledTaskPermissions.Manage;
+        PermissionDefinition manage = TaskPermissions.Manage;
         SerginPageAction action = Action(Held, Item(Held)) with { MenuItems = [Item(Held), Item(manage)] };
 
         string html = await RenderAsync<SerginActionMenu>(

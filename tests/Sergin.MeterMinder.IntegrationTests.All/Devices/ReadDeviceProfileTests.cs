@@ -9,9 +9,9 @@ using Sergin.MeterMinder.DeviceManagement.Domain.Manufacturers.DeviceModels;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.MeterMinder.IntegrationTests.All.Concurrency;
 using Sergin.SharedKernel.Application.Concurrency;
-using Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
-using Sergin.SharedKernel.Application.ScheduledTasks;
-using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
+using Sergin.MeterMinder.IntegrationTests.All.Tasks;
+using Sergin.SharedKernel.Application.Tasks;
+using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.IntegrationTests;
@@ -32,7 +32,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
 
         ErrorOr<Success> result = await dispatcher.SendAsync(new ReadDeviceProfileCommand(new DeviceIntenralId(id)));
 
-        Assert.Equal("ScheduledTasks.MustRunInBackground", result.FirstError.Code);
+        Assert.Equal("Tasks.MustRunInBackground", result.FirstError.Code);
     }
 
     [Fact]
@@ -43,15 +43,15 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
         Guid id = await CreateDeviceAsync(dispatcher);
 
         var clock = Stopwatch.StartNew();
-        ErrorOr<BackgroundRunStartedResponse> started = await dispatcher.StartAsync(
-            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new BackgroundTarget(id, null)]);
+        ErrorOr<TaskRunStartedResponse> started = await dispatcher.StartTaskAsync(
+            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new TaskTarget(id, null)]);
         clock.Stop();
 
         Assert.False(started.IsError, started.IsError ? started.FirstError.Description : string.Empty);
         Assert.True(clock.Elapsed < TimeSpan.FromSeconds(1), $"start took {clock.Elapsed}");
 
         (string status, IReadOnlyList<(string Status, string? ErrorCode)> items) =
-            await BackgroundRuns.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
+            await TaskRunReader.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
         Assert.Equal("Completed", status);
         Assert.Equal("Succeeded", Assert.Single(items).Status);
     }
@@ -63,10 +63,10 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
         Guid id = await CreateDeviceAsync(dispatcher);
 
-        ErrorOr<BackgroundRunStartedResponse> started = await dispatcher.StartAsync(
-            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new BackgroundTarget(id, null)]);
+        ErrorOr<TaskRunStartedResponse> started = await dispatcher.StartTaskAsync(
+            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new TaskTarget(id, null)]);
         Assert.False(started.IsError, started.IsError ? started.FirstError.Description : string.Empty);
-        (string status, _) = await BackgroundRuns.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
+        (string status, _) = await TaskRunReader.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
 
         Assert.Equal("Completed", status);
         Assert.Equal(100, await ProgressOfAsync(started.Value.Run.RunId));
@@ -80,10 +80,10 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
         DeviceIntenralId id = new(await CreateDeviceAsync(dispatcher));
 
         ErrorOr<Versioned<DeviceQueryResponse>> before = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(id));
-        ErrorOr<BackgroundRunStartedResponse> started = await dispatcher.StartAsync(
-            new ReadDeviceProfileCommand(id), [new BackgroundTarget(id.Value, null)]);
+        ErrorOr<TaskRunStartedResponse> started = await dispatcher.StartTaskAsync(
+            new ReadDeviceProfileCommand(id), [new TaskTarget(id.Value, null)]);
         Assert.False(started.IsError);
-        (string status, _) = await BackgroundRuns.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
+        (string status, _) = await TaskRunReader.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
         ErrorOr<Versioned<DeviceQueryResponse>> after = await dispatcher.SendVersionedAsync(new GetDeviceByIdQueryCommand(id));
 
         Assert.Equal("Completed", status);
@@ -98,11 +98,11 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
         Guid id = await CreateDeviceAsync(dispatcher);
         Assert.False((await dispatcher.SendAtDeviceVersionAsync(id, new DeleteDeviceCommand(new DeviceIntenralId(id)))).IsError);
 
-        ErrorOr<BackgroundRunStartedResponse> started = await dispatcher.StartAsync(
-            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new BackgroundTarget(id, null)]);
+        ErrorOr<TaskRunStartedResponse> started = await dispatcher.StartTaskAsync(
+            new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new TaskTarget(id, null)]);
         Assert.False(started.IsError, started.IsError ? started.FirstError.Description : string.Empty);
         (_, IReadOnlyList<(string Status, string? ErrorCode)> items) =
-            await BackgroundRuns.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
+            await TaskRunReader.WaitAsync(factory.Services, started.Value.Run, TimeSpan.FromSeconds(30));
 
         (string itemStatus, string? code) = Assert.Single(items);
         Assert.Equal("Failed", itemStatus);
@@ -118,8 +118,8 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
         RbacScenario tree = await RbacScenario.BuildAsync(factory);
         TestCaller reader = await tree.CreateGrantedCallerAsync(AuthorizationScope.RootId, RbacScenario.Read);
 
-        ErrorOr<BackgroundRunStartedResponse> result = await tree.TrySendAsync(
-            new StartBackgroundCommand(new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new BackgroundTarget(id, null)]), reader);
+        ErrorOr<TaskRunStartedResponse> result = await tree.TrySendAsync(
+            new StartTaskCommand(new ReadDeviceProfileCommand(new DeviceIntenralId(id)), [new TaskTarget(id, null)]), reader);
 
         Assert.Equal(ErrorType.Forbidden, result.FirstError.Type);
     }
@@ -127,9 +127,9 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
     [Fact]
     public void ReadProfile_IsSchedulable()
     {
-        ScheduledCommandCatalog catalog = factory.Services.GetRequiredService<ScheduledCommandCatalog>();
+        TaskCatalog catalog = factory.Services.GetRequiredService<TaskCatalog>();
 
-        Assert.True(catalog.TryGet("dm.devices.read-profile", out ScheduledCommand? command));
+        Assert.True(catalog.TryGet("dm.devices.read-profile", out TaskDescriptor? command));
         Assert.Equal(typeof(ReadDeviceProfileCommand), command.RequestType);
         Assert.Equal(TimeSpan.FromMinutes(10), command.Background!.Timeout);
     }
@@ -139,7 +139,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
         using IServiceScope scope = factory.Services.CreateScope();
         using DbConnection connection = await scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>().CreateConnectionAsync();
         await using DbCommand command = connection.CreateCommand();
-        command.CommandText = "SELECT progress FROM dm.scheduled_task_run_items WHERE run_id = @id";
+        command.CommandText = "SELECT progress FROM dm.task_run_items WHERE run_id = @id";
         DbParameter parameter = command.CreateParameter();
         parameter.ParameterName = "id";
         parameter.Value = runId;

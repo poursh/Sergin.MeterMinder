@@ -12,18 +12,18 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging;
 using MudBlazor;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
-using Sergin.MeterMinder.IntegrationTests.All.ScheduledTasks;
+using Sergin.MeterMinder.IntegrationTests.All.Tasks;
 using Sergin.SharedKernel.Application.Concurrency;
-using Sergin.SharedKernel.Application.ScheduledTasks;
-using Sergin.SharedKernel.Application.ScheduledTasks.Activity;
-using Sergin.SharedKernel.Application.ScheduledTasks.Commands;
+using Sergin.SharedKernel.Application.Tasks;
+using Sergin.SharedKernel.Application.Tasks.Activity;
+using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Domain;
-using Sergin.SharedKernel.Domain.ScheduledTasks;
+using Sergin.SharedKernel.Domain.Tasks;
 using Sergin.SharedKernel.Domain.Users;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
+using Sergin.SharedKernel.Presentation.Blazor.Tasks;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 
@@ -44,10 +44,10 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
 
     public async Task InitializeAsync()
     {
-        host = ScheduledTaskTestHost.Create(factory, builder =>
+        host = TaskTestHost.Create(factory, builder =>
             builder.ConfigureServices(services =>
             {
-                services.Replace(ServiceDescriptor.Singleton<IScheduledTaskEngine>(new FakeScheduledTaskEngine()));
+                services.Replace(ServiceDescriptor.Singleton<ITaskEngine>(new FakeTaskEngine()));
                 services.AddSingleton<IndicatorFaults>();
                 ServiceDescriptor registered = services.Last(descriptor => descriptor.ServiceType == typeof(ISerginDispatcher));
                 services.Replace(ServiceDescriptor.Scoped<ISerginDispatcher>(provider => new FaultyDispatcher(
@@ -55,7 +55,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
                     provider.GetRequiredService<IndicatorFaults>())));
             }));
 
-        await ScheduledTaskTestHost.ResetSchemaAsync(host);
+        await TaskTestHost.ResetSchemaAsync(host);
         caller = new TestCaller();
     }
 
@@ -110,8 +110,8 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         await using WebApplicationFactory<Program> broken = host.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services =>
             {
-                services.RemoveAll<IBackgroundRunSource>();
-                services.AddScoped<IBackgroundRunSource, ThrowingBackgroundRunSource>();
+                services.RemoveAll<ITaskRunSource>();
+                services.AddScoped<ITaskRunSource, ThrowingTaskRunSource>();
             }));
 
         await RenderAsync(broken, caller, async (indicator, html) =>
@@ -176,7 +176,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
             Assert.False(indicator.IsPolling);
 
             // A change published after the circuit closed reaches no handler and starts no reload.
-            host.Services.GetRequiredService<IRunNotifier>().Publish(new RunChanged(new BackgroundRunRef("tst", Guid.CreateVersion7()), caller.Id));
+            host.Services.GetRequiredService<IRunNotifier>().Publish(new RunChanged(new TaskRunRef("tst", Guid.CreateVersion7()), caller.Id));
             await indicator.ReloadAsync();
             Assert.False(indicator.IsPolling);
         });
@@ -191,7 +191,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
             Assert.Contains("aria-label=\"Activity, 0 running\"", html(), StringComparison.Ordinal);
 
             Guid run = await SeedRunAsync(caller.Id, label: "P-1");
-            host.Services.GetRequiredService<IRunNotifier>().Publish(new RunChanged(new BackgroundRunRef("tst", run), caller.Id));
+            host.Services.GetRequiredService<IRunNotifier>().Publish(new RunChanged(new TaskRunRef("tst", run), caller.Id));
 
             for (int attempt = 0; attempt < 50 && !html().Contains("Activity, 1 running", StringComparison.Ordinal); attempt++)
             {
@@ -257,7 +257,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
                 IRunNotifier notifier = host.Services.GetRequiredService<IRunNotifier>();
                 for (int change = 0; change < 5; change++)
                 {
-                    notifier.Publish(new RunChanged(new BackgroundRunRef("tst", running), caller.Id));
+                    notifier.Publish(new RunChanged(new TaskRunRef("tst", running), caller.Id));
                 }
 
                 Task second = indicator.ReloadAsync();
@@ -339,7 +339,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
 
             for (int change = 0; change < 10; change++)
             {
-                notifier.Publish(new RunChanged(new BackgroundRunRef("tst", run), caller.Id));
+                notifier.Publish(new RunChanged(new TaskRunRef("tst", run), caller.Id));
                 await Task.Delay(20);
             }
 
@@ -366,7 +366,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
             Assert.Contains("aria-label=\"Activity, 1 running\"", html(), StringComparison.Ordinal);
             int readsBefore = faults.Reads;
 
-            await indicator.CancelAsync(new BackgroundRunRef("tst", run));
+            await indicator.CancelAsync(new TaskRunRef("tst", run));
             await SettleAsync(indicator, () => faults.Reads > readsBefore && !html().Contains("mud-badge ", StringComparison.Ordinal));
 
             Assert.Equal(1, faults.Cancels);
@@ -380,7 +380,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
     {
         IndicatorFaults faults = host.Services.GetRequiredService<IndicatorFaults>();
         Guid run = await SeedRunAsync(caller.Id, label: "P-1");
-        faults.CancelAnswer = ScheduledTaskErrors.RunFinished;
+        faults.CancelAnswer = TaskErrors.RunFinished;
 
         try
         {
@@ -389,7 +389,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
                 await indicator.StartAsync();
                 int readsBefore = faults.Reads;
 
-                await indicator.CancelAsync(new BackgroundRunRef("tst", run));
+                await indicator.CancelAsync(new TaskRunRef("tst", run));
                 await SettleAsync(indicator, () => faults.Reads > readsBefore);
 
                 Assert.Equal(readsBefore + 1, faults.Reads);
@@ -416,7 +416,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
                 await indicator.StartAsync();
                 int readsBefore = faults.Reads;
 
-                await indicator.CancelAsync(new BackgroundRunRef("tst", run));
+                await indicator.CancelAsync(new TaskRunRef("tst", run));
                 await SettleAsync(indicator, () => faults.Reads > readsBefore);
 
                 Assert.Equal(readsBefore + 1, faults.Reads);
@@ -600,12 +600,12 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
     private async Task<Guid> SeedRunAsync(UserId user, string? label, Guid? target = null)
     {
         using IServiceScope scope = host.Services.CreateScope();
-        IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema);
-        var definition = new ScheduledRunDefinition(null, ScheduledRunTrigger.Background, user, Guid.CreateVersion7(), "root", Command, "{}");
+        ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(TasksDbContext.Schema);
+        var definition = new TaskRunDefinition(null, TaskRunTrigger.Manual, user, Guid.CreateVersion7(), "root", Command, "{}");
         DateTime now = DateTime.UtcNow;
 
-        var run = ScheduledTaskRun.Start(definition, 1, now);
-        store.AddRun(run, [ScheduledTaskRunItem.Create(run.Id, target ?? Guid.CreateVersion7(), null, now, label)]);
+        var run = TaskRun.Start(definition, 1, now);
+        store.AddRun(run, [TaskRunItem.Create(run.Id, target ?? Guid.CreateVersion7(), null, now, label)]);
         await store.SaveAsync(CancellationToken.None);
 
         return run.Id;
@@ -614,13 +614,13 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
     private async Task<(Guid Run, IReadOnlyList<Guid> Items)> SeedThreeItemRunAsync(UserId user)
     {
         using IServiceScope scope = host.Services.CreateScope();
-        IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema);
-        var definition = new ScheduledRunDefinition(null, ScheduledRunTrigger.Background, user, Guid.CreateVersion7(), "root", Command, "{}");
+        ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(TasksDbContext.Schema);
+        var definition = new TaskRunDefinition(null, TaskRunTrigger.Manual, user, Guid.CreateVersion7(), "root", Command, "{}");
         DateTime now = DateTime.UtcNow;
 
-        var run = ScheduledTaskRun.Start(definition, 3, now);
-        IReadOnlyList<ScheduledTaskRunItem> items =
-            [.. Enumerable.Range(1, 3).Select(index => ScheduledTaskRunItem.Create(run.Id, Guid.CreateVersion7(), null, now, $"P-{index}"))];
+        var run = TaskRun.Start(definition, 3, now);
+        IReadOnlyList<TaskRunItem> items =
+            [.. Enumerable.Range(1, 3).Select(index => TaskRunItem.Create(run.Id, Guid.CreateVersion7(), null, now, $"P-{index}"))];
         store.AddRun(run, items);
         await store.SaveAsync(CancellationToken.None);
 
@@ -630,9 +630,9 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
     private async Task SucceedItemAsync(Guid itemId)
     {
         using IServiceScope scope = host.Services.CreateScope();
-        ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
+        TasksDbContext context = scope.ServiceProvider.GetRequiredService<TasksDbContext>();
 
-        ScheduledTaskRunItem item = await context.ScheduledTaskRunItems.SingleAsync(found => found.Id == itemId);
+        TaskRunItem item = await context.TaskRunItems.SingleAsync(found => found.Id == itemId);
         item.MarkSucceeded(DateTime.UtcNow);
         await context.SaveChangesAsync();
     }
@@ -640,10 +640,10 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
     private async Task CompleteAsync(Guid runId)
     {
         using IServiceScope scope = host.Services.CreateScope();
-        ScheduledTasksDbContext context = scope.ServiceProvider.GetRequiredService<ScheduledTasksDbContext>();
+        TasksDbContext context = scope.ServiceProvider.GetRequiredService<TasksDbContext>();
 
-        ScheduledTaskRun run = await context.ScheduledTaskRuns.SingleAsync(found => found.Id == runId);
-        foreach (ScheduledTaskRunItem item in await context.ScheduledTaskRunItems.Where(found => found.RunId == runId).ToListAsync())
+        TaskRun run = await context.TaskRuns.SingleAsync(found => found.Id == runId);
+        foreach (TaskRunItem item in await context.TaskRunItems.Where(found => found.RunId == runId).ToListAsync())
         {
             item.MarkSucceeded(DateTime.UtcNow);
         }
@@ -656,7 +656,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
     private async Task CancelRunAsync(Guid runId)
     {
         using IServiceScope scope = host.Services.CreateScope();
-        IScheduledTaskStore store = scope.ServiceProvider.GetRequiredService<IScheduledTaskStoreResolver>().For(ScheduledTasksDbContext.Schema);
+        ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(TasksDbContext.Schema);
 
         await store.CancelRunAsync(runId, DateTime.UtcNow, CancellationToken.None);
         await store.CompleteRunIfFinishedAsync(runId, DateTime.UtcNow, CancellationToken.None);
@@ -702,7 +702,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
         public async Task<ErrorOr.ErrorOr<TResponse>> SendAsync<TResponse>(
             IRequest<ErrorOr.ErrorOr<TResponse>> request, CancellationToken cancellationToken = default)
         {
-            if (request is CancelBackgroundRunCommand)
+            if (request is CancelTaskRunCommand)
             {
                 faults.Cancel();
 
