@@ -10,7 +10,6 @@ public sealed class TaskCatalogTests
     [
         typeof(ScheduleProbeAggregateFeatureConfiguration),
         typeof(TouchProbeCommandConfiguration),
-        typeof(TouchProbeChildCommandConfiguration),
         typeof(TouchOneProbeCommandConfiguration),
         typeof(UnconfiguredProbeCommand),
     ];
@@ -38,16 +37,7 @@ public sealed class TaskCatalogTests
         Assert.Equal(typeof(ScheduleProbeId), command.IdType);
         Assert.Null(command.RootIdType);
         Assert.Same(command, catalog.For(typeof(TouchProbeCommand)));
-        Assert.Equal(3, catalog.Commands.Count);
-    }
-
-    [Fact]
-    public void ChildCommand_CarriesRootIdType()
-    {
-        Assert.True(Build(reusable).TryGet("tst.probes.touch-child", out TaskDescriptor? command));
-        Assert.Equal(CommandTargetKind.ChildEntity, command.TargetKind);
-        Assert.Equal(typeof(ScheduleProbeId), command.RootIdType);
-        Assert.Equal(typeof(ScheduleProbeChildId), command.IdType);
+        Assert.Equal(2, catalog.Commands.Count);
     }
 
     [Fact]

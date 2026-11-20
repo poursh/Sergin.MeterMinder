@@ -50,11 +50,11 @@ public sealed class RunItemCancelTests(SerginWebApiFactory<Program> factory) : I
                 services.AddSingleton<ProbeGate>();
                 services.AddSingleton<ProbeRunCanceller>();
                 services.AddSingleton<CancelAfterClaim>();
-                services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<TouchProbeResponse>>, SlowProbeCommandHandler>();
-                services.AddTransient<IRequestHandler<LongTimedProbeCommand, ErrorOr<TouchProbeResponse>>, LongTimedProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<Success>>, SlowProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<LongTimedProbeCommand, ErrorOr<Success>>, LongTimedProbeCommandHandler>();
                 services.AddSingleton<ProgressProbe>();
-                services.AddTransient<IRequestHandler<ProgressProbeCommand, ErrorOr<TouchProbeResponse>>, ProgressProbeCommandHandler>();
-                services.AddTransient<IRequestHandler<CancelThenThrowProbeCommand, ErrorOr<TouchProbeResponse>>, CancelThenThrowProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<ProgressProbeCommand, ErrorOr<Success>>, ProgressProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<CancelThenThrowProbeCommand, ErrorOr<Success>>, CancelThenThrowProbeCommandHandler>();
                 DecorateStore(services);
             });
         });

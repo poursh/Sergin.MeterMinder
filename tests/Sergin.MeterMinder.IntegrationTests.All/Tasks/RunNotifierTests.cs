@@ -40,7 +40,7 @@ public sealed class RunNotifierTests(SerginWebApiFactory<Program> factory) : IAs
                 services.AddSingleton<FakeTaskEngine>();
                 services.Replace(ServiceDescriptor.Singleton<ITaskEngine>(provider => provider.GetRequiredService<FakeTaskEngine>()));
                 services.AddSingleton<ProbeGate>();
-                services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<TouchProbeResponse>>, ReachingSlowProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<Success>>, ReachingSlowProbeCommandHandler>();
                 services.AddScoped<IValidator<SlowProbeCommand>, SlowProbeCommandValidator>();
                 services.AddScoped<IValidator<TouchProbeCommand>, TouchProbeCommandValidator>();
             }));

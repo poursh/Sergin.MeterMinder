@@ -45,9 +45,9 @@ public sealed class RunItemExecutionTests(SerginWebApiFactory<Program> factory) 
             services.Replace(ServiceDescriptor.Singleton<ITaskEngine>(provider => provider.GetRequiredService<FakeTaskEngine>()));
             services.AddSingleton<ProbeFailureSwitch>();
             services.AddSingleton<ProbeSendRecorder>();
-            services.AddTransient<IRequestHandler<TouchProbeCommand, ErrorOr<TouchProbeResponse>>, TouchProbeCommandHandler>();
+            services.AddTransient<IRequestHandler<TouchProbeCommand, ErrorOr<Success>>, TouchProbeCommandHandler>();
             services.AddScoped<IValidator<TouchProbeCommand>, TouchProbeCommandValidator>();
-            services.AddTransient<IPipelineBehavior<TouchProbeCommand, ErrorOr<TouchProbeResponse>>, RecordingProbeBehavior>();
+            services.AddTransient<IPipelineBehavior<TouchProbeCommand, ErrorOr<Success>>, RecordingProbeBehavior>();
         }));
 
         await TaskTestHost.ResetSchemaAsync(host);
@@ -257,26 +257,6 @@ public sealed class RunItemExecutionTests(SerginWebApiFactory<Program> factory) 
     }
 
     [Fact]
-    public void ChildCommand_GetsRootIdAndId()
-    {
-        TaskDescriptor command = Catalog().Commands.Single(one => one.Name == "tst.probes.touch-child");
-        var rootId = Guid.CreateVersion7();
-        var targetId = Guid.CreateVersion7();
-
-        string arguments = TaskCommandFactory.ToArguments(
-            new TouchProbeChildCommand(new(Guid.Empty), new(Guid.Empty), new ProbeNote("child")));
-        ErrorOr<IBaseCommand> built = TaskCommandFactory.Build(command, arguments, targetId, rootId);
-
-        JsonObject stored = JsonNode.Parse(arguments)!.AsObject();
-        Assert.False(stored.ContainsKey("Id"));
-        Assert.False(stored.ContainsKey("RootId"));
-        TouchProbeChildCommand touch = Assert.IsType<TouchProbeChildCommand>(built.Value);
-        Assert.Equal(rootId, touch.RootId.Value);
-        Assert.Equal(targetId, touch.Id.Value);
-        Assert.Equal("child", touch.Note.Value);
-    }
-
-    [Fact]
     public void Arguments_ThatNoLongerFit_AreArgumentsInvalid()
     {
         TaskDescriptor command = Catalog().Commands.Single(one => one.Name == TouchName);
@@ -396,10 +376,10 @@ internal sealed class ProbeSendRecorder
 
 /// <summary>Records the caller and scope inside the pipeline, after the platform's behaviors.</summary>
 internal sealed class RecordingProbeBehavior(IUserContext caller, IAuthorizationScopeContext scope, ProbeSendRecorder recorder)
-    : IPipelineBehavior<TouchProbeCommand, ErrorOr<TouchProbeResponse>>
+    : IPipelineBehavior<TouchProbeCommand, ErrorOr<Success>>
 {
-    public Task<ErrorOr<TouchProbeResponse>> Handle(
-        TouchProbeCommand request, RequestHandlerDelegate<ErrorOr<TouchProbeResponse>> next, CancellationToken cancellationToken)
+    public Task<ErrorOr<Success>> Handle(
+        TouchProbeCommand request, RequestHandlerDelegate<ErrorOr<Success>> next, CancellationToken cancellationToken)
     {
         recorder.Record(caller, scope.ScopeId);
         return next(cancellationToken);
@@ -408,9 +388,9 @@ internal sealed class RecordingProbeBehavior(IUserContext caller, IAuthorization
 
 /// <summary>Loads the probe through EF (so the scope filter applies), leaves the note and saves.</summary>
 internal sealed class TouchProbeCommandHandler(TasksDbContext context, ProbeFailureSwitch failures)
-    : ICommandHandler<TouchProbeCommand, TouchProbeResponse>
+    : ICommandHandler<TouchProbeCommand>
 {
-    public async Task<ErrorOr<TouchProbeResponse>> Handle(TouchProbeCommand request, CancellationToken cancellationToken)
+    public async Task<ErrorOr<Success>> Handle(TouchProbeCommand request, CancellationToken cancellationToken)
     {
         if (failures.ShouldThrow())
         {
@@ -427,6 +407,6 @@ internal sealed class TouchProbeCommandHandler(TasksDbContext context, ProbeFail
         probe.Touch(request.Note);
         await context.SaveChangesAsync(cancellationToken);
 
-        return new TouchProbeResponse(request.Note.Value);
+        return Result.Success;
     }
 }

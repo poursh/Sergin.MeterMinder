@@ -165,7 +165,7 @@ public sealed class TickerQEngineTests(SerginWebApiFactory<Program> factory)
                     IConfigurationSection sergin = context.Configuration.GetSection("Sergin");
                     services.AddSerginTickerQ(sergin, sergin.GetSection("ConnectionStrings")["Database"]!);
                     services.AddSingleton<ProbeFailureSwitch>();
-                    services.AddTransient<IRequestHandler<TouchProbeCommand, ErrorOr<TouchProbeResponse>>, TouchProbeCommandHandler>();
+                    services.AddTransient<IRequestHandler<TouchProbeCommand, ErrorOr<Success>>, TouchProbeCommandHandler>();
                     services.AddScoped<IValidator<TouchProbeCommand>, TouchProbeCommandValidator>();
                 });
             });

@@ -56,33 +56,18 @@ internal sealed class ScheduleProbeAggregateFeatureConfiguration : IAggregateFea
         builder.Audited().Scoped().Permissions(ScheduleProbePermissions.Read, ScheduleProbePermissions.Touch);
 }
 
-internal sealed record TouchProbeResponse(string Note);
-
 internal sealed record TouchProbeCommand(ScheduleProbeId Id, ProbeNote Note)
-    : ICommand<TouchProbeResponse>, ISetPropertyCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
-internal sealed record TouchProbeChildCommand(ScheduleProbeId RootId, ScheduleProbeChildId Id, ProbeNote Note)
-    : ICommand<TouchProbeResponse>,
-        ISetPropertyCommand<ScheduleProbe, ScheduleProbeId, ScheduleProbeChild, ScheduleProbeChildId>,
-        ISelectable;
-
-internal sealed record TouchOneProbeCommand(ScheduleProbeId Id, ProbeNote Note)
-    : ICommand<TouchProbeResponse>, ISetPropertyCommand<ScheduleProbe, ScheduleProbeId>;
+internal sealed record TouchOneProbeCommand(ScheduleProbeId Id, ProbeNote Note) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
 /// <summary>Typed but never configured, so never schedulable.</summary>
-internal sealed record UnconfiguredProbeCommand(ScheduleProbeId Id, ProbeNote Note)
-    : ICommand<TouchProbeResponse>, ISetPropertyCommand<ScheduleProbe, ScheduleProbeId>;
+internal sealed record UnconfiguredProbeCommand(ScheduleProbeId Id, ProbeNote Note) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
 internal sealed class TouchProbeCommandConfiguration : ICommandConfiguration<TouchProbeCommand>
 {
     public void Configure(CommandConfigurationBuilder<TouchProbeCommand> builder) =>
         builder.Schedulable("tst.probes.touch").RequirePermissions(ScheduleProbePermissions.Touch);
-}
-
-internal sealed class TouchProbeChildCommandConfiguration : ICommandConfiguration<TouchProbeChildCommand>
-{
-    public void Configure(CommandConfigurationBuilder<TouchProbeChildCommand> builder) =>
-        builder.Schedulable("tst.probes.touch-child").RequirePermissions(ScheduleProbePermissions.Touch);
 }
 
 internal sealed class TouchOneProbeCommandConfiguration : ICommandConfiguration<TouchOneProbeCommand>
@@ -103,11 +88,11 @@ internal sealed class TouchProbeCommandValidator : AbstractValidator<TouchProbeC
 
 /// <summary>A background command whose handler waits on the host's <see cref="ProbeGate"/> until a test releases it.</summary>
 internal sealed record SlowProbeCommand(ScheduleProbeId Id, string Note)
-    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
 /// <summary>A background command with a one-second timeout whose handler takes thirty.</summary>
 internal sealed record TimedProbeCommand(ScheduleProbeId Id)
-    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
 internal sealed class SlowProbeCommandConfiguration : ICommandConfiguration<SlowProbeCommand>
 {
@@ -124,7 +109,7 @@ internal sealed class TimedProbeCommandConfiguration : ICommandConfiguration<Tim
 
 /// <summary>A background command with a three-second timeout whose handler takes thirty: a cancel well before it wins.</summary>
 internal sealed record LongTimedProbeCommand(ScheduleProbeId Id)
-    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
 internal sealed class LongTimedProbeCommandConfiguration : ICommandConfiguration<LongTimedProbeCommand>
 {
@@ -134,11 +119,11 @@ internal sealed class LongTimedProbeCommandConfiguration : ICommandConfiguration
 
 /// <summary>A background command with a timeout far longer than any test, whose handler waits on the <see cref="ProbeGate"/>.</summary>
 internal sealed record GatedTimedProbeCommand(ScheduleProbeId Id)
-    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
 /// <summary>A background command with a one-second timeout whose handler turns the cancellation into another exception.</summary>
 internal sealed record WrappingTimedProbeCommand(ScheduleProbeId Id)
-    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
 internal sealed class GatedTimedProbeCommandConfiguration : ICommandConfiguration<GatedTimedProbeCommand>
 {
@@ -174,18 +159,18 @@ internal sealed class ProbeGate
     public void Release() => released.TrySetResult();
 }
 
-internal sealed class SlowProbeCommandHandler(ProbeGate gate) : ICommandHandler<SlowProbeCommand, TouchProbeResponse>
+internal sealed class SlowProbeCommandHandler(ProbeGate gate) : ICommandHandler<SlowProbeCommand>
 {
-    public async Task<ErrorOr<TouchProbeResponse>> Handle(SlowProbeCommand request, CancellationToken cancellationToken)
+    public async Task<ErrorOr<Success>> Handle(SlowProbeCommand request, CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);
-        return new TouchProbeResponse(request.Note);
+        return Result.Success;
     }
 }
 
-internal sealed class GatedTimedProbeCommandHandler(ProbeGate gate) : ICommandHandler<GatedTimedProbeCommand, TouchProbeResponse>
+internal sealed class GatedTimedProbeCommandHandler(ProbeGate gate) : ICommandHandler<GatedTimedProbeCommand>
 {
-    public async Task<ErrorOr<TouchProbeResponse>> Handle(GatedTimedProbeCommand request, CancellationToken cancellationToken)
+    public async Task<ErrorOr<Success>> Handle(GatedTimedProbeCommand request, CancellationToken cancellationToken)
     {
         try
         {
@@ -197,7 +182,7 @@ internal sealed class GatedTimedProbeCommandHandler(ProbeGate gate) : ICommandHa
             throw new ProbeCanceledException("The gated probe was cancelled.", exception);
         }
 
-        return new TouchProbeResponse(string.Empty);
+        return Result.Success;
     }
 }
 
@@ -219,9 +204,9 @@ public sealed class ProbeCanceledException : OperationCanceledException
     }
 }
 
-internal sealed class WrappingTimedProbeCommandHandler : ICommandHandler<WrappingTimedProbeCommand, TouchProbeResponse>
+internal sealed class WrappingTimedProbeCommandHandler : ICommandHandler<WrappingTimedProbeCommand>
 {
-    public async Task<ErrorOr<TouchProbeResponse>> Handle(WrappingTimedProbeCommand request, CancellationToken cancellationToken)
+    public async Task<ErrorOr<Success>> Handle(WrappingTimedProbeCommand request, CancellationToken cancellationToken)
     {
         try
         {
@@ -232,25 +217,25 @@ internal sealed class WrappingTimedProbeCommandHandler : ICommandHandler<Wrappin
             throw new InvalidOperationException("The probe wrapped its cancellation.", exception);
         }
 
-        return new TouchProbeResponse(string.Empty);
+        return Result.Success;
     }
 }
 
-internal sealed class TimedProbeCommandHandler : ICommandHandler<TimedProbeCommand, TouchProbeResponse>
+internal sealed class TimedProbeCommandHandler : ICommandHandler<TimedProbeCommand>
 {
-    public async Task<ErrorOr<TouchProbeResponse>> Handle(TimedProbeCommand request, CancellationToken cancellationToken)
+    public async Task<ErrorOr<Success>> Handle(TimedProbeCommand request, CancellationToken cancellationToken)
     {
         await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
-        return new TouchProbeResponse(string.Empty);
+        return Result.Success;
     }
 }
 
-internal sealed class LongTimedProbeCommandHandler : ICommandHandler<LongTimedProbeCommand, TouchProbeResponse>
+internal sealed class LongTimedProbeCommandHandler : ICommandHandler<LongTimedProbeCommand>
 {
-    public async Task<ErrorOr<TouchProbeResponse>> Handle(LongTimedProbeCommand request, CancellationToken cancellationToken)
+    public async Task<ErrorOr<Success>> Handle(LongTimedProbeCommand request, CancellationToken cancellationToken)
     {
         await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
-        return new TouchProbeResponse(string.Empty);
+        return Result.Success;
     }
 }
 
@@ -259,7 +244,7 @@ internal sealed class LongTimedProbeCommandHandler : ICommandHandler<LongTimedPr
 /// retryable failure of an item whose run was cancelled while it ran.
 /// </summary>
 internal sealed record CancelThenThrowProbeCommand(ScheduleProbeId Id)
-    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
 internal sealed class CancelThenThrowProbeCommandConfiguration : ICommandConfiguration<CancelThenThrowProbeCommand>
 {
@@ -274,9 +259,9 @@ internal sealed class ProbeRunCanceller
 }
 
 internal sealed class CancelThenThrowProbeCommandHandler(IServiceScopeFactory scopes, ProbeRunCanceller canceller)
-    : ICommandHandler<CancelThenThrowProbeCommand, TouchProbeResponse>
+    : ICommandHandler<CancelThenThrowProbeCommand>
 {
-    public async Task<ErrorOr<TouchProbeResponse>> Handle(CancelThenThrowProbeCommand request, CancellationToken cancellationToken)
+    public async Task<ErrorOr<Success>> Handle(CancelThenThrowProbeCommand request, CancellationToken cancellationToken)
     {
         // Another scope, as another process's cancel would be: committed before the send fails.
         await using (AsyncServiceScope scope = scopes.CreateAsyncScope())
@@ -291,7 +276,7 @@ internal sealed class CancelThenThrowProbeCommandHandler(IServiceScopeFactory sc
 
 /// <summary>A background command whose handler reports progress through <see cref="ITaskProgress"/>, as <see cref="ProgressProbe"/> scripts it.</summary>
 internal sealed record ProgressProbeCommand(ScheduleProbeId Id)
-    : ICommand<TouchProbeResponse>, ITransitionCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
 internal sealed class ProgressProbeCommandConfiguration : ICommandConfiguration<ProgressProbeCommand>
 {
@@ -339,9 +324,9 @@ internal sealed class ProgressProbe
 }
 
 internal sealed class ProgressProbeCommandHandler(ProgressProbe probe, ITaskProgress progress, IRunItemContext runItem, IServiceScopeFactory scopes)
-    : ICommandHandler<ProgressProbeCommand, TouchProbeResponse>
+    : ICommandHandler<ProgressProbeCommand>
 {
-    public async Task<ErrorOr<TouchProbeResponse>> Handle(ProgressProbeCommand request, CancellationToken cancellationToken)
+    public async Task<ErrorOr<Success>> Handle(ProgressProbeCommand request, CancellationToken cancellationToken)
     {
         probe.Enter();
         await probe.Start.WaitAsync(cancellationToken);
@@ -362,7 +347,7 @@ internal sealed class ProgressProbeCommandHandler(ProgressProbe probe, ITaskProg
         }
 
         await probe.Finish.WaitAsync(cancellationToken);
-        return new TouchProbeResponse(string.Empty);
+        return Result.Success;
     }
 }
 
@@ -411,16 +396,16 @@ internal sealed class UntypedProbeCommandConfiguration : ICommandConfiguration<U
     public void Configure(CommandConfigurationBuilder<UntypedProbeCommand> builder) => builder.Schedulable("tst.probes.untyped");
 }
 
-internal sealed record MalformedNameCommand(ScheduleProbeId Id) : ICommand, ISetPropertyCommand<ScheduleProbe, ScheduleProbeId>;
+internal sealed record MalformedNameCommand(ScheduleProbeId Id) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
 internal sealed class MalformedNameCommandConfiguration : ICommandConfiguration<MalformedNameCommand>
 {
     public void Configure(CommandConfigurationBuilder<MalformedNameCommand> builder) => builder.Schedulable("Tst.Bad");
 }
 
-internal sealed record DuplicateNameOneCommand(ScheduleProbeId Id) : ICommand, ISetPropertyCommand<ScheduleProbe, ScheduleProbeId>;
+internal sealed record DuplicateNameOneCommand(ScheduleProbeId Id) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
-internal sealed record DuplicateNameTwoCommand(ScheduleProbeId Id) : ICommand, ISetPropertyCommand<ScheduleProbe, ScheduleProbeId>;
+internal sealed record DuplicateNameTwoCommand(ScheduleProbeId Id) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
 internal sealed class DuplicateNameOneCommandConfiguration : ICommandConfiguration<DuplicateNameOneCommand>
 {
@@ -432,7 +417,7 @@ internal sealed class DuplicateNameTwoCommandConfiguration : ICommandConfigurati
     public void Configure(CommandConfigurationBuilder<DuplicateNameTwoCommand> builder) => builder.Schedulable("tst.probes.dup");
 }
 
-internal sealed record OutsideSchemaCommand(ScheduleProbeId Id) : ICommand, ISetPropertyCommand<ScheduleProbe, ScheduleProbeId>;
+internal sealed record OutsideSchemaCommand(ScheduleProbeId Id) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
 internal sealed class OutsideSchemaCommandConfiguration : ICommandConfiguration<OutsideSchemaCommand>
 {
@@ -457,11 +442,11 @@ internal sealed record CheckedNote
     public string Value { get; }
 }
 
-internal sealed record CheckedProbeCommand(ScheduleProbeId Id, CheckedNote Note) : ICommand<TouchProbeResponse>;
+internal sealed record CheckedProbeCommand(ScheduleProbeId Id, CheckedNote Note) : ICommand;
 
 // ---- Background declaration fixtures: never added to TaskTestHost.ProbeConfigurations. ----
 
-internal sealed record BackgroundProbeCommand(ScheduleProbeId Id) : ICommand, ITransitionCommand<ScheduleProbe, ScheduleProbeId>;
+internal sealed record BackgroundProbeCommand(ScheduleProbeId Id) : ITaskCommand<ScheduleProbe, ScheduleProbeId>;
 
 internal sealed class BackgroundProbeCommandConfiguration : ICommandConfiguration<BackgroundProbeCommand>
 {
@@ -522,8 +507,8 @@ internal sealed class BackgroundDeleteProbeCommandConfiguration : ICommandConfig
 }
 
 /// <summary>Throws a cancellation no token caused, as an HTTP client's timeout does.</summary>
-internal sealed class SelfCancelingProbeCommandHandler : ICommandHandler<TouchOneProbeCommand, TouchProbeResponse>
+internal sealed class SelfCancelingProbeCommandHandler : ICommandHandler<TouchOneProbeCommand>
 {
-    public Task<ErrorOr<TouchProbeResponse>> Handle(TouchOneProbeCommand request, CancellationToken cancellationToken) =>
+    public Task<ErrorOr<Success>> Handle(TouchOneProbeCommand request, CancellationToken cancellationToken) =>
         throw new TaskCanceledException("The probe's own request timed out.");
 }

@@ -47,12 +47,12 @@ public sealed class RunItemHeartbeatTests(SerginWebApiFactory<Program> factory) 
                 services.AddSingleton<FakeTaskEngine>();
                 services.Replace(ServiceDescriptor.Singleton<ITaskEngine>(provider => provider.GetRequiredService<FakeTaskEngine>()));
                 services.AddSingleton<ProbeGate>();
-                services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<TouchProbeResponse>>, SlowProbeCommandHandler>();
-                services.AddTransient<IRequestHandler<TimedProbeCommand, ErrorOr<TouchProbeResponse>>, TimedProbeCommandHandler>();
-                services.AddTransient<IRequestHandler<GatedTimedProbeCommand, ErrorOr<TouchProbeResponse>>, GatedTimedProbeCommandHandler>();
-                services.AddTransient<IRequestHandler<WrappingTimedProbeCommand, ErrorOr<TouchProbeResponse>>, WrappingTimedProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<Success>>, SlowProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<TimedProbeCommand, ErrorOr<Success>>, TimedProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<GatedTimedProbeCommand, ErrorOr<Success>>, GatedTimedProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<WrappingTimedProbeCommand, ErrorOr<Success>>, WrappingTimedProbeCommandHandler>();
                 services.AddScoped<IValidator<SlowProbeCommand>, SlowProbeCommandValidator>();
-                services.AddTransient<IRequestHandler<TouchOneProbeCommand, ErrorOr<TouchProbeResponse>>, SelfCancelingProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<TouchOneProbeCommand, ErrorOr<Success>>, SelfCancelingProbeCommandHandler>();
             });
         });
 

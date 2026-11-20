@@ -39,9 +39,9 @@ public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) :
                 services.Replace(ServiceDescriptor.Singleton<ITaskEngine>(provider => provider.GetRequiredService<FakeTaskEngine>()));
                 services.AddSingleton<ProbeGate>();
                 services.AddSingleton<ProbeFailureSwitch>();
-                services.AddTransient<IRequestHandler<TouchProbeCommand, ErrorOr<TouchProbeResponse>>, TouchProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<TouchProbeCommand, ErrorOr<Success>>, TouchProbeCommandHandler>();
                 services.AddScoped<IValidator<TouchProbeCommand>, TouchProbeCommandValidator>();
-                services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<TouchProbeResponse>>, SlowProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<Success>>, SlowProbeCommandHandler>();
                 services.AddScoped<IValidator<SlowProbeCommand>, SlowProbeCommandValidator>();
             }));
 
@@ -58,7 +58,7 @@ public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) :
     [Fact]
     public async Task Inline_IsRefused()
     {
-        ErrorOr<TouchProbeResponse> result = await tree.TrySendAsync(new SlowProbeCommand(new(Guid.NewGuid()), "inline"));
+        ErrorOr<Success> result = await tree.TrySendAsync(new SlowProbeCommand(new(Guid.NewGuid()), "inline"));
 
         Assert.True(result.IsError);
         Assert.Equal("Tasks.MustRunInBackground", result.FirstError.Code);
@@ -88,7 +88,7 @@ public sealed class BackgroundGuardTests(SerginWebApiFactory<Program> factory) :
         ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
 
         // The scenario's default caller is the administrator at the root, so the permission check passes on the current scope.
-        ErrorOr<TouchProbeResponse> result = await tree.TrySendAsync(new TouchProbeCommand(probe.Id, new ProbeNote("inline")));
+        ErrorOr<Success> result = await tree.TrySendAsync(new TouchProbeCommand(probe.Id, new ProbeNote("inline")));
 
         Assert.False(result.IsError, result.IsError ? result.FirstError.Description : string.Empty);
     }

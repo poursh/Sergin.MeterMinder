@@ -38,7 +38,7 @@ public sealed class CancelRunTests(SerginWebApiFactory<Program> factory) : IAsyn
                 services.AddSingleton<FakeTaskEngine>();
                 services.Replace(ServiceDescriptor.Singleton<ITaskEngine>(provider => provider.GetRequiredService<FakeTaskEngine>()));
                 services.AddSingleton<ProbeGate>();
-                services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<TouchProbeResponse>>, SlowProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<Success>>, SlowProbeCommandHandler>();
             }));
 
         await TaskTestHost.ResetSchemaAsync(host);

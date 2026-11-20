@@ -43,7 +43,7 @@ public sealed class TaskStartTests(SerginWebApiFactory<Program> factory) : IAsyn
                 services.AddSingleton<FakeTaskEngine>();
                 services.Replace(ServiceDescriptor.Singleton<ITaskEngine>(provider => provider.GetRequiredService<FakeTaskEngine>()));
                 services.AddSingleton<ProbeGate>();
-                services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<TouchProbeResponse>>, ReachingSlowProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<SlowProbeCommand, ErrorOr<Success>>, ReachingSlowProbeCommandHandler>();
                 services.AddScoped<IValidator<SlowProbeCommand>, SlowProbeCommandValidator>();
                 services.AddScoped<IValidator<TouchProbeCommand>, TouchProbeCommandValidator>();
             }));
@@ -339,14 +339,14 @@ internal sealed class ExistingSlowProbeCommandValidator : AbstractValidator<Slow
 /// reach is <see cref="Error.NotFound"/>: the live reach check the start relies on.
 /// </summary>
 internal sealed class ReachingSlowProbeCommandHandler(ProbeGate gate, TasksDbContext context)
-    : ICommandHandler<SlowProbeCommand, TouchProbeResponse>
+    : ICommandHandler<SlowProbeCommand>
 {
-    public async Task<ErrorOr<TouchProbeResponse>> Handle(SlowProbeCommand request, CancellationToken cancellationToken)
+    public async Task<ErrorOr<Success>> Handle(SlowProbeCommand request, CancellationToken cancellationToken)
     {
         await gate.WaitAsync(cancellationToken);
 
         return await context.Probes.AnyAsync(probe => probe.Id == request.Id, cancellationToken)
-            ? new TouchProbeResponse(request.Note)
+            ? Result.Success
             : Error.NotFound();
     }
 }

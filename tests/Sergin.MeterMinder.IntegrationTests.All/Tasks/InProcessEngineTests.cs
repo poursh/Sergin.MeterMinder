@@ -54,9 +54,9 @@ public sealed class InProcessEngineTests(SerginWebApiFactory<Program> factory) :
                 {
                     services.AddSingleton<ProbeFailureSwitch>();
                     services.AddSingleton<ProbeSendRecorder>();
-                    services.AddTransient<IRequestHandler<TouchProbeCommand, ErrorOr<TouchProbeResponse>>, TouchProbeCommandHandler>();
+                    services.AddTransient<IRequestHandler<TouchProbeCommand, ErrorOr<Success>>, TouchProbeCommandHandler>();
                     services.AddScoped<IValidator<TouchProbeCommand>, TouchProbeCommandValidator>();
-                    services.AddTransient<IPipelineBehavior<TouchProbeCommand, ErrorOr<TouchProbeResponse>>, RecordingProbeBehavior>();
+                    services.AddTransient<IPipelineBehavior<TouchProbeCommand, ErrorOr<Success>>, RecordingProbeBehavior>();
                 });
             },
             standInEngine: true);

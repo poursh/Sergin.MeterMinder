@@ -110,30 +110,23 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
     public async Task Create_DuplicateTargets_AreRefused()
     {
         ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
-        var root = Guid.CreateVersion7();
-        TouchProbeChildCommand template = new(new(Guid.Empty), new(Guid.Empty), new ProbeNote("x"));
 
-        // The targets' key is (schedule_id, target_id): the same id twice collides whatever its root.
+        // The targets' key is (schedule_id, target_id): the same id twice collides.
         ErrorOr<CreateTaskScheduleCommandResponse> created = await SendAsync(
             manager,
             tree.North,
-            new CreateTaskScheduleCommand(Schema, template, [new(probe.Id.Value, null), new(probe.Id.Value, root)], Cron, "UTC"));
+            new CreateTaskScheduleCommand(Schema, Touch("x"), [new(probe.Id.Value, null), new(probe.Id.Value, null)], Cron, "UTC"));
 
         Assert.Contains(created.Errors, error => error.Code == nameof(CreateTaskScheduleCommand.Targets));
         await AssertNothingSavedAsync();
     }
 
     [Fact]
-    public async Task Create_ChildCommandWithoutRootId_IsRefused_AndNoTargets_IsRefused()
+    public async Task Create_NoTargets_IsRefused()
     {
-        TouchProbeChildCommand template = new(new(Guid.Empty), new(Guid.Empty), new ProbeNote("x"));
-
-        ErrorOr<CreateTaskScheduleCommandResponse> noRoot = await SendAsync(
-            manager, tree.North, new CreateTaskScheduleCommand(Schema, template, [new(Guid.CreateVersion7(), null)], Cron, "UTC"));
         ErrorOr<CreateTaskScheduleCommandResponse> none = await SendAsync(
             manager, tree.North, new CreateTaskScheduleCommand(Schema, Touch("x"), [], Cron, "UTC"));
 
-        Assert.Contains(noRoot.Errors, error => error.Code == nameof(CreateTaskScheduleCommand.Targets));
         Assert.Contains(none.Errors, error => error.Code == nameof(CreateTaskScheduleCommand.Targets));
         await AssertNothingSavedAsync();
     }
@@ -547,7 +540,7 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
             engine(services);
             services.AddSingleton<ProbeFailureSwitch>();
             services.AddSingleton<ProbeSendRecorder>();
-            services.AddTransient<IRequestHandler<TouchProbeCommand, ErrorOr<TouchProbeResponse>>, TouchProbeCommandHandler>();
+            services.AddTransient<IRequestHandler<TouchProbeCommand, ErrorOr<Success>>, TouchProbeCommandHandler>();
             services.AddScoped<FluentValidation.IValidator<TouchProbeCommand>, TouchProbeCommandValidator>();
         }));
 

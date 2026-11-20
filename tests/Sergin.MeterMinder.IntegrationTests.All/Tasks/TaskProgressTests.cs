@@ -48,7 +48,7 @@ public sealed class TaskProgressTests(SerginWebApiFactory<Program> factory) : IA
                 services.AddSingleton<FakeTaskEngine>();
                 services.Replace(ServiceDescriptor.Singleton<ITaskEngine>(provider => provider.GetRequiredService<FakeTaskEngine>()));
                 services.AddSingleton<ProgressProbe>();
-                services.AddTransient<IRequestHandler<ProgressProbeCommand, ErrorOr<TouchProbeResponse>>, ProgressProbeCommandHandler>();
+                services.AddTransient<IRequestHandler<ProgressProbeCommand, ErrorOr<Success>>, ProgressProbeCommandHandler>();
             }));
 
         await TaskTestHost.ResetSchemaAsync(host);
