@@ -62,6 +62,14 @@ public static class ScheduleProbeTexts
 
     public static TextDefinition Kick { get; } = Category.Text("Kick", "Kick probe");
 
+    public static TextDefinition Sweep { get; } = Category.Text("Sweep", "Sweep probe");
+
+    public static TextDefinition Refresh { get; } = Category.Text("Refresh", "Refresh probes");
+
+    public static FieldText Passes { get; } = Category.Field(nameof(Passes), "Passes");
+
+    public static FieldText Copies { get; } = Category.Field(nameof(Copies), "Copies");
+
     public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
 
     public static FieldText Note { get; } = Category.Field(nameof(Note), "Note");

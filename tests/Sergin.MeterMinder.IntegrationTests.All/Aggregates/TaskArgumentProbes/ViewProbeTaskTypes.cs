@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Sergin.MeterMinder.IntegrationTests.All.Tasks;
 using Sergin.SharedKernel.Application;
+using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Commands.Types;
@@ -49,6 +50,43 @@ internal sealed class ProbeKickTaskCommandConfiguration : ICommandConfiguration<
 {
     public void Configure(CommandConfigurationBuilder<ProbeKickTaskCommand> builder) =>
         builder.RequirePermissions(ScheduleProbePermissions.Touch).NotShown(command => command.Times).Task(task => task.Name("tst.probes.kick"));
+}
+
+/// <summary>A schedulable task over one record whose shown argument declares a default: its form starts from it.</summary>
+internal sealed record ProbeSweepTaskCommand(ScheduleProbeId Id, ProbeNote Note, int Passes = 2)
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+internal sealed class ProbeSweepTaskCommandConfiguration : ICommandConfiguration<ProbeSweepTaskCommand>
+{
+    public void Configure(CommandConfigurationBuilder<ProbeSweepTaskCommand> builder) =>
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable().Name("tst.probes.sweep"));
+}
+
+/// <summary>A schedulable task over the collection with an argument.</summary>
+internal sealed record ProbeRefreshTaskCommand(ProbeNote Note) : ITaskCommand<ScheduleProbe>;
+
+internal sealed class ProbeRefreshTaskCommandConfiguration : ICommandConfiguration<ProbeRefreshTaskCommand>
+{
+    public void Configure(CommandConfigurationBuilder<ProbeRefreshTaskCommand> builder) =>
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable().Name("tst.probes.refresh"));
+}
+
+/// <summary>A create command with an optional argument: its generated create form starts from the declared default.</summary>
+internal sealed record CreateScheduleProbeCommand(ProbeNote Name, int Copies = 2) : ICommand, ICreateCommand<ScheduleProbe, ScheduleProbeId>;
+
+/// <summary>Keeps the last create the form sent; nothing reaches a database.</summary>
+internal sealed class CreatedProbeRecorder
+{
+    public CreateScheduleProbeCommand? Last { get; set; }
+}
+
+internal sealed class CreateScheduleProbeCommandHandler(CreatedProbeRecorder recorder) : IRequestHandler<CreateScheduleProbeCommand, ErrorOr<Success>>
+{
+    public Task<ErrorOr<Success>> Handle(CreateScheduleProbeCommand request, CancellationToken cancellationToken)
+    {
+        recorder.Last = request;
+        return Task.FromResult<ErrorOr<Success>>(Result.Success);
+    }
 }
 
 internal sealed record ScheduleProbeResponse(Guid Id, string Name);
@@ -105,11 +143,24 @@ internal sealed class ScheduleProbeRepository(ITasksTestDbContext context)
 /// <summary>What the three Window configurations share: the routes, the two shown tasks' labels, every other probe task hidden.</summary>
 internal static class ScheduleProbeViews
 {
-    public static void Configure(AggregateViewBuilder<ScheduleProbe> view, Action<CommandViewBuilder<ProbeWindowTaskCommand>> window)
+    /// <param name="view">The probe's view.</param>
+    /// <param name="window">How Window is offered.</param>
+    /// <param name="inlineSchedulable">Whether the schedulable Sweep and Refresh are offered inline too (else in their dialog).</param>
+    public static void Configure(
+        AggregateViewBuilder<ScheduleProbe> view, Action<CommandViewBuilder<ProbeWindowTaskCommand>> window, bool inlineSchedulable = false)
     {
         view.Routes(detail: id => $"/tst/probes/{id}");
 
         window(view.Command<ProbeWindowTaskCommand>().Label(ScheduleProbeTexts.Window));
+        CommandViewBuilder<ProbeSweepTaskCommand> sweep = view.Command<ProbeSweepTaskCommand>().Label(ScheduleProbeTexts.Sweep);
+        CommandViewBuilder<ProbeRefreshTaskCommand> refresh = view.Command<ProbeRefreshTaskCommand>().Label(ScheduleProbeTexts.Refresh);
+
+        if (inlineSchedulable)
+        {
+            sweep.Edit(SerginEditMode.Inline);
+            refresh.Edit(SerginEditMode.Inline);
+        }
+
         view.Command<ProbeKickTaskCommand>().Label(ScheduleProbeTexts.Kick);
 
         view.Command<TouchProbeCommand>().Hidden();
@@ -141,7 +192,7 @@ internal sealed class PageScheduleProbeViewConfiguration : IAggregateViewConfigu
 internal sealed class InlineScheduleProbeViewConfiguration : IAggregateViewConfiguration<ScheduleProbe>
 {
     public void Configure(AggregateViewBuilder<ScheduleProbe> view) =>
-        ScheduleProbeViews.Configure(view, window => window.Edit(SerginEditMode.Inline));
+        ScheduleProbeViews.Configure(view, window => window.Edit(SerginEditMode.Inline), inlineSchedulable: true);
 }
 
 /// <summary>
@@ -155,6 +206,11 @@ internal static class ScheduleProbeViewHost
     [
         typeof(ProbeWindowTaskCommandConfiguration),
         typeof(ProbeKickTaskCommandConfiguration),
+        typeof(ProbeSweepTaskCommandConfiguration),
+        typeof(ProbeRefreshTaskCommandConfiguration),
+        typeof(ProbeSweepTaskCommand),
+        typeof(ProbeRefreshTaskCommand),
+        typeof(CreateScheduleProbeCommand),
         typeof(GetScheduleProbeQueryConfiguration),
         typeof(ListScheduleProbesQueryConfiguration),
         typeof(ProbeWindowTaskCommand),
@@ -170,6 +226,8 @@ internal static class ScheduleProbeViewHost
         services.AddSingleton(AggregateViewSource.FromTypes("tst", viewConfiguration));
 
         services.AddTransient<IRepository<ScheduleProbe, ScheduleProbeId>, ScheduleProbeRepository>();
+        services.AddSingleton<CreatedProbeRecorder>();
+        services.AddTransient<IRequestHandler<CreateScheduleProbeCommand, ErrorOr<Success>>, CreateScheduleProbeCommandHandler>();
         services.AddScoped<IValidator<ProbeWindowTaskCommand>, ProbeWindowTaskCommandValidator>();
         services.AddTransient<IRequestHandler<GetScheduleProbeQuery, ErrorOr<ScheduleProbeResponse>>, GetScheduleProbeQueryHandler>();
         services.AddTransient<IRequestHandler<ListScheduleProbesQuery, ErrorOr<ListQueryResponse<ScheduleProbeListItem>>>, ListScheduleProbesQueryHandler>();

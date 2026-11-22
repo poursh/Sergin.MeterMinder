@@ -20,6 +20,7 @@ using Sergin.MeterMinder.IntegrationTests.All.Tasks;
 using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
+using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Domain.Securities;
 using Sergin.SharedKernel.Infrastracture.Data;
@@ -272,6 +273,110 @@ public sealed partial class TaskArgumentFormTests(SerginWebApiFactory<Program> f
         Assert.Single(await RunsAsync(WindowName));
     }
 
+    [Fact]
+    public async Task InlineSchedulable_SectionsOfferScheduleEntries()
+    {
+        await StartHostAsync(typeof(InlineScheduleProbeViewConfiguration));
+        Guid probe = await CreateProbeAsync(Scope.RootId.Value, "Probe scheduled inline");
+        await GrantAsync(Scope.RootId.Value, TaskPermissions.Manage);
+
+        // On the detail: the schedulable task's section carries Schedule… and View schedules; the other one carries neither.
+        await RenderAsync<SerginGeneratedDetailView<ScheduleProbe>>($"/tst/probes/{probe}", Id(probe), Scope.RootId.Value, (root, view, _) =>
+        {
+            string html = WebUtility.HtmlDecode(root.ToHtmlString());
+            string sweep = SectionOf(html, "Sweep probe");
+            string window = SectionOf(html, "Probe window");
+
+            Assert.Contains("Schedule…", sweep, StringComparison.Ordinal);
+            Assert.Contains("View schedules", sweep, StringComparison.Ordinal);
+            Assert.DoesNotContain("Schedule…", window, StringComparison.Ordinal);
+            Assert.DoesNotContain("View schedules", window, StringComparison.Ordinal);
+            Assert.DoesNotContain(((SerginGeneratedDetailView<ScheduleProbe>)view).Actions, action => action.Label == ScheduleProbeTexts.Sweep);
+            return Task.CompletedTask;
+        });
+
+        // On the list: the schedulable collection task's section carries Schedule… and Schedules, and is no header action.
+        await RenderAsync<SerginGeneratedListView<ScheduleProbe>>("/tst/probes", [], Scope.RootId.Value, (root, view, _) =>
+        {
+            string refresh = SectionOf(WebUtility.HtmlDecode(root.ToHtmlString()), "Refresh probes");
+
+            Assert.Contains("Schedule…", refresh, StringComparison.Ordinal);
+            Assert.Matches(ButtonText("Schedules"), refresh);
+            Assert.DoesNotContain(((SerginGeneratedListView<ScheduleProbe>)view).Actions, action => action.Label == ScheduleProbeTexts.Refresh);
+            return Task.CompletedTask;
+        });
+    }
+
+    [Fact]
+    public async Task InlineNotSchedulable_SectionOffersNoScheduleEntries()
+    {
+        // The Inline configuration's Window is not Schedulable(); with Manage held its section still offers no schedule entry.
+        await StartHostAsync(typeof(InlineScheduleProbeViewConfiguration));
+        Guid probe = await CreateProbeAsync(Scope.RootId.Value, "Probe plain inline");
+        await GrantAsync(Scope.RootId.Value, TaskPermissions.Manage);
+
+        await RenderAsync<SerginGeneratedDetailView<ScheduleProbe>>($"/tst/probes/{probe}", Id(probe), Scope.RootId.Value, (root, _, _) =>
+        {
+            string window = SectionOf(WebUtility.HtmlDecode(root.ToHtmlString()), "Probe window");
+
+            Assert.Contains(">Start<", window, StringComparison.Ordinal);
+            Assert.DoesNotContain("Schedule", window, StringComparison.Ordinal);
+            return Task.CompletedTask;
+        });
+    }
+
+    // ---- Declared defaults ----
+
+    [Fact]
+    public async Task DefaultedArgument_RendersPrefilled_AndStartsWithIt()
+    {
+        await StartHostAsync(typeof(DialogScheduleProbeViewConfiguration));
+        Guid probe = await CreateProbeAsync(Scope.RootId.Value, "Probe swept");
+        await GrantAsync(Scope.RootId.Value);
+        CommandView sweep = CommandOf(typeof(ProbeSweepTaskCommand));
+
+        Assert.Equal(2, Assert.Single(sweep.TaskFields, field => field.Name == nameof(ProbeSweepTaskCommand.Passes)).Default);
+
+        await RenderFormAsync(sweep, [new TaskTarget(probe, "Probe swept")], Scope.RootId.Value, async (root, form, _) =>
+        {
+            Assert.Matches(InputValue("2"), root.ToHtmlString());
+
+            form.SetValue(nameof(ProbeSweepTaskCommand.Note), "swept");
+            await form.SubmitAsync();
+        });
+
+        (string arguments, _) = Assert.Single(await RunsAsync("tst.probes.sweep"));
+        Assert.Matches(PassesTwo(), arguments);
+    }
+
+    [Fact]
+    public async Task CreateForm_OptionalArgument_StartsFromItsDefault()
+    {
+        await StartHostAsync(typeof(DialogScheduleProbeViewConfiguration));
+        await GrantAsync(Scope.RootId.Value);
+        string? left = null;
+        SerginViewHost page = new(SerginViewHostKind.Page, href =>
+        {
+            left = href;
+            return Task.CompletedTask;
+        });
+
+        await RenderAsync<SerginGeneratedFormView<ScheduleProbe>>(
+            "/tst/probes/new",
+            [],
+            Scope.RootId.Value,
+            async (root, view, _) =>
+            {
+                Assert.Matches(InputValue("2"), root.ToHtmlString());
+
+                await ((SerginGeneratedFormView<ScheduleProbe>)view).SubmitAsync();
+            },
+            page);
+
+        Assert.NotNull(left);
+        Assert.Equal(2, host!.Services.GetRequiredService<CreatedProbeRecorder>().Last?.Copies);
+    }
+
     // ---- Bulk ----
 
     [Fact]
@@ -368,7 +473,25 @@ public sealed partial class TaskArgumentFormTests(SerginWebApiFactory<Program> f
     [GeneratedRegex(@"""times""\s*:\s*3\b", RegexOptions.IgnoreCase)]
     private static partial Regex TimesThree();
 
+    [GeneratedRegex(@"""passes""\s*:\s*2\b", RegexOptions.IgnoreCase)]
+    private static partial Regex PassesTwo();
+
+    private static Regex InputValue(string value) =>
+        new($"<input[^>]*value=\"{Regex.Escape(value)}\"", RegexOptions.None, TimeSpan.FromSeconds(1));
+
+    // The section titled `title`, from its opening tag to its close.
+    private static string SectionOf(string html, string title)
+    {
+        int start = html.IndexOf($"aria-label=\"{title}\"", StringComparison.Ordinal);
+        Assert.True(start >= 0, $"No section titled {title}.");
+
+        return html[start..html.IndexOf("</section>", start, StringComparison.Ordinal)];
+    }
+
     private static Regex CancelTo(string href) => new($"<a[^>]*href=\"{Regex.Escape(href)}\"[^>]*>\\s*(<[^>]*>\\s*)*Cancel", RegexOptions.None, TimeSpan.FromSeconds(1));
+
+    private static Regex ButtonText(string text) =>
+        new($"<button[^>]*>\\s*(<[^>]*>\\s*)*{Regex.Escape(text)}\\s*<", RegexOptions.None, TimeSpan.FromSeconds(1));
 
     private static Regex SectionTitled(string title) =>
         new($"<section[^>]*aria-label=\"{Regex.Escape(title)}\"", RegexOptions.None, TimeSpan.FromSeconds(1));
@@ -427,11 +550,12 @@ public sealed partial class TaskArgumentFormTests(SerginWebApiFactory<Program> f
         return probe.Id.Value;
     }
 
-    private async Task GrantAsync(Guid scopeId)
+    private async Task GrantAsync(Guid scopeId, params PermissionDefinition[] more)
     {
         users.Current = null;
         users.Current = await tree.CreateGrantedCallerAsync(
-            scopeId, ScheduleProbePermissions.Read.Permission, ScheduleProbePermissions.Touch.Permission);
+            scopeId,
+            [ScheduleProbePermissions.Read.Permission, ScheduleProbePermissions.Touch.Permission, .. more.Select(permission => permission.Permission)]);
     }
 
     private async Task RenderAsync<TView>(
