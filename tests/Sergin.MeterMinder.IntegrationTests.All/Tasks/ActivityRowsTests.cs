@@ -144,6 +144,17 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public void ViewTaskLabels_NameATaskByItsViewLabel_AndNoneWithoutAView()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        ITaskLabels labels = scope.ServiceProvider.GetRequiredService<ITaskLabels>();
+        TaskCatalog catalog = factory.Services.GetRequiredService<TaskCatalog>();
+
+        Assert.Equal(DeviceUiTexts.ReadProfile.Default, labels.LabelOf(catalog.ByName(ReadProfile)!));
+        Assert.Null(labels.LabelOf(catalog.ByName(ReadProfile)! with { Name = "xx.gone.command" }));
+    }
+
+    [Fact]
     public void ACommandTheCatalogueDoesNotKnow_HasNoIcon() =>
         Assert.Null(ActivityRows.CommandIcon(
             "xx.gone.command",

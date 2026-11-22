@@ -112,7 +112,8 @@ public sealed class CollectionTaskTests(SerginWebApiFactory<Program> factory) : 
         Error error = Assert.Single(second.Errors);
         Assert.Equal("Tasks.AlreadyRunning", error.Code);
         Assert.Equal(ErrorType.Conflict, error.Type);
-        Assert.Contains(SyncName, error.Description, StringComparison.Ordinal);
+        // No view names the probe task, so its task name stands in; the scope is named, not given as its path.
+        Assert.Equal($"{SyncName} is already running in North Region.", error.Description);
         Assert.Single(await RunsAsync());
         Assert.Single(Engine.QueuedItems);
     }
@@ -184,6 +185,22 @@ public sealed class CollectionTaskTests(SerginWebApiFactory<Program> factory) : 
 
         TaskRun fired = Assert.Single(await RunsAsync(), run => run.ScheduleId == schedule.Id && run.Status == TaskRunStatus.Running);
         Assert.Null(Assert.Single(await ItemsAsync(fired.Id)).TargetId);
+    }
+
+    [Fact]
+    public async Task CreateSchedule_ForACollectionTask_WithNoTargets_IsSaved()
+    {
+        TestCaller manager = await tree.CreateGrantedCallerAsync(
+            tree.Company, ScheduleProbePermissions.Touch.Permission, TaskPermissions.Manage.Permission);
+
+        using IServiceScope circuit = host.Services.CreateScope();
+        circuit.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = manager;
+        circuit.ServiceProvider.GetRequiredService<IAuthorizationScopeContext>().Set(tree.North);
+
+        ErrorOr<CreateTaskScheduleCommandResponse> created = await circuit.ServiceProvider.GetRequiredService<ISerginDispatcher>()
+            .SendAsync(new CreateTaskScheduleCommand(TasksDbContext.Schema, new SyncProbesCommand(), [], "0 * * * *", "UTC"));
+
+        Assert.False(created.IsError, created.IsError ? created.FirstError.Code : string.Empty);
     }
 
     [Fact]
