@@ -288,10 +288,12 @@ common.tasks.cron.weekly
 common.tasks.delete-confirm
 common.tasks.delete-title
 common.tasks.deleted
+common.tasks.dialog.scope
 common.tasks.dialog.targets
 common.tasks.dialog.trigger
 common.tasks.edit-title
 common.tasks.empty
+common.tasks.empty-in-scope
 common.tasks.engine-off
 common.tasks.errors.already-running
 common.tasks.errors.collection-targets
@@ -353,6 +355,8 @@ common.tasks.runs.trigger
 common.tasks.save
 common.tasks.saved
 common.tasks.schedule-action
+common.tasks.schedules
+common.tasks.schedules-in
 common.tasks.singular
 common.tasks.stale-reloaded
 common.tasks.states.active

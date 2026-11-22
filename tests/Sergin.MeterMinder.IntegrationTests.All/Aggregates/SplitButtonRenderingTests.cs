@@ -64,6 +64,20 @@ public sealed class SplitButtonRenderingTests(SerginWebApiFactory<Program> facto
         Assert.DoesNotContain(MoreActions, html, StringComparison.Ordinal);
     }
 
+    // A task's action while its run is going (a list header's collection task, a detail's task over the record): the
+    // spinner and the split button together, and the button stays clickable.
+    [Fact]
+    public async Task ActionBar_BusyTaskWithMenuItem_RendersSpinnerAndSplitButton()
+    {
+        string html = await RenderAsync<SerginActionBar>(
+            [Held],
+            Parameters(nameof(SerginActionBar.Actions), new[] { Action(Held, Item(Held)) with { Busy = true } }));
+
+        Assert.Contains("sergin-action-busy", html, StringComparison.Ordinal);
+        Assert.Equal(1, Count(html, $"aria-label=\"{MoreActions}\""));
+        Assert.DoesNotMatch(@"<button[^>]*disabled[^>]*>\s*(<[^>]*>\s*)*Read profile", html);
+    }
+
     [Fact]
     public async Task SelectionBar_BulkActionWithMenuItem_RendersSplitButton()
     {
