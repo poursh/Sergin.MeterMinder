@@ -62,6 +62,43 @@ internal sealed class ProbeSweepTaskCommandConfiguration : ICommandConfiguration
         builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable().Name("tst.probes.sweep"));
 }
 
+/// <summary>
+/// A schedulable task over one record with arguments the Schedule dialog asks for (Hours validated 1-24); its handler
+/// keeps what each run item was sent.
+/// </summary>
+internal sealed record ProbeShiftTaskCommand(ScheduleProbeId Id, ProbeNote Note, int Hours)
+    : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
+
+internal sealed class ProbeShiftTaskCommandConfiguration : ICommandConfiguration<ProbeShiftTaskCommand>
+{
+    public void Configure(CommandConfigurationBuilder<ProbeShiftTaskCommand> builder) =>
+        builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.Schedulable().Name("tst.probes.shift"));
+}
+
+internal sealed class ProbeShiftTaskCommandValidator : AbstractValidator<ProbeShiftTaskCommand>
+{
+    public ProbeShiftTaskCommandValidator() => RuleFor(command => command.Hours).InclusiveBetween(1, 24);
+}
+
+/// <summary>Every Shift a run item sent, in order.</summary>
+internal sealed class ShiftRecorder
+{
+    private readonly System.Collections.Concurrent.ConcurrentQueue<ProbeShiftTaskCommand> sent = new();
+
+    public IReadOnlyCollection<ProbeShiftTaskCommand> Sent => [.. sent];
+
+    public void Record(ProbeShiftTaskCommand command) => sent.Enqueue(command);
+}
+
+internal sealed class ProbeShiftTaskCommandHandler(ShiftRecorder recorder) : IRequestHandler<ProbeShiftTaskCommand, ErrorOr<Success>>
+{
+    public Task<ErrorOr<Success>> Handle(ProbeShiftTaskCommand request, CancellationToken cancellationToken)
+    {
+        recorder.Record(request);
+        return Task.FromResult<ErrorOr<Success>>(Result.Success);
+    }
+}
+
 /// <summary>A schedulable task over the collection with an argument.</summary>
 internal sealed record ProbeRefreshTaskCommand(ProbeNote Note) : ITaskCommand<ScheduleProbe>;
 
@@ -162,6 +199,7 @@ internal static class ScheduleProbeViews
         }
 
         view.Command<ProbeKickTaskCommand>().Label(ScheduleProbeTexts.Kick);
+        view.Command<ProbeShiftTaskCommand>().Label(ScheduleProbeTexts.Shift);
 
         view.Command<TouchProbeCommand>().Hidden();
         view.Command<TouchOneProbeCommand>().Hidden();
@@ -208,6 +246,8 @@ internal static class ScheduleProbeViewHost
         typeof(ProbeKickTaskCommandConfiguration),
         typeof(ProbeSweepTaskCommandConfiguration),
         typeof(ProbeRefreshTaskCommandConfiguration),
+        typeof(ProbeShiftTaskCommandConfiguration),
+        typeof(ProbeShiftTaskCommand),
         typeof(ProbeSweepTaskCommand),
         typeof(ProbeRefreshTaskCommand),
         typeof(CreateScheduleProbeCommand),
@@ -229,6 +269,9 @@ internal static class ScheduleProbeViewHost
         services.AddSingleton<CreatedProbeRecorder>();
         services.AddTransient<IRequestHandler<CreateScheduleProbeCommand, ErrorOr<Success>>, CreateScheduleProbeCommandHandler>();
         services.AddScoped<IValidator<ProbeWindowTaskCommand>, ProbeWindowTaskCommandValidator>();
+        services.AddScoped<IValidator<ProbeShiftTaskCommand>, ProbeShiftTaskCommandValidator>();
+        services.AddSingleton<ShiftRecorder>();
+        services.AddTransient<IRequestHandler<ProbeShiftTaskCommand, ErrorOr<Success>>, ProbeShiftTaskCommandHandler>();
         services.AddTransient<IRequestHandler<GetScheduleProbeQuery, ErrorOr<ScheduleProbeResponse>>, GetScheduleProbeQueryHandler>();
         services.AddTransient<IRequestHandler<ListScheduleProbesQuery, ErrorOr<ListQueryResponse<ScheduleProbeListItem>>>, ListScheduleProbesQueryHandler>();
     }

@@ -66,6 +66,8 @@ public static class ScheduleProbeTexts
 
     public static TextDefinition Refresh { get; } = Category.Text("Refresh", "Refresh probes");
 
+    public static TextDefinition Shift { get; } = Category.Text("Shift", "Shift probe");
+
     public static FieldText Passes { get; } = Category.Field(nameof(Passes), "Passes");
 
     public static FieldText Copies { get; } = Category.Field(nameof(Copies), "Copies");

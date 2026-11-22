@@ -290,6 +290,9 @@ common.tasks.delete-title
 common.tasks.deleted
 common.tasks.dialog.scope
 common.tasks.dialog.targets
+common.tasks.dialog.title-in-scope
+common.tasks.dialog.title-one-record
+common.tasks.dialog.title-records
 common.tasks.dialog.trigger
 common.tasks.edit-title
 common.tasks.empty
