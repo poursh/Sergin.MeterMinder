@@ -16,10 +16,12 @@ using Sergin.MeterMinder.IntegrationTests.All.Aggregates;
 using Sergin.MeterMinder.IntegrationTests.All.Aggregates.TaskArgumentProbes;
 using Sergin.MeterMinder.IntegrationTests.All.Authorization;
 using Sergin.SharedKernel.Application.Commands.Types;
+using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Securities.Authorization;
 using Sergin.SharedKernel.Application.Securities.Users;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Application.Tasks.Commands;
+using Sergin.SharedKernel.Application.Tasks.Queries;
 using Sergin.SharedKernel.Domain.Tasks;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
@@ -240,6 +242,90 @@ public sealed partial class ScheduleDialogArgumentsTests(SerginWebApiFactory<Pro
         Assert.NotEqual(before, await RowVersionAsync(id));
     }
 
+    // ---- The server's backstop: the task's own validator, whatever sent the request ----
+
+    [Fact]
+    public async Task CreateSchedule_ArgumentsTheTaskRefuses_AreRefused_AndNothingIsStored()
+    {
+        Guid probe = await CreateProbeAsync("Probe created");
+
+        ErrorOr<CreateTaskScheduleCommandResponse> refused = await SendAsync(new CreateTaskScheduleCommand(
+            TasksDbContext.Schema, Shift(probe, 0), [new TaskScheduleTarget(probe)], "0 2 * * *", "UTC"));
+
+        Assert.True(refused.IsError);
+        Assert.Equal(ErrorType.Validation, refused.FirstError.Type);
+        Assert.Contains("between 1 and 24", refused.FirstError.Description, StringComparison.Ordinal);
+        Assert.Equal(0L, await CountAsync($"SELECT count(*) FROM tst.task_schedules WHERE command_name = '{ShiftName}'"));
+
+        ErrorOr<CreateTaskScheduleCommandResponse> created = await SendAsync(new CreateTaskScheduleCommand(
+            TasksDbContext.Schema, Shift(probe, 5), [new TaskScheduleTarget(probe)], "0 2 * * *", "UTC"));
+
+        Assert.False(created.IsError, created.IsError ? created.FirstError.Description : string.Empty);
+    }
+
+    [Fact]
+    public async Task UpdateSchedule_ArgumentsTheTaskRefuses_AreRefused_AndTheSavedOnesStay()
+    {
+        Guid probe = await CreateProbeAsync("Probe updated");
+        TaskScheduleId id = await CreateScheduleAsync(Shift(probe, 4), [new TaskScheduleTarget(probe)]);
+        Guid before = await RowVersionAsync(id);
+
+        ErrorOr<Versioned<UpdateTaskScheduleCommandResponse>> refused = await UpdateAsync(id, Shift(probe, 0), [new TaskScheduleTarget(probe)]);
+
+        Assert.True(refused.IsError);
+        Assert.Equal(ErrorType.Validation, refused.FirstError.Type);
+        Assert.Matches(Hours(4), await ArgumentsAsync(id));
+        Assert.Equal(before, await RowVersionAsync(id));
+
+        ErrorOr<Versioned<UpdateTaskScheduleCommandResponse>> updated = await UpdateAsync(id, Shift(probe, 6), [new TaskScheduleTarget(probe)]);
+
+        Assert.False(updated.IsError, updated.IsError ? updated.FirstError.Description : string.Empty);
+        Assert.Matches(Hours(6), await ArgumentsAsync(id));
+    }
+
+    [Fact]
+    public async Task RunOnce_ArgumentsTheTaskRefuses_AreRefused_AndNothingStarts()
+    {
+        Guid probe = await CreateProbeAsync("Probe run once");
+
+        ErrorOr<TaskScheduleRunStartedResponse> refused = await SendAsync(
+            new RunTaskOnceCommand(TasksDbContext.Schema, Shift(probe, 0), [new TaskScheduleTarget(probe)]));
+
+        Assert.True(refused.IsError);
+        Assert.Equal(ErrorType.Validation, refused.FirstError.Type);
+        Assert.Equal(0L, await CountAsync($"SELECT count(*) FROM tst.task_runs WHERE command_name = '{ShiftName}'"));
+
+        ErrorOr<TaskScheduleRunStartedResponse> started = await SendAsync(
+            new RunTaskOnceCommand(TasksDbContext.Schema, Shift(probe, 3), [new TaskScheduleTarget(probe)]));
+
+        Assert.False(started.IsError, started.IsError ? started.FirstError.Description : string.Empty);
+        Assert.Equal(1L, await CountAsync($"SELECT count(*) FROM tst.task_runs WHERE command_name = '{ShiftName}'"));
+    }
+
+    [Fact]
+    public async Task ScheduleDialog_RunNow_ValidatesTheArgumentsFirst()
+    {
+        Guid probe = await CreateProbeAsync("Probe run now");
+        AggregateViewModel model = host.Services.GetRequiredService<AggregateViewRegistry>().For<ScheduleProbe>();
+        SerginScheduleRequest request = GeneratedListBody<ScheduleProbeListItem>.ScheduleRequestFor(
+            model, CommandOf(typeof(ProbeShiftTaskCommand)), [new ScheduleProbeListItem(probe, "Probe")]);
+
+        await RenderDialogAsync(request, async (dialog, html) =>
+        {
+            dialog.SetArgument(nameof(ProbeShiftTaskCommand.Note), "now");
+            dialog.SetArgument(nameof(ProbeShiftTaskCommand.Hours), 0m);
+            await dialog.RunNowAsync();
+
+            Assert.Contains("must be between 1 and 24", html(), StringComparison.Ordinal);
+            Assert.Equal(0L, await CountAsync($"SELECT count(*) FROM tst.task_runs WHERE command_name = '{ShiftName}'"));
+
+            dialog.SetArgument(nameof(ProbeShiftTaskCommand.Hours), 2m);
+            await dialog.RunNowAsync();
+        });
+
+        Assert.Equal(1L, await CountAsync($"SELECT count(*) FROM tst.task_runs WHERE command_name = '{ShiftName}'"));
+    }
+
     // ---- Helpers ----
 
     [GeneratedRegex(@"<button[^>]*disabled[^>]*>\s*(<[^>]*>\s*)*Save")]
@@ -250,6 +336,29 @@ public sealed partial class ScheduleDialogArgumentsTests(SerginWebApiFactory<Pro
 
     private static Regex InputValue(string value) =>
         new($"<input[^>]*value=\"{Regex.Escape(value)}\"", RegexOptions.None, TimeSpan.FromSeconds(1));
+
+    private static ProbeShiftTaskCommand Shift(Guid probe, int hours) => new(new ScheduleProbeId(probe), new ProbeNote("note"), hours);
+
+    private async Task<string> ArgumentsAsync(TaskScheduleId id) =>
+        (string)(await GeneratedTaskViewTests.ScalarAsync(host, "SELECT arguments::text FROM tst.task_schedules WHERE id = @id", id.Value))!;
+
+    private async Task<ErrorOr<TResponse>> SendAsync<TResponse>(MediatR.IRequest<ErrorOr<TResponse>> request)
+    {
+        await using AsyncServiceScope scope = OpenScope();
+
+        return await scope.ServiceProvider.GetRequiredService<ISerginDispatcher>().SendAsync(request);
+    }
+
+    private async Task<ErrorOr<Versioned<UpdateTaskScheduleCommandResponse>>> UpdateAsync(
+        TaskScheduleId id, ITaskCommand template, IReadOnlyCollection<TaskScheduleTarget> targets)
+    {
+        await using AsyncServiceScope scope = OpenScope();
+        ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+        ErrorOr<Versioned<TaskScheduleResponse>> loaded = await dispatcher.SendVersionedAsync(new GetTaskScheduleByIdQuery(TasksDbContext.Schema, id));
+
+        return await dispatcher.SendVersionedAsync(
+            new UpdateTaskScheduleCommand(TasksDbContext.Schema, id, template, targets, "0 2 * * *", "UTC"), loaded.Value.Version);
+    }
 
     private CommandView CommandOf(Type request) =>
         Assert.Single(host.Services.GetRequiredService<AggregateViewRegistry>().For<ScheduleProbe>().Commands, command => command.Request == request);
