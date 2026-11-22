@@ -6,6 +6,7 @@ using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Types;
+using Sergin.SharedKernel.Application.Localizations;
 using Sergin.SharedKernel.Application.Tasks;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.Domain.Securities;
@@ -50,10 +51,30 @@ internal static class ScheduleProbePermissions
         PermissionDefinition.Create("permission.tst.probes.touch", "Touch probes");
 }
 
+/// <summary>The probe's name and the field texts its generated views read; only a host that shows those views registers them.</summary>
+public static class ScheduleProbeTexts
+{
+    public static TextCategory Category { get; } = TextCategory.Create("Tst", "ScheduleProbes");
+
+    public static TextDefinition Singular { get; } = Category.Text("Singular", "Schedule probe");
+
+    public static TextDefinition Window { get; } = Category.Text("Window", "Probe window");
+
+    public static TextDefinition Kick { get; } = Category.Text("Kick", "Kick probe");
+
+    public static FieldText Name { get; } = Category.Field(nameof(Name), "Name");
+
+    public static FieldText Note { get; } = Category.Field(nameof(Note), "Note");
+
+    public static FieldText Hours { get; } = Category.Field(nameof(Hours), "Hours");
+}
+
 internal sealed class ScheduleProbeAggregateFeatureConfiguration : IAggregateFeatureConfiguration<ScheduleProbe>
 {
     public void Configure(AggregateFeatureBuilder<ScheduleProbe> builder) =>
-        builder.Audited().Scoped().Permissions(ScheduleProbePermissions.Read, ScheduleProbePermissions.Touch);
+        builder.Audited().Scoped().Permissions(ScheduleProbePermissions.Read, ScheduleProbePermissions.Touch)
+            .Texts(ScheduleProbeTexts.Category)
+            .Named(ScheduleProbeTexts.Singular);
 }
 
 internal sealed record TouchProbeCommand(ScheduleProbeId Id, ProbeNote Note)

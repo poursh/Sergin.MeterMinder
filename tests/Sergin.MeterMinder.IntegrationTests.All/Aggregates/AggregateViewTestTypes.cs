@@ -1191,7 +1191,7 @@ internal sealed class EditRouteWithoutUpdateViewProbeViewConfiguration : IAggreg
     }
 }
 
-// ---- Refusal: a schedulable task a detail view cannot build from the id ----
+// ---- Refusals: a task argument no form can build (Name is NotShown and has no default), and a Page-mode task with no route ----
 
 internal sealed record EditScheduledProbeId(Guid Value);
 
@@ -1220,14 +1220,22 @@ internal sealed record UpdateEditScheduledProbeCommand(EditScheduledProbeId Id, 
 internal sealed class UpdateEditScheduledProbeCommandConfiguration : ICommandConfiguration<UpdateEditScheduledProbeCommand>
 {
     public void Configure(CommandConfigurationBuilder<UpdateEditScheduledProbeCommand> builder) =>
-        builder.Task(task => task.Schedulable());
+        builder.NotShown(command => command.Name).Task(task => task.Schedulable());
 }
 
 internal sealed class EditScheduledProbeViewConfiguration : IAggregateViewConfiguration<EditScheduledProbe>
 {
-    // A task has no default label yet (it is a transition until its own role lands), so it declares one.
+    // A task has no default label, so it declares one.
     public void Configure(AggregateViewBuilder<EditScheduledProbe> view) =>
         view.Command<UpdateEditScheduledProbeCommand>().Label(EditScheduledProbeTexts.Singular);
+}
+
+// The same task offered on a form page, with no PageRoute(...): the route is checked before the arguments, so this is
+// the refusal it raises.
+internal sealed class PageModeEditScheduledProbeViewConfiguration : IAggregateViewConfiguration<EditScheduledProbe>
+{
+    public void Configure(AggregateViewBuilder<EditScheduledProbe> view) =>
+        view.Command<UpdateEditScheduledProbeCommand>().Label(EditScheduledProbeTexts.Singular).Edit(SerginEditMode.Page);
 }
 
 // ---- Refusal: a form command with no public constructor ----

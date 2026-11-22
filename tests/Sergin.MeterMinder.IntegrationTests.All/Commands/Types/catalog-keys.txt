@@ -307,6 +307,7 @@ common.tasks.errors.no-targets
 common.tasks.errors.not-cancelable
 common.tasks.errors.not-schedulable
 common.tasks.errors.run-finished
+common.tasks.errors.target-refused
 common.tasks.errors.target-without-id
 common.tasks.errors.timed-out
 common.tasks.errors.too-many-targets
@@ -359,6 +360,7 @@ common.tasks.schedules
 common.tasks.schedules-in
 common.tasks.singular
 common.tasks.stale-reloaded
+common.tasks.start
 common.tasks.states.active
 common.tasks.states.paused
 common.tasks.title
