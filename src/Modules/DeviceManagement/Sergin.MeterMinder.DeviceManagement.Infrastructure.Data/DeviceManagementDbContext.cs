@@ -17,9 +17,9 @@ public interface IDeviceManagementDbContext : IDbContext;
 /// tables live in this module's schema, added by the <c>AddOutbox</c> migration, so an integration event this
 /// module raises rides on the same save as the aggregate that raised it, and a consumer here dedups through
 /// its own inbox. No translator, event or handler is declared yet — the tables are ready for the first one.
-/// It also opts into scheduled tasks (<see cref="ITasksDbContext"/>): the four scheduled-task tables live in
-/// this module's schema, added by the <c>ReplaceScheduledTasksWithTasks</c> migration, and the aggregate features include
-/// SharedKernel's scheduled-task configurations, as an opting-in context must.
+/// It also opts into tasks (<see cref="ITasksDbContext"/>): the four task tables (<c>task_schedules</c>,
+/// <c>task_schedule_targets</c>, <c>task_runs</c>, <c>task_run_items</c>) live in this module's schema, added by the
+/// <c>ReplaceScheduledTasksWithTasks</c> migration, and the aggregate features include SharedKernel's task configurations, as an opting-in context must.
 /// </summary>
 internal sealed class DeviceManagementDbContext(DbContextOptions<DeviceManagementDbContext> options)
     : SerginDbContext(options), IDeviceManagementDbContext, IDeviceManagementUnitOfWork, IOutboxDbContext, ITasksDbContext

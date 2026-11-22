@@ -50,7 +50,7 @@ public sealed partial class ScheduleProbePage
 
     protected override async Task OnInitializedAsync()
     {
-        // What a generated view builds for a schedulable command: the platform permission gates the action,
+        // What a generated view builds for a schedulable task: the platform permission gates the action,
         // the command's own permission is the action's.
         bool mayManage = await ScopeAuthorization.CurrentUserHasAsync(TaskPermissions.Manage);
 

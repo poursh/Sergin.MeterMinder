@@ -20,7 +20,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
-/// Starting a background command: no Manage permission needed, only the command's own; refused at the click for a bad
+/// Starting a task: no Manage permission needed, only the task's own; refused at the click for a bad
 /// request (the command's own validator, no records, too many records); one run with one item per
 /// record, acting for the caller, each item checked live when it runs.
 /// </summary>

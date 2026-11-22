@@ -9,7 +9,7 @@ using Sergin.SharedKernel.IntegrationTests;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
-/// <summary>DeviceManagement, the first real module to opt in: the four scheduled-task tables live in schema <c>dm</c>.</summary>
+/// <summary>DeviceManagement, the first real module to opt in: the four task tables live in schema <c>dm</c>.</summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class DeviceManagementTasksModelTests(SerginWebApiFactory<Program> factory)
 {

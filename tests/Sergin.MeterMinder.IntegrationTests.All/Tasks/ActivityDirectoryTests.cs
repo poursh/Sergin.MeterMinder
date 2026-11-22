@@ -27,7 +27,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
 /// A user's own runs across modules: every opted-in module's store is a source (here the real <c>dm</c> and the test
-/// <c>tst</c>), merged newest first; only runs a person started (Background, Run now, Run once), only the caller's, in
+/// <c>tst</c>), merged newest first; only runs a person started (Manual, Schedule now, Once), only the caller's, in
 /// any scope, running or finished within the window; a source that throws is left out.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]

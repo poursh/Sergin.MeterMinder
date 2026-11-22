@@ -103,7 +103,7 @@ rm -rf docker-compose/.containers/database   # Postgres data is a bind mount, so
 docker compose -f docker-compose/docker-compose.yml up --build
 ```
 
-Scheduled tasks run on an in-process stand-in engine by default: run-now and one-off work run, saved cron schedules never fire. To run real TickerQ, put a licence file in `docker-compose/.files/tickerq/` (gitignored) and set `SERGIN_TICKERQ_LICENSE_FILE` in `docker-compose/.env` to its file name. For `dotnet run`, set the file's absolute path as the user secret `Sergin:Tasks:TickerQ:LicensePath`. Never commit a licence file.
+Tasks run on an in-process stand-in engine by default: started tasks, Run now and Run once work, but saved cron schedules never fire. To run real TickerQ, put a licence file in `docker-compose/.files/tickerq/` (gitignored) and set `SERGIN_TICKERQ_LICENSE_FILE` in `docker-compose/.env` to its file name. For `dotnet run`, set the file's absolute path as the user secret `Sergin:Tasks:TickerQ:LicensePath`. Never commit a licence file.
 
 To try the scoped RBAC with realistic data, two **development-only** psql scripts fill the Compose database once the app has migrated it. `dev-seed.sql` adds a scope tree (4 regions, 12 areas), 5 manufacturers, 11 models and `device_count` devices; `dev-seed-users.sql` adds users, roles and scoped grants for the realm's mock users — `admin.root`, `north.manager`, `tabriz.operator`, `south.viewer`, `multi.auditor`, `expired.user` and `inactive.user`, each with password = username — so each one sees a different part of the tree — plus 40 local `demo.user.<n>` rows, more roles and a mix of assignments for the user and role pages. Both are idempotent; never run them against a real environment.
 
@@ -193,7 +193,7 @@ DeviceManagement adds a gRPC trio — `.Presentation.Grpc.Contracts` compiles th
 ```mermaid
 flowchart LR
     Page["Blazor page"] -->|"SendAsync"| D["ISerginDispatcher<br/>fresh DI scope per send"]
-    D --> PB["BackgroundCommandGuard<br/>behavior"] --> P1["PermissionCheck<br/>behavior"] --> PV["ExpectedVersion<br/>behavior"] --> P2["Validation<br/>behavior"]
+    D --> PB["TaskCommandGuard<br/>behavior"] --> P1["PermissionCheck<br/>behavior"] --> PV["ExpectedVersion<br/>behavior"] --> P2["Validation<br/>behavior"]
     P2 --> H["Handler<br/>(Local module)"]
     P2 -.-> R["RemoteForwardingHandler"] -.->|"gRPC"| S["Module hosted elsewhere"]
     H --> DB[("PostgreSQL")]
@@ -218,9 +218,9 @@ Every aggregate's list, detail and form pages are generated. A request record's 
 
 Each slice declares its texts in code (`<Aggregate>Texts` in `.Application.Configurations`, `<Aggregate>UiTexts` in the Blazor library), each with an English default and a dot-separated key such as `device-management.devices.fields.device-id.label`. Shared components take a `TextDefinition`, not a string, so a literal label does not compile. The Settings module (`/st/languages`) adds languages, publishes them and edits translations; a draft language is visible to translators only. The app bar's language switcher sets the culture cookie. A right-to-left culture renders `dir="rtl"` with a self-hosted Vazirmatn font, and `fa` uses the Persian calendar and digits. A pseudo-locale test sweep fails on any visible text that is not declared.
 
-### Scheduled and background commands
+### Tasks: background and scheduled work
 
-A command whose configuration calls `Schedulable(name)` can be scheduled from a record's detail page: run now, once at a time, or on a cron, for one or many picked records. It always runs as the user who saved it, and grants are checked live for every run item. A command that also calls `Background(timeout)` cannot be sent inline; a page starts it with `ISerginDispatcher.StartTaskAsync`, and the app-bar activity indicator shows its progress, lets the user cancel it, and reports the outcome. DeviceManagement's Read profile is the first such command. The engine is TickerQ behind `ITaskEngine`; without a licence an in-process stand-in runs one-off work only.
+Work that should not run inside a request is a **task**: a command whose record implements `ITaskCommand<TRoot, TId>` (one record, or several picked ones with `ISelectable`) or `ITaskCommand<TRoot>` (the whole collection in the current scope). A task is never sent inline; a page starts it with `ISerginDispatcher.StartTaskAsync`, and it runs in the background as a tracked run, as the user who started it, with their grants checked live for every record. Its traits are one `Task(...)` block in its configuration: an inactivity timeout that every progress report resets, an optional hard cap, whether a person may cancel it, and whether it may be scheduled. A `Schedulable()` task can also be saved on a cron or run once at a time, from the record's detail page or, for a collection task, the list page; a scheduled run acts for the user who saved the schedule. The generated pages place a task by its type and ask for its arguments in a dialog, a page or an inline section, as the view configuration says. The app-bar activity indicator shows each run's progress, lets the user cancel it, and reports the outcome. DeviceManagement's Read profile (`dm.device.read-device-profile`) is the first task. The engine is TickerQ behind `ITaskEngine`; without a licence an in-process stand-in runs started tasks, Run now and Run once, but never fires a cron.
 
 ### Events and the outbox
 
@@ -292,7 +292,7 @@ dotnet test tests/Sergin.Administration.UserAccess.UnitTests/Sergin.Administrati
 |---|---|
 | `Shell/` | Pages render interactively, nav groups and visibility, breadcrumbs, page types and views, trees, the scope picker, the activity indicator, the app name, the home slot |
 | `Localization/` | The text catalog and lookup, culture selection, right-to-left, culture formatting, each module's texts, the Settings pages, the field-text guard, the pseudo-locale sweep |
-| `Tasks/` | Scheduled and background commands: catalog, runs and run items, retries, recovery, cancel, progress, activity, the TickerQ adapter (end-to-end tests skipped without a licence) |
+| `Tasks/` | Task commands: declarations and names, the inline-send guard, starting, collection tasks, runs and run items, retries, timeouts, recovery, cancel, progress, schedules, activity, the TickerQ adapter (end-to-end tests skipped without a licence) |
 | `Authentication/` | Claims to `IUserContext`, the dispatcher-scope regression, first-sign-in provisioning, `Sergin:Auth` validation |
 | `Authorization/` | Scoped RBAC acceptance criteria and rules, the current scope, the scope directory, the `X-Sergin-Scope` header |
 | `Permissions/` | Permission definitions, the catalogue per module, its host-start refusals |
@@ -309,7 +309,7 @@ dotnet test tests/Sergin.Administration.UserAccess.UnitTests/Sergin.Administrati
 ### Where the reasoning lives
 
 - [`.claude/CLAUDE.md`](.claude/CLAUDE.md) — the full architecture and convention reference, written for Claude Code and equally useful to people. Each submodule and the DeviceManagement module carry their own.
-- [`docs/superpowers/specs/`](docs/superpowers/specs/) and [`docs/superpowers/plans/`](docs/superpowers/plans/) — the design decisions behind module registration, the Blazor shell, dual-mode dispatch, the contracts split, domain events and the outbox, validation, aggregate features, optimistic concurrency, command configuration, scoped RBAC, the page types, localization, scheduled and background commands and the generated views, in the order they were made.
+- [`docs/superpowers/specs/`](docs/superpowers/specs/) and [`docs/superpowers/plans/`](docs/superpowers/plans/) — the design decisions behind module registration, the Blazor shell, dual-mode dispatch, the contracts split, domain events and the outbox, validation, aggregate features, optimistic concurrency, command configuration, scoped RBAC, the page types, localization, scheduled and background commands, the generated views and task commands, in the order they were made.
 - `/add-feature` and `/add-module` — Claude Code skills that scaffold a CQRS vertical slice or a whole module in the shape described above.
 
 ## License

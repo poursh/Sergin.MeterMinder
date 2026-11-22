@@ -194,6 +194,9 @@ public sealed partial class ScheduleDialogArgumentsTests(SerginWebApiFactory<Pro
 
             Assert.Equal(ShiftName, request.TaskView!.Task!.Name);
 
+            // The schedule stores ids only: the section's own record shows by the label its host gave, not by its id.
+            Assert.Equal(["Probe edited"], request.TargetLabels);
+
             await OpenAsync(request, async (dialog, html) =>
             {
                 Assert.Contains("Edit schedule · 1 record", html(), StringComparison.Ordinal);
@@ -203,12 +206,36 @@ public sealed partial class ScheduleDialogArgumentsTests(SerginWebApiFactory<Pro
                 dialog.SetArgument(nameof(ProbeShiftTaskCommand.Hours), 8m);
                 await dialog.SaveAsync();
             });
-        });
+        }, targetLabel: "Probe edited");
 
         string arguments = (string)(await GeneratedTaskViewTests.ScalarAsync(host, "SELECT arguments::text FROM tst.task_schedules WHERE id = @id", id.Value))!;
         Assert.Matches(Hours(8), arguments);
         Assert.Contains("day", arguments, StringComparison.Ordinal);
         Assert.NotEqual(before, await RowVersionAsync(id));
+    }
+
+    [Fact]
+    public async Task DeleteSchedule_ConfirmNamesTheTaskByItsLabel()
+    {
+        Guid probe = await CreateProbeAsync("Probe deleted");
+        TaskScheduleId id = await CreateScheduleAsync(
+            new ProbeShiftTaskCommand(new ScheduleProbeId(probe), new ProbeNote("day"), 4), [new TaskScheduleTarget(probe)]);
+        var item = new TaskScheduleListItem(id.Value, ShiftName, "0 2 * * *", "UTC", TaskScheduleState.Active, null, null, null, 1);
+
+        await RenderSectionAsync(probe, taskName: null, async section =>
+        {
+            // The confirm stays open: the test reads it and leaves the schedule alone.
+            _ = section.DeleteAsync(item);
+            string Html() => WebUtility.HtmlDecode(currentRoot.ToHtmlString());
+
+            for (int attempt = 0; attempt < 50 && !Html().Contains("Delete the schedule for", StringComparison.Ordinal); attempt++)
+            {
+                await Task.Delay(100);
+            }
+
+            Assert.Contains("Delete the schedule for Shift probe?", Html(), StringComparison.Ordinal);
+            Assert.DoesNotContain(ShiftName, Html(), StringComparison.Ordinal);
+        });
     }
 
     [Fact]
@@ -420,7 +447,8 @@ public sealed partial class ScheduleDialogArgumentsTests(SerginWebApiFactory<Pro
     }
 
     // Renders the schedules section (of a record, or of a collection task in the root scope) beside the dialog providers.
-    private async Task RenderSectionAsync(Guid? targetId, string? taskName, Func<SerginTaskSchedulesSection, Task> test)
+    private async Task RenderSectionAsync(
+        Guid? targetId, string? taskName, Func<SerginTaskSchedulesSection, Task> test, string? targetLabel = null)
     {
         await using AsyncServiceScope scope = OpenScope();
 
@@ -435,6 +463,7 @@ public sealed partial class ScheduleDialogArgumentsTests(SerginWebApiFactory<Pro
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
                     [nameof(SectionWithDialogs.TargetId)] = targetId,
+                    [nameof(SectionWithDialogs.TargetLabel)] = targetLabel,
                     [nameof(SectionWithDialogs.TaskName)] = taskName,
                     [nameof(SectionWithDialogs.ScopeId)] = taskName is null ? null : Scope.RootId.Value,
                 }));
@@ -474,6 +503,9 @@ public sealed partial class ScheduleDialogArgumentsTests(SerginWebApiFactory<Pro
         public Guid? TargetId { get; set; }
 
         [Parameter]
+        public string? TargetLabel { get; set; }
+
+        [Parameter]
         public string? TaskName { get; set; }
 
         [Parameter]
@@ -491,7 +523,8 @@ public sealed partial class ScheduleDialogArgumentsTests(SerginWebApiFactory<Pro
             builder.AddComponentParameter(5, nameof(SerginTaskSchedulesSection.TaskName), TaskName);
             builder.AddComponentParameter(6, nameof(SerginTaskSchedulesSection.ScopeId), ScopeId);
             builder.AddComponentParameter(7, nameof(SerginTaskSchedulesSection.PollInterval), TimeSpan.FromHours(1));
-            builder.AddComponentReferenceCapture(8, instance => Section = (SerginTaskSchedulesSection)instance);
+            builder.AddComponentParameter(8, nameof(SerginTaskSchedulesSection.TargetLabel), TargetLabel);
+            builder.AddComponentReferenceCapture(9, instance => Section = (SerginTaskSchedulesSection)instance);
             builder.CloseComponent();
         }
     }

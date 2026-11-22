@@ -18,7 +18,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
 /// The tasks test host: the shared factory plus <see cref="TasksDbContext"/>, registered through
-/// <c>AddModuleDbContext</c> (which is what opts it in), and the reusable probe configurations. Later scheduled-task
+/// <c>AddModuleDbContext</c> (which is what opts it in), and the reusable probe configurations. Later task
 /// tests extend it through <paramref name="configure"/>.
 /// </summary>
 internal static class TaskTestHost

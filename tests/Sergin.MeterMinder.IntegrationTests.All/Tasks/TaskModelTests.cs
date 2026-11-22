@@ -19,7 +19,7 @@ using Sergin.SharedKernel.IntegrationTests;
 namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
-/// The scheduled-task model and the per-module opt-in: a context implementing <see cref="ITasksDbContext"/>
+/// The task model and the per-module opt-in: a context implementing <see cref="ITasksDbContext"/>
 /// carries the four tables in its own schema with the aggregate features applied, a context that does not carries
 /// none, and the real host, which opts nothing in, is unaffected.
 /// </summary>
@@ -230,7 +230,7 @@ public sealed class TaskModelTests(SerginWebApiFactory<Program> factory) : IAsyn
         HttpResponseMessage response = await client.GetAsync(new Uri("/", UriKind.Relative));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        // DeviceManagement opts in, so the real host runs the scheduled-task services for it and knows the task's features.
+        // DeviceManagement opts in, so the real host runs the task services for it and knows the task's features.
         Assert.Equal("dm", Assert.Single(factory.Services.GetServices<TasksRegistration>()).Schema);
         Assert.Equal(
             new AggregateFeatures(Audited: true, SoftDeletable: true, Versioned: true, Scoped: true),

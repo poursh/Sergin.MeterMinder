@@ -5,7 +5,7 @@ using Sergin.SharedKernel.Infrastracture.Data;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
-/// <summary>Reads a started background run back from its module's schema, polling until it is no longer Running.</summary>
+/// <summary>Reads a started task run back from its module's schema, polling until it is no longer Running.</summary>
 internal static class TaskRunReader
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(200);
@@ -30,7 +30,7 @@ internal static class TaskRunReader
 
             if (DateTime.UtcNow >= deadline)
             {
-                throw new TimeoutException($"Background run {run.Schema}/{run.RunId} was still {status ?? "missing"} after {timeout}.");
+                throw new TimeoutException($"Task run {run.Schema}/{run.RunId} was still {status ?? "missing"} after {timeout}.");
             }
 
             await Task.Delay(PollInterval);

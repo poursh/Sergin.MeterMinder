@@ -36,7 +36,7 @@ public sealed class ReadDeviceProfileTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
-    public async Task ReadProfile_Started_SucceedsInTheBackground()
+    public async Task ReadProfile_Started_SucceedsAsATaskRun()
     {
         using IServiceScope scope = factory.Services.CreateScope();
         ISerginDispatcher dispatcher = scope.ServiceProvider.GetRequiredService<ISerginDispatcher>();

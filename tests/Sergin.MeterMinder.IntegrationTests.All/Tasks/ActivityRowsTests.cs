@@ -15,7 +15,7 @@ using Sergin.SharedKernel.Presentation.Localizations;
 namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
-/// What the activity indicator shows for each run, built without a browser from the real host's scheduled command
+/// What the activity indicator shows for each run, built without a browser from the real host's task
 /// catalogue and view registry: the command's view label, the target's stored label or a record count, the target's
 /// detail link, and the run's state.
 /// </summary>

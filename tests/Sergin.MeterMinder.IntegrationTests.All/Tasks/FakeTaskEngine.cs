@@ -4,7 +4,7 @@ using Sergin.SharedKernel.Application.Tasks;
 namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
-/// An in-memory engine for the scheduled-task tests: triggers are a dictionary, run items a queue that
+/// An in-memory engine for the task tests: triggers are a dictionary, run items a queue that
 /// <see cref="DrainAsync"/> runs through the real <see cref="TaskRunItemExecutor"/>, one fresh scope per attempt,
 /// re-queuing an item whenever the executor asks for a retry. <see cref="FailNextCall"/> makes the next engine call
 /// throw, so a test can prove a failing engine fails the request.

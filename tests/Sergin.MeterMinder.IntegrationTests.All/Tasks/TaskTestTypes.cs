@@ -13,7 +13,7 @@ using Sergin.SharedKernel.Domain.Securities;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
-// ---- Reusable types: later scheduled-task tasks register these in their hosts. ----
+// ---- Reusable types: the task tests register these in their hosts. ----
 
 internal sealed record ScheduleProbeId(Guid Value);
 
@@ -135,7 +135,7 @@ internal sealed class NoteProbeCommandHandler : ICommandHandler<NoteProbeCommand
 
 // ---- Run probes: valid declarations, in TaskTestHost.ProbeConfigurations; handlers registered per test host. ----
 
-/// <summary>A background command whose handler waits on the host's <see cref="ProbeGate"/> until a test releases it.</summary>
+/// <summary>A task whose handler waits on the host's <see cref="ProbeGate"/> until a test releases it.</summary>
 internal sealed record SlowProbeCommand(ScheduleProbeId Id, string Note)
     : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
@@ -176,7 +176,7 @@ internal sealed class LongTimedProbeCommandConfiguration : ICommandConfiguration
         builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.InactivityTimeout(TimeSpan.FromSeconds(3)).Schedulable().Name("tst.probes.long-timed"));
 }
 
-/// <summary>A background command with a timeout far longer than any test, whose handler waits on the <see cref="ProbeGate"/>.</summary>
+/// <summary>A task with a one-minute inactivity timeout, far longer than any test, whose handler waits on the <see cref="ProbeGate"/>.</summary>
 internal sealed record GatedTimedProbeCommand(ScheduleProbeId Id)
     : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
@@ -196,7 +196,7 @@ internal sealed class WrappingTimedProbeCommandConfiguration : ICommandConfigura
         builder.RequirePermissions(ScheduleProbePermissions.Touch).Task(task => task.InactivityTimeout(TimeSpan.FromSeconds(1)).Schedulable().Name("tst.probes.wrapping-timed"));
 }
 
-/// <summary>A background, schedulable task that declares <c>NotCancelable()</c>: its run cannot be cancelled by anyone.</summary>
+/// <summary>A schedulable task that declares <c>NotCancelable()</c>: its run cannot be cancelled by anyone.</summary>
 internal sealed record FixedProbeCommand(ScheduleProbeId Id, string Note)
     : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 
@@ -355,7 +355,7 @@ internal sealed class LongTimedProbeCommandHandler : ICommandHandler<LongTimedPr
 }
 
 /// <summary>
-/// A background command whose handler cancels its own run (through <see cref="ProbeRunCanceller"/>) and then throws: a
+/// A task whose handler cancels its own run (through <see cref="ProbeRunCanceller"/>) and then throws: a
 /// retryable failure of an item whose run was cancelled while it ran.
 /// </summary>
 internal sealed record CancelThenThrowProbeCommand(ScheduleProbeId Id)
@@ -389,7 +389,7 @@ internal sealed class CancelThenThrowProbeCommandHandler(IServiceScopeFactory sc
     }
 }
 
-/// <summary>A background command whose handler reports progress through <see cref="ITaskProgress"/>, as <see cref="ProgressProbe"/> scripts it.</summary>
+/// <summary>A task whose handler reports progress through <see cref="ITaskProgress"/>, as <see cref="ProgressProbe"/> scripts it.</summary>
 internal sealed record ProgressProbeCommand(ScheduleProbeId Id)
     : ITaskCommand<ScheduleProbe, ScheduleProbeId>, ISelectable;
 

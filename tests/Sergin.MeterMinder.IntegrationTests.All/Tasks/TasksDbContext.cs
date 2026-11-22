@@ -13,7 +13,7 @@ internal interface ITasksTestDbContext : IDbContext;
 internal interface ITasksTestUnitOfWork : IUnitOfWork;
 
 /// <summary>
-/// A test-only module that opts into scheduled tasks: the probe aggregate and its child, plus the four scheduled-task
+/// A test-only module that opts into tasks: the probe aggregate and its child, plus the four task
 /// tables, in schema <c>tst</c>, through the same <c>AddModuleDbContext</c> the real modules use. Its aggregate features
 /// apply the probe's configuration and SharedKernel's <see cref="TaskScheduleAggregateFeatureConfiguration"/>, as an
 /// opting-in module context must.

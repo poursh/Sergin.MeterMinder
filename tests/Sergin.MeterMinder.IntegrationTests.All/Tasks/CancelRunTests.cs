@@ -16,7 +16,7 @@ using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
 namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
-/// Cancelling a background run: its acting user, or a Manage holder on the run's scope, may cancel it while it runs;
+/// Cancelling a task run: its acting user, or a Manage holder on the run's scope, may cancel it while it runs;
 /// every item not yet started becomes Cancelled and the run completes; a cancelled item delivered late sends nothing.
 /// The fake engine holds every item, so they stay Pending until a test drains it.
 /// </summary>

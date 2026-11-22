@@ -33,10 +33,10 @@ using Sergin.SharedKernel.Presentation.Blazor.TimeZones;
 namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
-/// The scheduled-task UI parts as the prerender draws them on the test-only <c>/tst/probes/{id}</c> page: the section
+/// The task schedule UI parts as the prerender draws them on the test-only <c>/tst/probes/{id}</c> page: the section
 /// of a record's schedules (hidden without the manage permission), the Schedule action (hidden without the command's
 /// permission), the cron picker's pure parts, and the pseudo-locale check of the page — the sweep itself drives the
-/// real host, which carries no scheduled-task page, so this covers the new parts under the same rule.
+/// real host, which carries no probe page, so this covers the new parts under the same rule.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : IAsyncLifetime
