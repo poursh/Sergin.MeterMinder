@@ -317,6 +317,36 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
     }
 
     [Fact]
+    public async Task PollTick_UnderTheRunningFilter_ReloadsWithNoRunningRow_ButNotAfterAFailedLoad()
+    {
+        SendLog sent = new();
+
+        await RenderViewAsync(catalog: null, sent, async (view, html) =>
+        {
+            // The page opens on Running; a person nobody matches leaves the view empty, so nothing is running in it.
+            view.StartedByFilter = Guid.CreateVersion7();
+            await view.ReloadAsync();
+            await sent.WaitForAsync<GetTaskRunsQuery>();
+            await Task.Delay(500);
+            Assert.False(view.HasRunning);
+
+            int before = sent.Of<GetTaskRunsQuery>().Count;
+            await view.TickAsync();
+            await WaitForCountAsync(sent, before + 1);
+            Assert.Equal(before + 1, sent.Of<GetTaskRunsQuery>().Count);
+
+            sent.RefuseRuns = true;
+            await view.TickAsync();
+            await WaitForCountAsync(sent, before + 2);
+
+            before = sent.Of<GetTaskRunsQuery>().Count;
+            await view.TickAsync();
+            await Task.Delay(300);
+            Assert.Equal(before, sent.Of<GetTaskRunsQuery>().Count);
+        });
+    }
+
+    [Fact]
     public async Task TaskLink_OpensTheRecordsDialog_WithTheStoredLabels()
     {
         UserId person = DevUserId();
