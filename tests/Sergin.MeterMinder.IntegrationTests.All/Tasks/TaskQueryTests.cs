@@ -216,6 +216,16 @@ public sealed class TaskQueryTests(SerginWebApiFactory<Program> factory) : IAsyn
     }
 
     [Fact]
+    public async Task RunItems_CarryTheStoredTargetLabel()
+    {
+        Guid labelled = await AddOneOffRunAsync(tree.North, Guid.CreateVersion7(), DateTime.UtcNow.AddMinutes(-20), "Probe A");
+        Guid unlabelled = await AddOneOffRunAsync(tree.North, Guid.CreateVersion7(), DateTime.UtcNow.AddMinutes(-10));
+
+        Assert.Equal("Probe A", Assert.Single((await SendAsync(manager, tree.North, new GetTaskRunItemsQuery(Schema, labelled))).Value).TargetLabel);
+        Assert.Null(Assert.Single((await SendAsync(manager, tree.North, new GetTaskRunItemsQuery(Schema, unlabelled))).Value).TargetLabel);
+    }
+
+    [Fact]
     public async Task OneOffRuns_ForTarget_NewestFirst()
     {
         ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
@@ -378,7 +388,7 @@ public sealed class TaskQueryTests(SerginWebApiFactory<Program> factory) : IAsyn
         await store.SaveAsync(CancellationToken.None);
     }
 
-    private async Task<Guid> AddOneOffRunAsync(Guid scopeId, Guid targetId, DateTime startedAtUtc)
+    private async Task<Guid> AddOneOffRunAsync(Guid scopeId, Guid targetId, DateTime startedAtUtc, string? targetLabel = null)
     {
         string arguments = TaskCommandFactory.ToArguments(new TouchProbeCommand(new(Guid.Empty), new ProbeNote("once")));
 
@@ -387,7 +397,7 @@ public sealed class TaskQueryTests(SerginWebApiFactory<Program> factory) : IAsyn
         var run = TaskRun.Start(
             new TaskRunDefinition(null, TaskRunTrigger.Once, manager.Id, scopeId, path, TouchName, arguments), 1, startedAtUtc);
         ITaskStore store = Store(scope);
-        store.AddRun(run, [TaskRunItem.Create(run.Id, targetId, DateTime.UtcNow)]);
+        store.AddRun(run, [TaskRunItem.Create(run.Id, targetId, DateTime.UtcNow, targetLabel)]);
         await store.SaveAsync(CancellationToken.None);
 
         return run.Id;

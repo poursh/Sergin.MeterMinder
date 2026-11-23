@@ -173,12 +173,16 @@ public sealed class TaskRunsQueryTests(SerginWebApiFactory<Program> factory) : I
             TaskRunStatus.Completed,
             RunOutcome.Cancelled);
         await SeedAsync(
+            new RunSeed(tree.North, TaskRunTrigger.Manual, now.AddMinutes(-15)) { Items = 2, Settle = Settled(succeeded: 1, cancelled: 1) },
+            TaskRunStatus.Completed,
+            RunOutcome.Cancelled);
+        await SeedAsync(
             new RunSeed(tree.North, TaskRunTrigger.Once, now.AddMinutes(-10)) { Skipped = true },
             TaskRunStatus.Skipped,
             RunOutcome.Skipped);
 
         ListQueryResponse<TaskRunsListItem> all = await ListAsync(manager, tree.North);
-        Assert.Equal(6, all.Total);
+        Assert.Equal(7, all.Total);
         Assert.All(all.Data, item =>
         {
             (TaskRunStatus status, RunOutcome expected) = seeded[item.Id];
@@ -196,6 +200,50 @@ public sealed class TaskRunsQueryTests(SerginWebApiFactory<Program> factory) : I
             Assert.Equal(expected.Length, filtered.Total);
             Assert.All(filtered.Data, item => Assert.Equal(outcome, item.Outcome));
         }
+    }
+
+    [Fact]
+    public async Task DeclaredSort_OrdersRows()
+    {
+        DateTime now = DateTime.UtcNow;
+        Guid a = await AddRunAsync(new RunSeed(tree.North, TaskRunTrigger.Once, now.AddMinutes(-30)) { CommandName = "tst.probes.b" });
+        Guid b = await AddRunAsync(new RunSeed(tree.North, TaskRunTrigger.Once, now.AddMinutes(-20)) { CommandName = "tst.probes.c" });
+        Guid c = await AddRunAsync(new RunSeed(tree.North, TaskRunTrigger.Once, now.AddMinutes(-10)) { CommandName = "tst.probes.a" });
+
+        ListQueryResponse<TaskRunsListItem> byTask =
+            await ListAsync(manager, tree.North, sorting: Sorting.Create($$"""[{"id":"{{TaskRunListFields.Task}}","desc":false}]"""));
+        Assert.Equal([c, a, b], byTask.Data.Select(item => item.Id));
+
+        ListQueryResponse<TaskRunsListItem> byStart =
+            await ListAsync(manager, tree.North, sorting: Sorting.Create($$"""[{"id":"{{TaskRunListFields.StartedAt}}","desc":false}]"""));
+        Assert.Equal([a, b, c], byStart.Data.Select(item => item.Id));
+    }
+
+    [Fact]
+    public async Task Actors_AreTheDistinctActingUsersInReach()
+    {
+        DateTime now = DateTime.UtcNow;
+        TestCaller other = await tree.CreateGrantedCallerAsync(tree.North, TaskPermissions.Manage.Permission);
+        TestCaller southern = await tree.CreateGrantedCallerAsync(tree.South, TaskPermissions.Manage.Permission);
+        TaskSchedule hidden = await CreateTaskAsync(tree.South);
+        await AddRunAsync(new RunSeed(tree.North, TaskRunTrigger.Manual, now.AddMinutes(-30)));
+        await AddRunAsync(new RunSeed(tree.North, TaskRunTrigger.Manual, now.AddMinutes(-20)));
+        await AddRunAsync(new RunSeed(tree.North, TaskRunTrigger.Once, now.AddMinutes(-10)) { ActingUserId = other.Id });
+        await AddRunAsync(new RunSeed(tree.South, TaskRunTrigger.Once, now.AddMinutes(-5)) { ActingUserId = southern.Id });
+        await AddRunAsync(new RunSeed(tree.South, TaskRunTrigger.Schedule, now.AddMinutes(-4)) { Schedule = hidden });
+
+        ErrorOr<IReadOnlyCollection<Guid>> result = await SendAsync(manager, tree.North, new GetTaskRunActorsQuery(Schema));
+
+        Assert.False(result.IsError);
+        Assert.Equal(new[] { manager.Id.Value, other.Id.Value }.Order(), result.Value.Order());
+    }
+
+    [Fact]
+    public async Task Actors_WithoutManage_AreForbidden()
+    {
+        TestCaller toucher = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
+
+        Assert.Equal(ErrorOrType.Forbidden, (await SendAsync(toucher, tree.North, new GetTaskRunActorsQuery(Schema))).FirstError.Type);
     }
 
     [Fact]
