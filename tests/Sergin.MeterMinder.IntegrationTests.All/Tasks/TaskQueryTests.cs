@@ -227,14 +227,33 @@ public sealed class TaskQueryTests(SerginWebApiFactory<Program> factory) : IAsyn
         await AddOneOffRunAsync(tree.South, probe.Id.Value, now.AddMinutes(-1));
 
         IReadOnlyCollection<TaskRunListItem> runs =
-            (await SendAsync(manager, tree.North, new GetOneOffRunsForTargetQuery(Schema, probe.Id.Value, 10))).Value;
+            (await SendAsync(manager, tree.North, new GetRecentRunsForTargetQuery(Schema, probe.Id.Value, 10))).Value;
 
         Assert.Equal([newest, oldest], runs.Select(run => run.Id));
         Assert.All(runs, run => Assert.Equal(TaskRunTrigger.Once, run.Trigger));
         Assert.All(runs, run => Assert.Equal(TouchName, run.CommandName));
         Assert.Equal(
             [newest],
-            (await SendAsync(manager, tree.North, new GetOneOffRunsForTargetQuery(Schema, probe.Id.Value, 1))).Value.Select(run => run.Id));
+            (await SendAsync(manager, tree.North, new GetRecentRunsForTargetQuery(Schema, probe.Id.Value, 1))).Value.Select(run => run.Id));
+    }
+
+    [Fact]
+    public async Task RecentRuns_ForTarget_ListEveryTrigger_AndHideADeletedSchedulesRuns()
+    {
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+        TaskSchedule task = await CreateTaskAsync(tree.North, TouchName, probe);
+        await FireAsync(task);
+        Guid oneOff = await AddOneOffRunAsync(tree.North, probe.Id.Value, DateTime.UtcNow.AddMinutes(-30));
+
+        IReadOnlyCollection<TaskRunListItem> runs =
+            (await SendAsync(manager, tree.North, new GetRecentRunsForTargetQuery(Schema, probe.Id.Value, 10))).Value;
+
+        Assert.Equal([TaskRunTrigger.Schedule, TaskRunTrigger.Once], runs.Select(run => run.Trigger));
+
+        // A schedule's run is reached through its live schedule, as in the runs dialog: deleting it hides its history.
+        await DeleteTaskAsync(task);
+
+        Assert.Equal([oneOff], await RecentRunIdsAsync(manager, tree.North, probe));
     }
 
     [Fact]
@@ -244,16 +263,16 @@ public sealed class TaskQueryTests(SerginWebApiFactory<Program> factory) : IAsyn
         Guid run = await AddOneOffRunAsync(tree.Feeder2, probe.Id.Value, DateTime.UtcNow);
         TestCaller southManager = await tree.CreateGrantedCallerAsync(tree.South, TaskPermissions.Manage.Permission);
 
-        Assert.Equal([run], await OneOffRunIdsAsync(manager, tree.North, probe));
-        Assert.Empty(await OneOffRunIdsAsync(southManager, tree.South, probe));
+        Assert.Equal([run], await RecentRunIdsAsync(manager, tree.North, probe));
+        Assert.Empty(await RecentRunIdsAsync(southManager, tree.South, probe));
 
         ErrorOr<MoveScopeCommandResponse> moved = await tree.TrySendAsync(new MoveScopeCommand(new ScopeId(tree.Feeder2), new ScopeId(tree.South)));
         Assert.False(moved.IsError, moved.IsError ? moved.FirstError.Description : string.Empty);
         await PublishMovedAsync([tree.Feeder2]);
 
         // The run left the old path with its scope: the caller who reaches only North no longer sees it, South's does.
-        Assert.Empty(await OneOffRunIdsAsync(manager, tree.North, probe));
-        Assert.Equal([run], await OneOffRunIdsAsync(southManager, tree.South, probe));
+        Assert.Empty(await RecentRunIdsAsync(manager, tree.North, probe));
+        Assert.Equal([run], await RecentRunIdsAsync(southManager, tree.South, probe));
         Assert.Empty((await SendAsync(manager, tree.North, new GetTaskRunItemsQuery(Schema, run))).Value);
         Assert.Single((await SendAsync(southManager, tree.South, new GetTaskRunItemsQuery(Schema, run))).Value);
     }
@@ -269,7 +288,7 @@ public sealed class TaskQueryTests(SerginWebApiFactory<Program> factory) : IAsyn
         Assert.Equal(ErrorOrType.Forbidden, (await SendVersionedAsync(toucher, tree.North, new GetTaskScheduleByIdQuery(Schema, task.Id))).FirstError.Type);
         Assert.Equal(ErrorOrType.Forbidden, (await SendAsync(toucher, tree.North, new GetTaskScheduleRunsQuery(Schema, task.Id, Paggination.Default))).FirstError.Type);
         Assert.Equal(ErrorOrType.Forbidden, (await SendAsync(toucher, tree.North, new GetTaskRunItemsQuery(Schema, Guid.NewGuid()))).FirstError.Type);
-        Assert.Equal(ErrorOrType.Forbidden, (await SendAsync(toucher, tree.North, new GetOneOffRunsForTargetQuery(Schema, probe.Id.Value, 5))).FirstError.Type);
+        Assert.Equal(ErrorOrType.Forbidden, (await SendAsync(toucher, tree.North, new GetRecentRunsForTargetQuery(Schema, probe.Id.Value, 5))).FirstError.Type);
     }
 
     [Fact]
@@ -296,9 +315,9 @@ public sealed class TaskQueryTests(SerginWebApiFactory<Program> factory) : IAsyn
         return await circuit.ServiceProvider.GetRequiredService<ISerginDispatcher>().SendVersionedAsync(request);
     }
 
-    private async Task<IReadOnlyCollection<Guid>> OneOffRunIdsAsync(IUserContext caller, Guid currentScope, ScheduleProbe probe)
+    private async Task<IReadOnlyCollection<Guid>> RecentRunIdsAsync(IUserContext caller, Guid currentScope, ScheduleProbe probe)
     {
-        ErrorOr<IReadOnlyCollection<TaskRunListItem>> runs = await SendAsync(caller, currentScope, new GetOneOffRunsForTargetQuery(Schema, probe.Id.Value, 10));
+        ErrorOr<IReadOnlyCollection<TaskRunListItem>> runs = await SendAsync(caller, currentScope, new GetRecentRunsForTargetQuery(Schema, probe.Id.Value, 10));
         Assert.False(runs.IsError, runs.IsError ? runs.FirstError.Code : string.Empty);
 
         return [.. runs.Value.Select(one => one.Id)];

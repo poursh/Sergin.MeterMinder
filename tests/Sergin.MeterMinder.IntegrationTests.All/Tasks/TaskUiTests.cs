@@ -430,14 +430,14 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
                 ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(SectionHost.TargetId)] = probe }));
             string Html() => WebUtility.HtmlDecode(root.ToHtmlString());
 
-            Assert.Matches(OneOffCancelButton(), Html());
-            Assert.Contains("sergin-one-off-progress", Html(), StringComparison.Ordinal);
+            Assert.Matches(RecentRunCancelButton(), Html());
+            Assert.Contains("sergin-recent-run-progress", Html(), StringComparison.Ordinal);
 
             await SectionHost.Section!.CancelRunAsync(run);
 
             string html = Html();
-            Assert.DoesNotMatch(OneOffCancelButton(), html);
-            Assert.DoesNotContain("sergin-one-off-progress", html, StringComparison.Ordinal);
+            Assert.DoesNotMatch(RecentRunCancelButton(), html);
+            Assert.DoesNotContain("sergin-recent-run-progress", html, StringComparison.Ordinal);
             Assert.Contains("Completed: 0 of 1 succeeded, 0 failed, 1 cancelled", html, StringComparison.Ordinal);
         });
     }
@@ -468,8 +468,8 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
                 ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(SectionHost.TargetId)] = probe }));
             string html = WebUtility.HtmlDecode(root.ToHtmlString());
 
-            Assert.Contains("sergin-one-off-progress", html, StringComparison.Ordinal);
-            Assert.DoesNotMatch(OneOffCancelButton(), html);
+            Assert.Contains("sergin-recent-run-progress", html, StringComparison.Ordinal);
+            Assert.DoesNotMatch(RecentRunCancelButton(), html);
             Assert.Contains("Can't be cancelled", html, StringComparison.Ordinal);
         });
     }
@@ -501,7 +501,7 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
             HtmlRootComponent root = await renderer.RenderComponentAsync<SectionHost>(
                 ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(SectionHost.TargetId)] = probe }));
             string html = WebUtility.HtmlDecode(root.ToHtmlString());
-            string table = html[html.IndexOf("sergin-one-off-runs", StringComparison.Ordinal)..];
+            string table = html[html.IndexOf("sergin-recent-runs", StringComparison.Ordinal)..];
 
             Assert.Contains("<th>Trigger</th>", table, StringComparison.Ordinal);
             Assert.Contains("<td>One-off</td>", table, StringComparison.Ordinal);
@@ -532,7 +532,7 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
 
             Assert.Empty(snackbar.ShownSnackbars);
             string html = WebUtility.HtmlDecode(root.ToHtmlString());
-            Assert.DoesNotMatch(OneOffCancelButton(), html);
+            Assert.DoesNotMatch(RecentRunCancelButton(), html);
             Assert.Contains("Completed: 1 of 1 succeeded, 0 failed", html, StringComparison.Ordinal);
         });
     }
@@ -578,8 +578,8 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
         Assert.DoesNotContain("Failed", items, StringComparison.Ordinal);
     }
 
-    [GeneratedRegex(@"sergin-one-off-cancel", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
-    private static partial Regex OneOffCancelButton();
+    [GeneratedRegex(@"sergin-recent-run-cancel", RegexOptions.None, matchTimeoutMilliseconds: 1000)]
+    private static partial Regex RecentRunCancelButton();
 
     private AsyncServiceScope OpenScope(Guid probe)
     {

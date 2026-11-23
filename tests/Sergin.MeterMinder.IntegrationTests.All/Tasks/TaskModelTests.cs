@@ -86,7 +86,7 @@ public sealed class TaskModelTests(SerginWebApiFactory<Program> factory) : IAsyn
             runs.GetIndexes(),
             index => Names(index) == $"{nameof(TaskRun.ScheduleId)},{nameof(TaskRun.StartedAtUtc)}");
 
-        // The schedules section's one-off runs read: a run item over the target, joined to its run.
+        // The schedules section's recent runs read: a run item over the target, joined to its run.
         Assert.Contains(
             model.FindEntityType(typeof(TaskRunItem))!.GetIndexes(),
             index => Names(index) == $"{nameof(TaskRunItem.TargetId)},{nameof(TaskRunItem.RunId)}");

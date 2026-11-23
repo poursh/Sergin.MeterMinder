@@ -349,7 +349,7 @@ public sealed class TaskSchedulesSectionRefreshTests(SerginWebApiFactory<Program
     {
         public Task<ErrorOr.ErrorOr<TResponse>> SendAsync<TResponse>(
             IRequest<ErrorOr.ErrorOr<TResponse>> request, CancellationToken cancellationToken = default) =>
-            faults.FailOneOffReads && request is GetOneOffRunsForTargetQuery
+            faults.FailOneOffReads && request is GetRecentRunsForTargetQuery
                 ? Task.FromResult<ErrorOr.ErrorOr<TResponse>>(ErrorOr.Error.Failure("test.one-off-read-failed"))
                 : inner.SendAsync(request, cancellationToken);
 

@@ -318,11 +318,11 @@ common.tasks.filtered-to
 common.tasks.never
 common.tasks.next-run-unavailable
 common.tasks.not-scheduled
-common.tasks.one-off-empty
-common.tasks.one-off-runs
 common.tasks.pause
 common.tasks.paused
 common.tasks.permissions.manage
+common.tasks.recent-runs
+common.tasks.recent-runs-empty
 common.tasks.resume
 common.tasks.resumed
 common.tasks.run-now
