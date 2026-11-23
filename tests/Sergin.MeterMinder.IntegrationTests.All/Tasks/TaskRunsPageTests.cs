@@ -17,6 +17,7 @@ using MudBlazor;
 using Sergin.Administration.UserAccess.Domain.Scopes;
 using Sergin.MeterMinder.IntegrationTests.All.Shell;
 using Sergin.SharedKernel.Application;
+using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Commands.Queries;
 using Sergin.SharedKernel.Application.Concurrency;
@@ -232,6 +233,8 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
 
         await RenderViewAsync(catalog: null, log: null, async (view, html) =>
         {
+            // Every run, not only the running ones the page opens on.
+            await view.ResetFiltersAsync();
             await LoadAsync(view, html, "MTR-0042");
 
             string manualRow = RowOf(html(), manual);
@@ -281,6 +284,8 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
 
         await RenderViewAsync(catalog: null, sent, async (view, html) =>
         {
+            // Every run, not only the running ones the page opens on: the finished one gates the tick off.
+            await view.ResetFiltersAsync();
             await LoadAsync(view, html, "MTR-TICK");
             Assert.False(view.HasRunning);
 
@@ -339,6 +344,142 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
             Assert.Matches(@"<td>MTR-0103</td>\s*<td>Failed</td>", items);
             Assert.Contains("Finished", items, StringComparison.Ordinal);
         });
+    }
+
+    /// <summary>The page opens with its filter panel showing, before any click (and before the circuit connects).</summary>
+    [Fact]
+    public async Task FilterPanel_IsOpenOnFirstRender()
+    {
+        string html = await GetAsync(factory, SerginTaskRunsPage.Route);
+
+        Assert.Contains("sergin-filter-panel", html, StringComparison.Ordinal);
+    }
+
+    /// <summary>Every row names its module (the selector's caption) and the aggregate its task acts on (its declared name).</summary>
+    [Fact]
+    public async Task Rows_ShowModuleAndAggregate()
+    {
+        Guid run = await AddRunAsync(new RunSeed(TaskRunTrigger.Manual, AheadOfEveryOtherRun()) { Labels = ["MTR-0301"] });
+
+        await RenderViewAsync(catalog: null, log: null, async (view, html) =>
+        {
+            await LoadAsync(view, html, "MTR-0301");
+
+            string row = RowOf(html(), run);
+            Assert.Matches(@">\s*Device Management\s*</td>", row);
+            Assert.Matches(@">\s*Device\s*</td>", row);
+            Assert.True(
+                row.IndexOf("Device Management", StringComparison.Ordinal) < row.IndexOf("Read profile", StringComparison.Ordinal),
+                $"expected Module, Aggregate, then Task in {row}");
+        });
+    }
+
+    /// <summary>A task the catalogue no longer knows shows a dash in the Aggregate column; a known one its root's name.</summary>
+    [Fact]
+    public void AggregateText_NamesTheRoot_OrADashForAnUnknownTask()
+    {
+        using IServiceScope scope = factory.Services.CreateScope();
+        IStringLocalizer localizer = scope.ServiceProvider.GetRequiredService<IStringLocalizer>();
+        TaskCatalog catalog = factory.Services.GetRequiredService<TaskCatalog>();
+        AggregateFeatureRegistry aggregates = factory.Services.GetRequiredService<AggregateFeatureRegistry>();
+
+        Assert.Equal("Device", TaskRunRows.AggregateText(localizer, ReadProfile, catalog, aggregates));
+        Assert.Equal("—", TaskRunRows.AggregateText(localizer, "dm.gone.vanished", catalog, aggregates));
+    }
+
+    /// <summary>The Aggregate field makes an <c>aggregate equals</c> filter of the root's kebab key, with its chip.</summary>
+    [Fact]
+    public async Task AppliedFilters_CarryTheAggregate()
+    {
+        IReadOnlyList<SerginAppliedFilter> filters = [];
+
+        await RenderViewAsync(catalog: null, log: null, (view, _) =>
+        {
+            view.StatusFilter = null;
+            view.AggregateFilter = "device";
+            filters = view.BuildFilters();
+
+            return Task.CompletedTask;
+        });
+
+        SerginAppliedFilter aggregate = Assert.Single(filters);
+        Assert.Equal(TaskRunListFields.Aggregate, aggregate.Id);
+        Assert.Equal(FilteringType.equals, aggregate.Mode);
+        Assert.Equal("device", aggregate.Value);
+        Assert.Equal("Aggregate: Device", aggregate.LabelData);
+
+        using IServiceScope scope = factory.Services.CreateScope();
+        ErrorOr.ErrorOr<ListQueryResponse<TaskRunsListItem>> result = await scope.ServiceProvider.GetRequiredService<ISerginDispatcher>()
+            .SendAsync(new GetTaskRunsQuery(Dm, Paggination.Create(10, 1), filtering: SerginListQueryParts.ToFiltering(filters)));
+
+        Assert.False(result.IsError, result.IsError ? $"{result.FirstError.Code}: {result.FirstError.Description}" : string.Empty);
+    }
+
+    /// <summary>
+    /// The page opens filtered to Running runs: the Status field holds Running, its chip shows, the first load already
+    /// sends it, and a finished run is not listed while a running one is.
+    /// </summary>
+    [Fact]
+    public async Task DefaultFilter_IsRunning()
+    {
+        DateTime now = AheadOfEveryOtherRun();
+        Guid finished = await AddRunAsync(new RunSeed(TaskRunTrigger.Manual, now) { Labels = ["MTR-0401"], Succeeded = 1 });
+        Guid running = await AddRunAsync(new RunSeed(TaskRunTrigger.Manual, now.AddSeconds(-1)) { Labels = ["MTR-0402"] });
+        SendLog sent = new();
+
+        await RenderViewAsync(catalog: null, sent, async (view, html) =>
+        {
+            Assert.Equal(RunOutcome.Running, view.StatusFilter);
+
+            await LoadAsync(view, html, "MTR-0402");
+
+            GetTaskRunsQuery query = sent.Of<GetTaskRunsQuery>()[0].Request;
+            FilterData status = Assert.Single(query.Filtering!.Filters);
+            Assert.Equal(TaskRunListFields.Status, status.Id);
+            Assert.Equal(FilteringType.equals, status.FilterType);
+            Assert.Equal(nameof(RunOutcome.Running), status.Value.ToString());
+
+            Assert.Contains("Status: Running", html(), StringComparison.Ordinal);
+            Assert.Contains($"data-run=\"{running}\"", html(), StringComparison.Ordinal);
+            Assert.DoesNotContain($"data-run=\"{finished}\"", html(), StringComparison.Ordinal);
+        });
+    }
+
+    /// <summary>
+    /// Reset clears the default like any filter, so the next load sends none; a module change starts the new module's list
+    /// with Running again.
+    /// </summary>
+    [Fact]
+    public async Task DefaultFilter_ReturnsOnModuleChange_NotOnReset()
+    {
+        SendLog sent = new();
+
+        await RenderViewAsync(catalog: null, sent, async (view, _) =>
+        {
+            await view.ResetFiltersAsync();
+            await WaitForCountAsync(sent, 1);
+
+            Assert.Null(view.StatusFilter);
+            GetTaskRunsQuery query = sent.Of<GetTaskRunsQuery>()[^1].Request;
+            Assert.Null(query.Filtering);
+        });
+
+        ModuleConfigurationSource[] sources =
+        [
+            ModuleConfigurationSource.FromTypesInSchema("zz", typeof(ScheduleProbeAggregateFeatureConfiguration), typeof(UnconfiguredProbeCommand)),
+            ModuleConfigurationSource.FromTypesInSchema("tst", typeof(TouchProbeCommandConfiguration), typeof(TouchOneProbeCommandConfiguration)),
+        ];
+        var probes = TaskCatalog.FromSources(sources, CommandConfigurationRegistry.FromSources(sources));
+
+        await RenderViewAsync(probes, log: null, async (view, _) =>
+        {
+            Assert.Equal(RunOutcome.Running, view.StatusFilter);
+            view.StatusFilter = null;
+
+            await ViewHost.Current!.ChangeModuleAsync("zz");
+
+            Assert.Equal(RunOutcome.Running, view.StatusFilter);
+        }, module: "tst");
     }
 
     [GeneratedRegex("<nav aria-label=\"Breadcrumb\">.*?</nav>", RegexOptions.Singleline, matchTimeoutMilliseconds: 1000)]
@@ -618,9 +759,22 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
     {
         public static SerginTaskRunsView? View { get; set; }
 
+        public static ViewHost? Current { get; private set; }
+
         /// <summary>The page's <c>?module=</c> value, passed to the view.</summary>
         [Parameter]
         public string? Module { get; set; }
+
+        /// <summary>Passes the view another <c>?module=</c> value, as a navigation to the page with it would.</summary>
+        public Task ChangeModuleAsync(string module)
+        {
+            Module = module;
+            StateHasChanged();
+
+            return Task.CompletedTask;
+        }
+
+        protected override void OnInitialized() => Current = this;
 
         protected override void BuildRenderTree(RenderTreeBuilder builder)
         {
