@@ -328,6 +328,8 @@ common.tasks.recent-runs-empty
 common.tasks.resume
 common.tasks.resumed
 common.tasks.run-list.any-value
+common.tasks.run-list.fields.aggregate.label
+common.tasks.run-list.fields.module.label
 common.tasks.run-list.fields.started-at.label
 common.tasks.run-list.fields.started-by.label
 common.tasks.run-list.fields.status.label

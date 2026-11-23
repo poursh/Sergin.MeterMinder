@@ -393,6 +393,48 @@ public sealed class TaskRunsQueryTests(SerginWebApiFactory<Program> factory) : I
     }
 
     [Fact]
+    public async Task AggregateFilter_ListsTheRootsTasks_ByCatalogNotByName()
+    {
+        DateTime now = DateTime.UtcNow;
+        Guid touch = await AddRunAsync(new RunSeed(tree.North, TaskRunTrigger.Manual, now.AddMinutes(-5)));
+        await AddRunAsync(new RunSeed(tree.North, TaskRunTrigger.Once, now.AddMinutes(-10)) { CommandName = OtherName });
+
+        ListQueryResponse<TaskRunsListItem> runs = await ListAsync(manager, tree.North, filtering: Filter(TaskRunListFields.Aggregate, "schedule-probe"));
+
+        Assert.Equal([touch], runs.Data.Select(item => item.Id));
+        Assert.Equal(1, runs.Total);
+    }
+
+    [Fact]
+    public async Task AggregateFilter_AndTaskFilter_BothApply()
+    {
+        DateTime now = DateTime.UtcNow;
+        await AddRunAsync(new RunSeed(tree.North, TaskRunTrigger.Manual, now.AddMinutes(-5)));
+        await AddRunAsync(new RunSeed(tree.North, TaskRunTrigger.Once, now.AddMinutes(-10)) { CommandName = OtherName });
+
+        var both = Filtering.Create(
+            $$"""[{"id":"{{TaskRunListFields.Aggregate}}","value":"schedule-probe","mode":"equals"},{"id":"{{TaskRunListFields.Task}}","value":"{{OtherName}}","mode":"equals"}]""");
+        ListQueryResponse<TaskRunsListItem> runs = await ListAsync(manager, tree.North, filtering: both);
+
+        Assert.Empty(runs.Data);
+        Assert.Equal(0, runs.Total);
+    }
+
+    [Fact]
+    public async Task AggregateFilter_UnknownAggregate_IsAValidationError()
+    {
+        ErrorOr<ListQueryResponse<TaskRunsListItem>> result = await SendAsync(
+            manager,
+            tree.North,
+            new GetTaskRunsQuery(Schema, Paggination.Default, filtering: Filter(TaskRunListFields.Aggregate, "nope")));
+
+        Assert.True(result.IsError);
+        Error error = Assert.Single(result.Errors);
+        Assert.Equal(ErrorOrType.Validation, error.Type);
+        Assert.Equal("Filtering", error.Code);
+    }
+
+    [Fact]
     public void EveryListField_HasAFieldText()
     {
         TextCatalog catalog = host.Services.GetRequiredService<TextCatalog>();
