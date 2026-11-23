@@ -249,9 +249,9 @@ public sealed partial class TaskArgumentFormTests(SerginWebApiFactory<Program> f
 
             // The spinner follows this record's run of the task: not another record's, nor a finished one.
             Assert.DoesNotContain(Spinner, Html(), StringComparison.Ordinal);
-            activity.SetRows([Row(WindowName, Guid.CreateVersion7(), ActivityState.Running), Row(WindowName, probe, ActivityState.Succeeded)]);
+            activity.SetRows([Row(WindowName, Guid.CreateVersion7(), RunOutcome.Running), Row(WindowName, probe, RunOutcome.Succeeded)]);
             Assert.DoesNotContain(Spinner, Html(), StringComparison.Ordinal);
-            activity.SetRows([Row(WindowName, probe, ActivityState.Running)]);
+            activity.SetRows([Row(WindowName, probe, RunOutcome.Running)]);
             Assert.Contains(Spinner, Html(), StringComparison.Ordinal);
             activity.SetRows([]);
             Assert.DoesNotContain(Spinner, Html(), StringComparison.Ordinal);
@@ -536,7 +536,7 @@ public sealed partial class TaskArgumentFormTests(SerginWebApiFactory<Program> f
     private static SerginPageAction ActionOf(IReadOnlyList<SerginPageAction> actions, TextDefinition label) =>
         Assert.Single(actions, action => action.Label == label);
 
-    private static ActivityRow Row(string commandName, Guid target, ActivityState state) =>
+    private static ActivityRow Row(string commandName, Guid target, RunOutcome state) =>
         new(new TaskRunRef("tst", Guid.CreateVersion7()), null, commandName, "Probe", null, state, DateTime.UtcNow, null, 0, 1, null, null, target, null, null, 0);
 
     private async Task<Guid> CreateProbeAsync(Guid scopeId, string name)

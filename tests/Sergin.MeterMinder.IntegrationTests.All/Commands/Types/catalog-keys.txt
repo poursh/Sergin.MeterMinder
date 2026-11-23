@@ -325,6 +325,17 @@ common.tasks.recent-runs
 common.tasks.recent-runs-empty
 common.tasks.resume
 common.tasks.resumed
+common.tasks.run-list.fields.started-at.label
+common.tasks.run-list.fields.started-by.label
+common.tasks.run-list.fields.status.label
+common.tasks.run-list.fields.task.label
+common.tasks.run-list.fields.trigger.label
+common.tasks.run-list.values.run-outcome.cancelled
+common.tasks.run-list.values.run-outcome.failed
+common.tasks.run-list.values.run-outcome.partly-failed
+common.tasks.run-list.values.run-outcome.running
+common.tasks.run-list.values.run-outcome.skipped
+common.tasks.run-list.values.run-outcome.succeeded
 common.tasks.run-now
 common.tasks.run-once-started
 common.tasks.runs.acted-by
