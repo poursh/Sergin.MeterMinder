@@ -19,12 +19,14 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Tasks;
 
 /// <summary>
 /// A task is started, never sent: sent inline it is refused, by its type and before anything else runs, whether or not it
-/// is configured; inside a run item the same send passes; a command that is not a task still sends inline.
+/// is configured; inside a run item the same send passes, but another task sent from its handler is refused; a command
+/// that is not a task still sends inline.
 /// </summary>
 [Collection(nameof(IntegrationTestCollection))]
 public sealed class TaskGuardTests(SerginWebApiFactory<Program> factory) : IAsyncLifetime
 {
     private const string SlowName = "tst.probes.slow";
+    private const string PacedName = "tst.probes.paced";
 
     private WebApplicationFactory<Program> host = default!;
     private RbacScenario tree = default!;
@@ -47,6 +49,8 @@ public sealed class TaskGuardTests(SerginWebApiFactory<Program> factory) : IAsyn
                 services.AddSingleton<InlineSendCounter>();
                 services.AddTransient<IRequestHandler<ReadDeviceProfileCommand, ErrorOr<Success>>, CountingReadProfileHandler>();
                 services.AddTransient<IRequestHandler<UnconfiguredProbeCommand, ErrorOr<Success>>, CountingUnconfiguredProbeHandler>();
+                services.AddSingleton<NestedSendOutcome>();
+                services.AddTransient<IRequestHandler<PacedProbeCommand, ErrorOr<Success>>, NestingPacedProbeHandler>();
             }));
 
         await TaskTestHost.ResetSchemaAsync(host);
@@ -99,6 +103,26 @@ public sealed class TaskGuardTests(SerginWebApiFactory<Program> factory) : IAsyn
         TaskRunItem item = Assert.Single(await ItemsAsync(run));
         Assert.Equal(TaskRunItemStatus.Succeeded, item.Status);
         Assert.Equal(1, Gate.Entered);
+    }
+
+    [Fact]
+    public async Task AnotherTask_SentFromATaskHandler_IsRefused()
+    {
+        TestCaller user = await tree.CreateGrantedCallerAsync(tree.North, ScheduleProbePermissions.Touch.Permission);
+        ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
+        Gate.Release();
+        string arguments = TaskCommandFactory.ToArguments(new PacedProbeCommand(new(Guid.Empty)));
+        Guid run = await StartRunAsync(user, tree.North, PacedName, arguments, probe.Id.Value);
+
+        await Engine.DrainAsync(host.Services);
+
+        // The outer task ran as its run item; the slow task its handler sent inline was refused before its handler.
+        TaskRunItem item = Assert.Single(await ItemsAsync(run));
+        Assert.Equal(TaskRunItemStatus.Succeeded, item.Status);
+        ErrorOr<Success> nested = host.Services.GetRequiredService<NestedSendOutcome>().Result
+            ?? throw new InvalidOperationException("The outer task's handler never ran.");
+        Assert.Equal(TaskErrors.MustRunAsTaskCode, Assert.Single(nested.Errors).Code);
+        Assert.Equal(0, Gate.Entered);
     }
 
     [Fact]
@@ -197,5 +221,21 @@ internal sealed class CountingUnconfiguredProbeHandler(InlineSendCounter counter
     {
         counter.Hit();
         return Task.FromResult<ErrorOr<Success>>(Result.Success);
+    }
+}
+
+/// <summary>What the outer task's handler got back when it sent another task inline.</summary>
+internal sealed class NestedSendOutcome
+{
+    public ErrorOr<Success>? Result { get; set; }
+}
+
+/// <summary>A paced probe whose handler sends the slow probe task inline from inside its own run item.</summary>
+internal sealed class NestingPacedProbeHandler(ISender sender, NestedSendOutcome outcome) : ICommandHandler<PacedProbeCommand>
+{
+    public async Task<ErrorOr<Success>> Handle(PacedProbeCommand request, CancellationToken cancellationToken)
+    {
+        outcome.Result = await sender.Send(new SlowProbeCommand(request.Id, "nested"), cancellationToken);
+        return Result.Success;
     }
 }

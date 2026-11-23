@@ -188,7 +188,7 @@ public sealed class GeneratedTaskViewTests(SerginWebApiFactory<Program> factory)
     // ---- The probe, on the tasks test host ----
 
     [Fact]
-    public async Task EntityTask_NotSchedulable_HasNoScheduleMenu()
+    public async Task EntityTask_NotSchedulable_HasNoScheduleEntry_ButViewsSchedules()
     {
         Guid probe = store.Add("Probe ping");
         await GrantAsync(TaskViewProbePermissions.Run, TaskPermissions.Manage);
@@ -197,9 +197,35 @@ public sealed class GeneratedTaskViewTests(SerginWebApiFactory<Program> factory)
         {
             SerginPageAction ping = ActionOf(((SerginGeneratedDetailView<TaskViewProbe>)view).Actions, TaskViewProbeTexts.Ping);
 
-            Assert.Null(ping.MenuItems);
+            Assert.Equal([TaskUiTexts.ViewSchedules], ping.MenuItems!.Select(item => item.Label));
             Assert.Null(ping.Href);
             Assert.Equal(CommandRole.Task, CommandOf(typeof(PingTaskViewProbeCommand)).Role);
+            return Task.CompletedTask;
+        });
+    }
+
+    [Fact]
+    public async Task EntityTask_NoLongerSchedulable_ItsSavedScheduleStaysRemovable()
+    {
+        Guid probe = store.Add("Probe once schedulable");
+        await GrantAsync(TaskViewProbePermissions.Run, TaskPermissions.Manage);
+
+        // A schedule saved while the task was Schedulable(): saved as Sweep, then renamed to Ping, which is not.
+        await CreateScheduleAsync(new SweepTaskViewProbeCommand(new TaskViewProbeId(probe)), [new TaskScheduleTarget(probe)], "41 5 * * *");
+        await ScalarAsync(host, "UPDATE tst.task_schedules SET command_name = 'tst.task-view-probes.ping' WHERE command_name = 'tst.task-view-probes.sweep'");
+
+        await RenderProbeAsync<SerginGeneratedDetailView<TaskViewProbe>>($"/tst/task-view-probes/{probe}", Id(probe), (root, view, _) =>
+        {
+            string html = WebUtility.HtmlDecode(root.ToHtmlString());
+            SerginPageAction ping = ActionOf(((SerginGeneratedDetailView<TaskViewProbe>)view).Actions, TaskViewProbeTexts.Ping);
+
+            // The section lists the schedule with its Delete (and Pause); Schedule… is not offered for the task.
+            Assert.Contains(SerginTaskSchedulesSection.ElementId, html, StringComparison.Ordinal);
+            Assert.Contains("41 5 * * *", html, StringComparison.Ordinal);
+            Assert.Contains("aria-label=\"Delete\"", html, StringComparison.Ordinal);
+            Assert.Contains("aria-label=\"Pause\"", html, StringComparison.Ordinal);
+            Assert.DoesNotContain(ping.MenuItems!, item => item.Label == TaskUiTexts.ScheduleAction);
+            Assert.Contains(ping.MenuItems!, item => item.Label == TaskUiTexts.ViewSchedules);
             return Task.CompletedTask;
         });
     }

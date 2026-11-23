@@ -92,8 +92,8 @@ INSERT INTO st.translation(id,language_id,key,text,source_text,created_at_utc,cr
 SELECT gen_random_uuid(), l.id, t.key, t.text, t.source, now(), '01920000-0000-7000-8000-00000000000f', gen_random_uuid()
 FROM (VALUES
  ('fa','common.actions.apply','اعمال','Apply'),
- ('fa','common.actions.background-started','آغاز شد. در پس‌زمینه ادامه می‌یابد.','Started. It keeps running in the background.'),
- ('fa','common.actions.background-started-many','برای {Count} رکورد آغاز شد. در پس‌زمینه ادامه می‌یابد.','Started for {Count} records. It keeps running in the background.'),
+ ('fa','common.actions.task-started','آغاز شد. در پس‌زمینه ادامه می‌یابد.','Started. It keeps running in the background.'),
+ ('fa','common.actions.task-started-many','برای {Count} رکورد آغاز شد. در پس‌زمینه ادامه می‌یابد.','Started for {Count} records. It keeps running in the background.'),
  ('fa','common.actions.bulk-done','برای {Count} رکورد انجام شد.','Done for {Count} records.'),
  ('fa','common.actions.clear','پاک کردن','Clear'),
  ('fa','common.actions.clear-all','پاک کردن همه','Clear all'),
@@ -397,7 +397,7 @@ FROM (VALUES
  ('fa','common.tasks.one-off-runs','اجراهای یک‌بارهٔ اخیر','Recent one-off runs'),
  ('fa','common.tasks.pause','توقف','Pause'),
  ('fa','common.tasks.paused','زمان‌بندی متوقف شد.','The schedule was paused.'),
- ('fa','common.tasks.permissions.manage','مدیریت کارهای زمان‌بندی‌شده','Manage scheduled tasks'),
+ ('fa','common.tasks.permissions.manage','مدیریت کارها','Manage tasks'),
  ('fa','common.tasks.resume','ازسرگیری','Resume'),
  ('fa','common.tasks.resumed','زمان‌بندی از سر گرفته شد.','The schedule was resumed.'),
  ('fa','common.tasks.run-now','اجرای اکنون','Run now'),
@@ -438,7 +438,7 @@ FROM (VALUES
  ('fa','common.tasks.save','ذخیره','Save'),
  ('fa','common.tasks.saved','زمان‌بندی ذخیره شد.','The schedule was saved.'),
  ('fa','common.tasks.schedule-action','زمان‌بندی…','Schedule…'),
- ('fa','common.tasks.singular','کار زمان‌بندی‌شده','Scheduled task'),
+ ('fa','common.tasks.singular','زمان‌بندی','Schedule'),
  ('fa','common.tasks.stale-reloaded','شخص دیگری این زمان‌بندی را تغییر داد. دوباره بارگذاری شد: آن را بررسی و دوباره ذخیره کنید.','Someone else changed this schedule. It was reloaded: check it and save again.'),
  ('fa','common.tasks.states.active','فعال','Active'),
  ('fa','common.tasks.states.paused','متوقف','Paused'),

@@ -1,7 +1,5 @@
 common.actions.add
 common.actions.apply
-common.actions.background-started
-common.actions.background-started-many
 common.actions.bulk-done
 common.actions.cancel
 common.actions.clear
@@ -26,6 +24,8 @@ common.actions.remove
 common.actions.rename
 common.actions.reset
 common.actions.save
+common.actions.task-started
+common.actions.task-started-many
 common.bulk.deleted
 common.bulk.not-sent
 common.bulk.removed

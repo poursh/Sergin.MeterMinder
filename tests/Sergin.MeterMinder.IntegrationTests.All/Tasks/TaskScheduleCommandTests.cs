@@ -9,6 +9,7 @@ using Sergin.SharedKernel.Application.Aggregates;
 using Sergin.SharedKernel.Application.Commands.Configuration;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Application.Tasks;
+using Sergin.SharedKernel.Application.Tasks.Activity;
 using Sergin.SharedKernel.Application.Tasks.Commands;
 using Sergin.SharedKernel.Application.Tasks.Queries;
 using Sergin.SharedKernel.Application.Securities.Authorization;
@@ -521,11 +522,20 @@ public sealed class TaskScheduleCommandTests(SerginWebApiFactory<Program> factor
         ScheduleProbe probe = await CreateProbeAsync(tree.Feeder1);
 
         TaskScheduleId id = await SaveStartOnlyScheduleAsync(probe);
+        System.Collections.Concurrent.ConcurrentQueue<RunChanged> heard = new();
+        using IDisposable subscription = host.Services.GetRequiredService<IRunNotifier>().Subscribe(manager.Id, change =>
+        {
+            heard.Enqueue(change);
+            return Task.CompletedTask;
+        });
 
         await FireAsync(id);
 
         TaskRun run = Assert.Single(await RunsAsync(id));
         Assert.Equal(TaskRunStatus.Completed, run.Status);
+
+        // The failed run is announced to its user's circuits, as any run that finishes is.
+        Assert.Contains(heard, change => change.Ref == new TaskRunRef(Schema, run.Id));
         Assert.Equal(1, run.Failed);
         Assert.Equal(0, run.Succeeded);
         TaskRunItem item = Assert.Single(await ItemsAsync(run.Id));

@@ -280,7 +280,8 @@ public sealed partial class TaskArgumentFormTests(SerginWebApiFactory<Program> f
         Guid probe = await CreateProbeAsync(Scope.RootId.Value, "Probe scheduled inline");
         await GrantAsync(Scope.RootId.Value, TaskPermissions.Manage);
 
-        // On the detail: the schedulable task's section carries Schedule… and View schedules; the other one carries neither.
+        // On the detail: the schedulable task's section carries Schedule… and View schedules; the other one only View schedules
+        // (a schedule saved before it lost Schedulable() must stay reachable).
         await RenderAsync<SerginGeneratedDetailView<ScheduleProbe>>($"/tst/probes/{probe}", Id(probe), Scope.RootId.Value, (root, view, _) =>
         {
             string html = WebUtility.HtmlDecode(root.ToHtmlString());
@@ -290,7 +291,7 @@ public sealed partial class TaskArgumentFormTests(SerginWebApiFactory<Program> f
             Assert.Contains("Schedule…", sweep, StringComparison.Ordinal);
             Assert.Contains("View schedules", sweep, StringComparison.Ordinal);
             Assert.DoesNotContain("Schedule…", window, StringComparison.Ordinal);
-            Assert.DoesNotContain("View schedules", window, StringComparison.Ordinal);
+            Assert.Contains("View schedules", window, StringComparison.Ordinal);
             Assert.DoesNotContain(((SerginGeneratedDetailView<ScheduleProbe>)view).Actions, action => action.Label == ScheduleProbeTexts.Sweep);
             return Task.CompletedTask;
         });
@@ -308,9 +309,10 @@ public sealed partial class TaskArgumentFormTests(SerginWebApiFactory<Program> f
     }
 
     [Fact]
-    public async Task InlineNotSchedulable_SectionOffersNoScheduleEntries()
+    public async Task InlineNotSchedulable_SectionOffersViewSchedulesOnly()
     {
-        // The Inline configuration's Window is not Schedulable(); with Manage held its section still offers no schedule entry.
+        // The Inline configuration's Window is not Schedulable(); with Manage held its section offers no Schedule…, only View
+        // schedules.
         await StartHostAsync(typeof(InlineScheduleProbeViewConfiguration));
         Guid probe = await CreateProbeAsync(Scope.RootId.Value, "Probe plain inline");
         await GrantAsync(Scope.RootId.Value, TaskPermissions.Manage);
@@ -320,7 +322,8 @@ public sealed partial class TaskArgumentFormTests(SerginWebApiFactory<Program> f
             string window = SectionOf(WebUtility.HtmlDecode(root.ToHtmlString()), "Probe window");
 
             Assert.Contains(">Start<", window, StringComparison.Ordinal);
-            Assert.DoesNotContain("Schedule", window, StringComparison.Ordinal);
+            Assert.DoesNotContain("Schedule…", window, StringComparison.Ordinal);
+            Assert.Contains("View schedules", window, StringComparison.Ordinal);
             return Task.CompletedTask;
         });
     }

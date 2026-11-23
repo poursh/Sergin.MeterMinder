@@ -66,6 +66,17 @@ public sealed class TaskDeclarationTests(SerginWebApiFactory<Program> factory)
     }
 
     [Fact]
+    public void Refuses_MaxDurationAboveOneDay()
+    {
+        string message = Refusal(typeof(LongMaxDurationProbeCommandConfiguration));
+
+        Assert.Contains(typeof(LongMaxDurationProbeCommandConfiguration).FullName!, message, StringComparison.Ordinal);
+        Assert.Contains(typeof(DeclaredProbeCommand).FullName!, message, StringComparison.Ordinal);
+        Assert.Contains("maximum duration of 25 hours", message, StringComparison.Ordinal);
+        Assert.Contains("24 hours", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void NonTask_HasNoTaskSettings() =>
         Assert.Null(factory.Services.GetRequiredService<CommandConfigurationRegistry>().For(typeof(UpdateDeviceCommand)).Task);
 }

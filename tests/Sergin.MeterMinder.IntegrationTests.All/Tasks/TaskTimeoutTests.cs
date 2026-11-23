@@ -138,14 +138,22 @@ public sealed class TaskTimeoutTests(SerginWebApiFactory<Program> factory) : IAs
     [Fact]
     public async Task ReportAfterExpiry_DoesNotRevive()
     {
+        bool reportedAfterExpiry = false;
         Probe.Script = async (progress, ct) =>
         {
-            // Past the timeout without looking at the token, then a report and a normal return.
+            // Past the timeout without looking at the token, then a report and a keep-alive (on a token that is not the
+            // send's, which is cancelled by now and would make them throw) and a normal return.
             await Task.Delay(TimeSpan.FromSeconds(1.5), CancellationToken.None);
-            await progress.ReportAsync(50, ct);
+            bool expired = ct.IsCancellationRequested;
+            await progress.ReportAsync(50, CancellationToken.None);
+            await progress.KeepAliveAsync(CancellationToken.None);
+            reportedAfterExpiry = expired;
         };
 
         TaskRunItem item = await RunToEndAsync(new PacedProbeCommand(new(Guid.Empty)));
+
+        // The handler reached its normal return, the reports made after the timeout had fired.
+        Assert.True(reportedAfterExpiry);
 
         Assert.Equal(TaskRunItemStatus.Failed, item.Status);
         Assert.Equal(TaskErrors.TimedOutCode, item.ErrorCode);

@@ -566,6 +566,12 @@ internal sealed class ShortMaxDurationProbeCommandConfiguration : ICommandConfig
         builder.Task(task => task.InactivityTimeout(TimeSpan.FromMinutes(10)).MaxDuration(TimeSpan.FromMinutes(5)));
 }
 
+internal sealed class LongMaxDurationProbeCommandConfiguration : ICommandConfiguration<DeclaredProbeCommand>
+{
+    public void Configure(CommandConfigurationBuilder<DeclaredProbeCommand> builder) =>
+        builder.Task(task => task.MaxDuration(TimeSpan.FromHours(25)));
+}
+
 // ---- Collection probe: a task on every probe of the run's scope, with no record. ----
 
 internal sealed record SyncProbesCommand : ITaskCommand<ScheduleProbe>;
