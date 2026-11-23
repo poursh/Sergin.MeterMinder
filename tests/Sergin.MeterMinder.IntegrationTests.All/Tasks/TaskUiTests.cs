@@ -475,6 +475,41 @@ public sealed partial class TaskUiTests(SerginWebApiFactory<Program> factory) : 
     }
 
     [Fact]
+    public async Task OneOffRuns_NameWhatStartedEachRun()
+    {
+        Guid probe = await CreateProbeAsync();
+        await GrantAsync(TaskPermissions.Manage, ScheduleProbePermissions.Touch);
+        await using (AsyncServiceScope starter = host.Services.CreateAsyncScope())
+        {
+            starter.ServiceProvider.GetRequiredService<UserContextAccessor>().Current = users.Current!;
+            ISerginDispatcher dispatcher = starter.ServiceProvider.GetRequiredService<ISerginDispatcher>();
+
+            ErrorOr<TaskScheduleRunStartedResponse> once = await dispatcher.SendAsync(
+                new RunTaskOnceCommand(TasksDbContext.Schema, new FixedProbeCommand(new ScheduleProbeId(probe), "fixed"), [new TaskScheduleTarget(probe)]));
+            Assert.False(once.IsError, once.IsError ? once.FirstError.Description : string.Empty);
+
+            ErrorOr<TaskRunStartedResponse> manual = await dispatcher.StartTaskAsync(new FixedProbeCommand(new(Guid.Empty), "fixed"), [new TaskTarget(probe)]);
+            Assert.False(manual.IsError, manual.IsError ? manual.FirstError.Description : string.Empty);
+        }
+
+        await using AsyncServiceScope scope = OpenScope(probe);
+        await using var renderer = new HtmlRenderer(scope.ServiceProvider, scope.ServiceProvider.GetRequiredService<ILoggerFactory>());
+
+        await renderer.Dispatcher.InvokeAsync(async () =>
+        {
+            SectionHost.Section = null;
+            HtmlRootComponent root = await renderer.RenderComponentAsync<SectionHost>(
+                ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(SectionHost.TargetId)] = probe }));
+            string html = WebUtility.HtmlDecode(root.ToHtmlString());
+            string table = html[html.IndexOf("sergin-one-off-runs", StringComparison.Ordinal)..];
+
+            Assert.Contains("<th>Trigger</th>", table, StringComparison.Ordinal);
+            Assert.Contains("<td>One-off</td>", table, StringComparison.Ordinal);
+            Assert.Contains("<td>Manual</td>", table, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
     public async Task OneOffRuns_CancellingARunThatFinished_ReloadsSilently()
     {
         Guid probe = await CreateProbeAsync();

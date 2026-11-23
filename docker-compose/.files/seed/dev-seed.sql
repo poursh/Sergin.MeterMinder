@@ -408,7 +408,7 @@ FROM (VALUES
  ('fa','common.tasks.view-schedules','دیدن زمان‌بندی‌ها ({Count})','View schedules ({Count})'),
  ('fa','common.tasks.runs.acted-by','اجرا توسط','Run by'),
  ('fa','common.tasks.runs.attempts','تلاش‌ها','Attempts'),
- ('fa','common.tasks.runs.background','پس‌زمینه','Background'),
+ ('fa','common.tasks.runs.manual','دستی','Manual'),
  ('fa','common.tasks.runs.completed','تکمیل‌شده','Completed'),
  ('fa','common.tasks.runs.empty','هنوز اجرایی نیست.','No runs yet.'),
  ('fa','common.tasks.runs.error','خطا','Error'),

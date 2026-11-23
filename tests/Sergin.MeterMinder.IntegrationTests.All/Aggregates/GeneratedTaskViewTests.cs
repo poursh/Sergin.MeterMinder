@@ -96,7 +96,7 @@ public sealed class GeneratedTaskViewTests(SerginWebApiFactory<Program> factory)
     [Fact]
     public void ManualTrigger_HasItsOwnText()
     {
-        Assert.Equal(TaskUiTexts.Runs.Background, TaskUiFormat.TriggerText(TaskRunTrigger.Manual));
+        Assert.Equal(TaskUiTexts.Runs.Manual, TaskUiFormat.TriggerText(TaskRunTrigger.Manual));
         Assert.Equal(TaskUiTexts.Runs.OneOff, TaskUiFormat.TriggerText(TaskRunTrigger.Once));
     }
 

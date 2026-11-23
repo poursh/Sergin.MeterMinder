@@ -329,7 +329,6 @@ common.tasks.run-now
 common.tasks.run-once-started
 common.tasks.runs.acted-by
 common.tasks.runs.attempts
-common.tasks.runs.background
 common.tasks.runs.completed
 common.tasks.runs.empty
 common.tasks.runs.error
@@ -343,6 +342,7 @@ common.tasks.runs.item-succeeded
 common.tasks.runs.items
 common.tasks.runs.last-outcome
 common.tasks.runs.last-outcome-with-failures
+common.tasks.runs.manual
 common.tasks.runs.one-off
 common.tasks.runs.run-now-trigger
 common.tasks.runs.running
