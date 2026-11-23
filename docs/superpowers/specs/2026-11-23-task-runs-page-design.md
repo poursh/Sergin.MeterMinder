@@ -248,3 +248,26 @@ The user picked 3. Only DeviceManagement opts in today, so in practice the page 
 - Exact names of the new types and texts, within the conventions above.
 - Whether the item table is extracted as a component or the dialog takes a run id.
 - Where in `Hosts.WebUi` the Tasks shell entry is added (after `AddSerginCore`'s module loop).
+
+## Addendum (2026-11-23): open filter panel, Module and Aggregate columns
+
+Agreed after the first build, before merge.
+
+- **Filter panel open at start.** `SerginAggregateList` gains `FilterPanelInitiallyOpen` (default `false`, so every
+  other list is unchanged). The Task runs page sets it: the panel renders open on the first render and runs
+  `OnFilterPanelOpened` once, so its pickers load. The toggle stays; the person can close it.
+- **Module column.** The module's caption (the same text the module selector shows), on every row. The page shows one
+  module at a time, so the value repeats; it is there so a printed or copied page says where the runs came from.
+- **Aggregate column.** The aggregate the task acts on (`TaskDescriptor.Root`), shown by its declared name
+  (`AggregateFeatureRegistry.NameOf`, localised), else the root type's name; a task the catalogue no longer knows shows
+  "—". A collection task's aggregate is its root too.
+- **Aggregate filter.** A select listing the aggregates of the module's tasks. New list field `aggregate` (filter only,
+  `equals`), whose value is the root's kebab name (`device`). The database stores only the task name, so the handler,
+  not SQL, resolves it: it takes the `aggregate` filter out of the request, finds the module's tasks on that root in
+  `TaskCatalog`, and passes their names to the repository, which adds `r.command_name = ANY(@AggregateTasks)` to count
+  and page alike. A task renamed with `Name("<old>")` therefore still matches. A value naming no aggregate of the module
+  is a validation error coded `Filtering`. With an aggregate chosen, the Task filter lists only its tasks.
+
+Approaches considered for the filter: parsing the root out of the stored name (`split_part`), rejected because a
+`Name(...)` override breaks it; a per-request SQL `CASE` over the catalogue, rejected because `ListQueryColumns` is
+static by design.
