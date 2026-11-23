@@ -103,22 +103,12 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
 
     /// <summary>
     /// The page's trail starts at its own route, so the breadcrumb names the drawer group of the nav entry linking there.
-    /// The entry is the shell's (added with the host wiring); the host here carries it, as the wired host will.
+    /// The entry is the shell's, which the real host adds because DeviceManagement runs tasks.
     /// </summary>
     [Fact]
     public async Task Page_Prerenders_UnderTheAdministrationTrail()
     {
-        await using WebApplicationFactory<Program> host = factory.WithWebHostBuilder(builder => builder.ConfigureServices(services =>
-        {
-            ServiceDescriptor registered = services.Last(descriptor => descriptor.ServiceType == typeof(SerginUiModuleCatalog));
-            var catalog = (SerginUiModuleCatalog)registered.ImplementationInstance!;
-            SerginNavItem runs = new(TaskUiTexts.RunList.Heading, SerginTaskRunsPage.Route, Icons.Material.Filled.WorkHistory, 400, TaskPermissions.Manage);
-
-            services.Remove(registered);
-            services.AddSingleton(new SerginUiModuleCatalog(catalog.Modules, [new SerginShellNavEntry(SerginNavGroups.Administration, null, [runs])]));
-        }));
-
-        string html = await GetAsync(host, SerginTaskRunsPage.Route);
+        string html = await GetAsync(factory, SerginTaskRunsPage.Route);
         string strip = BreadcrumbNav().Match(html).Value;
 
         Assert.Contains("<title>Task runs</title>", html, StringComparison.Ordinal);

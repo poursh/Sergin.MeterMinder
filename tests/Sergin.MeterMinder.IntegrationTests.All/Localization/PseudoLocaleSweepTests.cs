@@ -59,6 +59,7 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
         "/dm/manufacturers",
         "/dm/manufacturers/new",
         "/st/languages",
+        "/sys/tasks/runs",
         "/st/languages/new",
         "/ua/roles/new",
         "/ua/scopes",

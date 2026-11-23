@@ -315,6 +315,8 @@ common.tasks.errors.target-without-id
 common.tasks.errors.timed-out
 common.tasks.errors.too-many-targets
 common.tasks.filtered-to
+common.tasks.navigation.caption
+common.tasks.navigation.task-runs
 common.tasks.never
 common.tasks.next-run-unavailable
 common.tasks.not-scheduled
