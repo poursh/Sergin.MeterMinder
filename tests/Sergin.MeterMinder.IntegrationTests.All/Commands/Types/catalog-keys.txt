@@ -336,6 +336,8 @@ common.tasks.run-list.module
 common.tasks.run-list.no-module
 common.tasks.run-list.no-runs
 common.tasks.run-list.records
+common.tasks.run-list.summary
+common.tasks.run-list.summary-with-cancelled
 common.tasks.run-list.title
 common.tasks.run-list.trigger-manual
 common.tasks.run-list.trigger-once

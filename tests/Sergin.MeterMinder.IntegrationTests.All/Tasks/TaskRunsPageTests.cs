@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Data.Common;
 using System.Net;
 using System.Reflection;
@@ -30,6 +31,7 @@ using Sergin.SharedKernel.Infrastracture.Data;
 using Sergin.SharedKernel.IntegrationTests;
 using Sergin.SharedKernel.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
+using Sergin.SharedKernel.Presentation.Blazor.Lists;
 using Sergin.SharedKernel.Presentation.Blazor.Modules;
 using Sergin.SharedKernel.Presentation.Blazor.Navigation;
 using Sergin.SharedKernel.Presentation.Blazor.Tasks;
@@ -136,6 +138,10 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
         Assert.DoesNotContain(ModuleSelector, html, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// <c>?module=zz</c> names no module that runs tasks: the page prerenders the list, and the view loads the first
+    /// module's runs (dm, the only one here) rather than sending zz.
+    /// </summary>
     [Fact]
     public async Task UnknownModuleParameter_FallsBackToTheDefault()
     {
@@ -144,6 +150,55 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
         Assert.Contains("sergin-aggregate-list", fallback, StringComparison.Ordinal);
         Assert.DoesNotContain("mud-alert", fallback, StringComparison.Ordinal);
         Assert.DoesNotContain("No module runs tasks in this application.", fallback, StringComparison.Ordinal);
+
+        SendLog sent = new();
+
+        await RenderViewAsync(catalog: null, sent, async (view, _) =>
+        {
+            await view.ReloadAsync();
+            await sent.WaitForAsync<GetTaskRunsQuery>();
+        }, module: "zz");
+
+        (GetTaskRunsQuery query, bool failed) = Assert.Single(sent.Of<GetTaskRunsQuery>());
+        Assert.Equal(Dm, query.Schema);
+        Assert.False(failed);
+    }
+
+    /// <summary>
+    /// Every field of the filter panel, set, makes the filters Apply sends; the run list query takes them (the date range
+    /// as one between filter of whole days) and still finds the run they describe.
+    /// </summary>
+    [Fact]
+    public async Task AppliedFilters_PassTheRunListQuery()
+    {
+        UserId person = DevUserId();
+        DateTime startedAt = DateTime.UtcNow;
+        Guid run = await AddRunAsync(new RunSeed(TaskRunTrigger.Manual, startedAt) { Labels = ["MTR-0201"] });
+        IReadOnlyList<SerginAppliedFilter> filters = [];
+
+        await RenderViewAsync(catalog: null, log: null, (view, _) =>
+        {
+            view.TaskFilter = ReadProfile;
+            view.StatusFilter = RunOutcome.Running;
+            view.StartedByFilter = person.Value;
+            view.TriggerFilter = TaskRunTrigger.Manual;
+            view.StartedFilter = new DateRange(startedAt.Date, startedAt.Date);
+            filters = view.BuildFilters();
+
+            return Task.CompletedTask;
+        });
+
+        Assert.Equal(
+            [TaskRunListFields.Task, TaskRunListFields.Status, TaskRunListFields.StartedBy, TaskRunListFields.Trigger, TaskRunListFields.StartedAt],
+            filters.Select(filter => filter.Id));
+
+        using IServiceScope scope = factory.Services.CreateScope();
+        ErrorOr.ErrorOr<ListQueryResponse<TaskRunsListItem>> result = await scope.ServiceProvider.GetRequiredService<ISerginDispatcher>()
+            .SendAsync(new GetTaskRunsQuery(Dm, Paggination.Create(50, 1), filtering: SerginListQueryParts.ToFiltering(filters)));
+
+        Assert.False(result.IsError, result.IsError ? $"{result.FirstError.Code}: {result.FirstError.Description}" : string.Empty);
+        Assert.Contains(run, result.Value.Data.Select(item => item.Id));
+        Assert.All(result.Value.Data, item => Assert.Equal(RunOutcome.Running, item.Outcome));
     }
 
     [Fact]
@@ -151,11 +206,11 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
     {
         Assert.Empty(TaskRunRows.Modules(TaskCatalog.Empty, factory.Services.GetRequiredService<SerginUiModuleCatalog>()));
 
-        int sent = 0;
+        SendLog sent = new();
 
         await RenderViewAsync(
             TaskCatalog.Empty,
-            onSend: () => Interlocked.Increment(ref sent),
+            sent,
             async (view, html) =>
             {
                 await view.ReloadAsync();
@@ -166,7 +221,7 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
                 Assert.False(view.IsPolling);
             });
 
-        Assert.Equal(0, sent);
+        Assert.Equal(0, sent.Count);
     }
 
     [Fact]
@@ -179,10 +234,12 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
 
         Guid manual = await AddRunAsync(new RunSeed(TaskRunTrigger.Manual, now.AddMinutes(-3)) { Target = device, Labels = ["MTR-0042"], Succeeded = 1 });
         Guid scheduled = await AddRunAsync(new RunSeed(TaskRunTrigger.Schedule, now.AddMinutes(-2)) { Schedule = schedule, Items = 12, Succeeded = 11, Failed = 1 });
+        Guid cancelled = await AddRunAsync(new RunSeed(TaskRunTrigger.Once, now.AddSeconds(-150)) { Items = 5, Succeeded = 2, Cancelled = 3 });
+        Guid failed = await AddRunAsync(new RunSeed(TaskRunTrigger.Once, now.AddSeconds(-100)) { Labels = ["MTR-0044"], Failed = 1 });
         Guid running = await AddRunAsync(new RunSeed(TaskRunTrigger.Manual, now.AddMinutes(-1)) { Labels = ["MTR-0043"] });
         string name = await DisplayNameAsync(person);
 
-        await RenderViewAsync(catalog: null, onSend: null, async (view, html) =>
+        await RenderViewAsync(catalog: null, log: null, async (view, html) =>
         {
             await LoadAsync(view, html, "MTR-0042");
 
@@ -197,8 +254,18 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
             Assert.Contains("12 records", scheduledRow, StringComparison.Ordinal);
             Assert.Matches($@"{Regex.Escape(name)}</p>\s*<span[^>]*>Schedule · {Regex.Escape(Cron)}</span>", scheduledRow);
             Assert.Contains("Partly failed", scheduledRow, StringComparison.Ordinal);
-            Assert.Contains("Completed: 11 of 12 succeeded, 1 failed", scheduledRow, StringComparison.Ordinal);
+            Assert.Contains("11 of 12 succeeded, 1 failed", scheduledRow, StringComparison.Ordinal);
+            Assert.DoesNotContain("Completed", scheduledRow, StringComparison.Ordinal);
             Assert.DoesNotContain("aria-label=\"Cancel\"", scheduledRow, StringComparison.Ordinal);
+
+            // The counts under the outcome carry no status word of their own, so they cannot contradict it.
+            string cancelledRow = RowOf(html(), cancelled);
+            Assert.Matches(@">Cancelled</p>\s*<span[^>]*>2 of 5 succeeded, 0 failed, 3 cancelled</span>", cancelledRow);
+            Assert.DoesNotContain("Completed", cancelledRow, StringComparison.Ordinal);
+
+            string failedRow = RowOf(html(), failed);
+            Assert.Matches(@">Failed</p>\s*<span[^>]*>0 of 1 succeeded, 1 failed</span>", failedRow);
+            Assert.DoesNotContain("Completed", failedRow, StringComparison.Ordinal);
 
             string runningRow = RowOf(html(), running);
             Assert.Contains("Running", runningRow, StringComparison.Ordinal);
@@ -222,7 +289,7 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
         string name = await DisplayNameAsync(person);
         TaskRunsListItem listed = await ListedAsync(run);
 
-        await RenderViewAsync(catalog: null, onSend: null, async (view, html) =>
+        await RenderViewAsync(catalog: null, log: null, async (view, html) =>
         {
             await view.OpenRecordsAsync(listed);
 
@@ -332,7 +399,7 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
                 index < seed.Labels.Count ? seed.Labels[index] : null)),
         ];
 
-        if (seed.Succeeded + seed.Failed > 0)
+        if (seed.Succeeded + seed.Failed + seed.Cancelled > 0)
         {
             for (int index = 0; index < seed.Items; index++)
             {
@@ -340,13 +407,17 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
                 {
                     items[index].MarkSucceeded(at);
                 }
-                else
+                else if (index < seed.Succeeded + seed.Failed)
                 {
                     items[index].MarkFailed("Probe.Failed", "The probe failed.", at);
                 }
+                else
+                {
+                    items[index].MarkCancelled(at);
+                }
             }
 
-            run.Complete(seed.Succeeded, seed.Failed, 0, at);
+            run.Complete(seed.Succeeded, seed.Failed, seed.Cancelled, at);
         }
 
         ITaskStore store = scope.ServiceProvider.GetRequiredService<ITaskStoreResolver>().For(Dm);
@@ -375,9 +446,11 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
 
     /// <summary>
     /// Renders the view in process as the development user, with the providers its menus and dialogs render into; the
-    /// browser's zone is UTC (no interop here), the task catalogue the given one when set, and every send is counted.
+    /// browser's zone is UTC (no interop here), the task catalogue the given one when set, the page's <c>?module=</c>
+    /// value passed on, and every send recorded in <paramref name="log"/> when given.
     /// </summary>
-    private async Task RenderViewAsync(TaskCatalog? catalog, Action? onSend, Func<SerginTaskRunsView, Func<string>, Task> act)
+    private async Task RenderViewAsync(
+        TaskCatalog? catalog, SendLog? log, Func<SerginTaskRunsView, Func<string>, Task> act, string? module = null)
     {
         await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
         ((IHostEnvironmentNavigationManager)scope.ServiceProvider.GetRequiredService<NavigationManager>())
@@ -386,7 +459,7 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
         Dictionary<Type, object> overrides = new()
         {
             [typeof(IUiTimeZoneStore)] = new FixedTimeZoneStore(),
-            [typeof(ISerginDispatcher)] = new CountingDispatcher(scope.ServiceProvider.GetRequiredService<ISerginDispatcher>(), onSend),
+            [typeof(ISerginDispatcher)] = new RecordingDispatcher(scope.ServiceProvider.GetRequiredService<ISerginDispatcher>(), log ?? new SendLog()),
         };
 
         if (catalog is not null)
@@ -400,7 +473,8 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
         await renderer.Dispatcher.InvokeAsync(async () =>
         {
             ViewHost.View = null;
-            HtmlRootComponent root = await renderer.RenderComponentAsync<ViewHost>();
+            HtmlRootComponent root = await renderer.RenderComponentAsync<ViewHost>(
+                ParameterView.FromDictionary(new Dictionary<string, object?> { [nameof(ViewHost.Module)] = module }));
             string Html() => WebUtility.HtmlDecode(root.ToHtmlString());
 
             await act(ViewHost.View!, Html);
@@ -431,6 +505,8 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
         public int Succeeded { get; init; }
 
         public int Failed { get; init; }
+
+        public int Cancelled { get; init; }
     }
 
     /// <summary>The scope's services, except those the test replaces.</summary>
@@ -444,19 +520,46 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
             ((IKeyedServiceProvider)inner).GetRequiredKeyedService(serviceType, serviceKey);
     }
 
-    private sealed class CountingDispatcher(ISerginDispatcher inner, Action? onSend) : ISerginDispatcher
+    /// <summary>What the view sent, and whether each answer was an error.</summary>
+    private sealed class SendLog
     {
-        public Task<ErrorOr.ErrorOr<TResponse>> SendAsync<TResponse>(IRequest<ErrorOr.ErrorOr<TResponse>> request, CancellationToken cancellationToken = default)
+        private readonly ConcurrentQueue<(object Request, bool Failed)> sends = new();
+
+        public int Count => sends.Count;
+
+        public void Add(object request, bool failed) => sends.Enqueue((request, failed));
+
+        public IReadOnlyList<(TRequest Request, bool Failed)> Of<TRequest>() =>
+            [.. sends.Where(send => send.Request is TRequest).Select(send => ((TRequest)send.Request, send.Failed))];
+
+        public async Task WaitForAsync<TRequest>()
         {
-            onSend?.Invoke();
-            return inner.SendAsync(request, cancellationToken);
+            for (int attempt = 0; attempt < 50 && Of<TRequest>().Count == 0; attempt++)
+            {
+                await Task.Delay(100);
+            }
+        }
+    }
+
+    /// <summary>Sends through the real dispatcher and records each request with whether its answer was an error.</summary>
+    private sealed class RecordingDispatcher(ISerginDispatcher inner, SendLog log) : ISerginDispatcher
+    {
+        public async Task<ErrorOr.ErrorOr<TResponse>> SendAsync<TResponse>(
+            IRequest<ErrorOr.ErrorOr<TResponse>> request, CancellationToken cancellationToken = default)
+        {
+            ErrorOr.ErrorOr<TResponse> answer = await inner.SendAsync(request, cancellationToken);
+            log.Add(request, answer.IsError);
+
+            return answer;
         }
 
-        public Task<ErrorOr.ErrorOr<Versioned<TResponse>>> SendVersionedAsync<TResponse>(
+        public async Task<ErrorOr.ErrorOr<Versioned<TResponse>>> SendVersionedAsync<TResponse>(
             IRequest<ErrorOr.ErrorOr<TResponse>> request, RowVersion? expected = null, CancellationToken cancellationToken = default)
         {
-            onSend?.Invoke();
-            return inner.SendVersionedAsync(request, expected, cancellationToken);
+            ErrorOr.ErrorOr<Versioned<TResponse>> answer = await inner.SendVersionedAsync(request, expected, cancellationToken);
+            log.Add(request, answer.IsError);
+
+            return answer;
         }
     }
 
@@ -465,6 +568,10 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
     {
         public static SerginTaskRunsView? View { get; set; }
 
+        /// <summary>The page's <c>?module=</c> value, passed to the view.</summary>
+        [Parameter]
+        public string? Module { get; set; }
+
         protected override void BuildRenderTree(RenderTreeBuilder builder)
         {
             builder.OpenComponent<MudPopoverProvider>(0);
@@ -472,7 +579,8 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
             builder.OpenComponent<MudDialogProvider>(1);
             builder.CloseComponent();
             builder.OpenComponent<SerginTaskRunsView>(2);
-            builder.AddComponentReferenceCapture(3, instance => View = (SerginTaskRunsView)instance);
+            builder.AddComponentParameter(3, nameof(SerginTaskRunsView.Module), Module);
+            builder.AddComponentReferenceCapture(4, instance => View = (SerginTaskRunsView)instance);
             builder.CloseComponent();
         }
     }
