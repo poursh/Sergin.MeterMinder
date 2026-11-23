@@ -93,6 +93,17 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
     }
 
     [Fact]
+    public void OutcomeColor_PerOutcome()
+    {
+        Assert.Equal(Color.Info, TaskRunRows.OutcomeColor(RunOutcome.Running));
+        Assert.Equal(Color.Success, TaskRunRows.OutcomeColor(RunOutcome.Succeeded));
+        Assert.Equal(Color.Warning, TaskRunRows.OutcomeColor(RunOutcome.PartlyFailed));
+        Assert.Equal(Color.Error, TaskRunRows.OutcomeColor(RunOutcome.Failed));
+        Assert.Equal(Color.Default, TaskRunRows.OutcomeColor(RunOutcome.Cancelled));
+        Assert.Equal(Color.Default, TaskRunRows.OutcomeColor(RunOutcome.Skipped));
+    }
+
+    [Fact]
     public void StartedByLine_PerTrigger()
     {
         Assert.Equal((TaskUiTexts.RunList.TriggerManual, null), TaskRunRows.StartedByLine(Run(TaskRunTrigger.Manual, cron: null)));
@@ -243,27 +254,30 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
             Assert.Contains($"href=\"/dm/devices/{device}\"", manualRow, StringComparison.Ordinal);
             Assert.Contains("MTR-0042", manualRow, StringComparison.Ordinal);
             Assert.Contains("Succeeded", manualRow, StringComparison.Ordinal);
+            Assert.Contains("mud-chip-color-success", manualRow, StringComparison.Ordinal);
             Assert.DoesNotContain("aria-label=\"Cancel\"", manualRow, StringComparison.Ordinal);
 
             string scheduledRow = RowOf(html(), scheduled);
             Assert.Contains("12 records", scheduledRow, StringComparison.Ordinal);
             Assert.Matches($@"{Regex.Escape(name)}</p>\s*<span[^>]*>Schedule · {Regex.Escape(CronWithZone)}</span>", scheduledRow);
             Assert.Contains("Partly failed", scheduledRow, StringComparison.Ordinal);
+            Assert.Contains("mud-chip-color-warning", scheduledRow, StringComparison.Ordinal);
             Assert.Contains("11 of 12 succeeded, 1 failed", scheduledRow, StringComparison.Ordinal);
             Assert.DoesNotContain("Completed", scheduledRow, StringComparison.Ordinal);
             Assert.DoesNotContain("aria-label=\"Cancel\"", scheduledRow, StringComparison.Ordinal);
 
             // The counts under the outcome carry no status word of their own, so they cannot contradict it.
             string cancelledRow = RowOf(html(), cancelled);
-            Assert.Matches(@">Cancelled</p>\s*<span[^>]*>2 of 5 succeeded, 0 failed, 3 cancelled</span>", cancelledRow);
+            Assert.Matches(@"sergin-run-status[^>]*>[\s\S]{0,300}?>Cancelled</span>[\s\S]{0,100}?<span[^>]*>2 of 5 succeeded, 0 failed, 3 cancelled</span>", cancelledRow);
             Assert.DoesNotContain("Completed", cancelledRow, StringComparison.Ordinal);
 
             string failedRow = RowOf(html(), failed);
-            Assert.Matches(@">Failed</p>\s*<span[^>]*>0 of 1 succeeded, 1 failed</span>", failedRow);
+            Assert.Matches(@"mud-chip-color-error[^>]*>[\s\S]{0,300}?>Failed</span>[\s\S]{0,100}?<span[^>]*>0 of 1 succeeded, 1 failed</span>", failedRow);
             Assert.DoesNotContain("Completed", failedRow, StringComparison.Ordinal);
 
             string runningRow = RowOf(html(), running);
             Assert.Contains("Running", runningRow, StringComparison.Ordinal);
+            Assert.Contains("mud-chip-color-info", runningRow, StringComparison.Ordinal);
             Assert.Contains("mud-progress-linear", runningRow, StringComparison.Ordinal);
             Assert.Contains("aria-label=\"Cancel\"", runningRow, StringComparison.Ordinal);
             Assert.True(view.HasRunning);
