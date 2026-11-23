@@ -15,6 +15,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MudBlazor;
 using Sergin.Administration.UserAccess.Domain.Scopes;
+using Sergin.MeterMinder.IntegrationTests.All.Aggregates.TaskViewProbes;
 using Sergin.MeterMinder.IntegrationTests.All.Shell;
 using Sergin.SharedKernel.Application;
 using Sergin.SharedKernel.Application.Aggregates;
@@ -323,11 +324,16 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
 
         await RenderViewAsync(catalog: null, sent, async (view, html) =>
         {
-            // The page opens on Running; a person nobody matches leaves the view empty, so nothing is running in it.
-            view.StartedByFilter = Guid.CreateVersion7();
-            await view.ReloadAsync();
-            await sent.WaitForAsync<GetTaskRunsQuery>();
-            await Task.Delay(500);
+            // The page opens on Running. A person nobody matches, applied through the panel's Apply path (a reload sends the
+            // applied filters, not the panel's fields), leaves the view empty, so nothing is running in it.
+            var nobody = Guid.CreateVersion7();
+            view.StartedByFilter = nobody;
+            await view.ApplyFiltersAsync();
+            await WaitForCountAsync(sent, 2);
+            await Task.Delay(300);
+
+            GetTaskRunsQuery applied = sent.Of<GetTaskRunsQuery>()[^1].Request;
+            Assert.Contains(applied.Filtering!.Filters, filter => filter.Id == TaskRunListFields.StartedBy && Equals(filter.Value?.ToString(), nobody.ToString()));
             Assert.False(view.HasRunning);
 
             int before = sent.Of<GetTaskRunsQuery>().Count;
@@ -415,6 +421,41 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
 
         Assert.Equal("Device", TaskRunRows.AggregateText(localizer, ReadProfile, catalog, aggregates));
         Assert.Equal("—", TaskRunRows.AggregateText(localizer, "dm.gone.vanished", catalog, aggregates));
+    }
+
+    /// <summary>Choosing an aggregate narrows the Task field to that root's tasks and drops a chosen task on another root.</summary>
+    [Fact]
+    public async Task AggregateFilter_NarrowsTheTaskList_AndDropsATaskOnAnotherRoot()
+    {
+        ModuleConfigurationSource[] sources =
+        [
+            ModuleConfigurationSource.FromTypesInSchema("tst", typeof(ScheduleProbeAggregateFeatureConfiguration), typeof(TouchProbeCommandConfiguration), typeof(PingTaskViewProbeCommand)),
+        ];
+        var probes = TaskCatalog.FromSources(sources, CommandConfigurationRegistry.FromSources(sources));
+        string touch = probes.Commands.Single(task => task.RequestType == typeof(TouchProbeCommand)).Name;
+        string ping = probes.Commands.Single(task => task.RequestType == typeof(PingTaskViewProbeCommand)).Name;
+        string scheduleRoot = TaskNames.RootKey(typeof(ScheduleProbe));
+        string viewRoot = TaskNames.RootKey(typeof(TaskViewProbe));
+
+        await RenderViewAsync(probes, log: null, (view, _) =>
+        {
+            Assert.Contains(touch, view.TaskNames);
+            Assert.Contains(ping, view.TaskNames);
+
+            view.TaskFilter = touch;
+            view.AggregateFilter = scheduleRoot;
+            Assert.Equal(touch, view.TaskFilter);
+            Assert.Equal([touch], view.TaskNames);
+
+            view.AggregateFilter = viewRoot;
+            Assert.Null(view.TaskFilter);
+            Assert.Equal([ping], view.TaskNames);
+
+            view.AggregateFilter = null;
+            Assert.Equal(2, view.TaskNames.Count);
+
+            return Task.CompletedTask;
+        }, module: "tst");
     }
 
     /// <summary>The Aggregate field makes an <c>aggregate equals</c> filter of the root's kebab key, with its chip.</summary>
