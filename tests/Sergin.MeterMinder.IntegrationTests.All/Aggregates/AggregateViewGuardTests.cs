@@ -132,10 +132,17 @@ public sealed class AggregateViewGuardTests
             $"IListOf<{nameof(UnlistedThing)}>");
 
     [Fact]
-    public void Guard_SchedulableCommandNotBuiltFromTheId_Refuses() =>
+    public void Refuses_TaskArgumentNoFormCanBuild() =>
         AssertRefused(
             () => AggregateViewTestRegistry.Build(typeof(EditScheduledProbeViewConfiguration)),
-            nameof(EditScheduledProbeViewConfiguration), nameof(UpdateEditScheduledProbeCommand), "Schedulable");
+            nameof(EditScheduledProbeViewConfiguration), nameof(UpdateEditScheduledProbeCommand), "NotShown",
+            nameof(UpdateEditScheduledProbeCommand.Name), "no default");
+
+    [Fact]
+    public void Refuses_PageModeTaskWithoutPageRoute() =>
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(PageModeEditScheduledProbeViewConfiguration)),
+            nameof(PageModeEditScheduledProbeViewConfiguration), nameof(UpdateEditScheduledProbeCommand), "PageRoute");
 
     [Fact]
     public void Guard_CreateRouteWithoutCreateCommand_Refuses() =>

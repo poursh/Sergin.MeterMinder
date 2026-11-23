@@ -70,11 +70,12 @@ public sealed class AggregateViewRegistryTests(SerginWebApiFactory<Program> fact
     {
         CommandView run = Probe().Commands.Single(command => command.Request == typeof(RunViewProbeCommand));
 
-        Assert.Equal(CommandRole.Transition, run.Role);
+        Assert.Equal(CommandRole.Task, run.Role);
         Assert.Equal([ViewProbePermissions.Run], run.Permissions);
         Assert.True(run.AnyScope);
-        Assert.True(run.RequiresVersion);
-        Assert.Equal("tst.view-probes.run", run.ScheduleName);
+        Assert.False(run.RequiresVersion);
+        Assert.Equal("tst.view-probes.run", run.Task?.Name);
+        Assert.True(run.Task?.Schedulable);
         Assert.True(run.Selectable);
         Assert.Equal(ViewProbeTexts.Run, run.Label);
         Assert.Equal(SerginActionKind.Secondary, run.Kind);

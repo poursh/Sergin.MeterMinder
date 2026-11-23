@@ -15,10 +15,12 @@ using Sergin.MeterMinder.IntegrationTests.All.Lists;
 using Sergin.SharedKernel.Application.Concurrency;
 using Sergin.SharedKernel.Domain;
 using Sergin.SharedKernel.IntegrationTests;
+using Sergin.SharedKernel.Presentation.Blazor.Actions;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates;
+using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views;
 using Sergin.SharedKernel.Presentation.Blazor.Aggregates.Views.Parts;
 using Sergin.SharedKernel.Presentation.Blazor.Dispatching;
-using Sergin.SharedKernel.Presentation.Blazor.ScheduledTasks;
+using Sergin.SharedKernel.Presentation.Blazor.Tasks;
 using Sergin.SharedKernel.Presentation.Blazor.Validation;
 
 namespace Sergin.MeterMinder.IntegrationTests.All.Aggregates;
@@ -119,7 +121,7 @@ public sealed class GeneratedDeviceViewTests(SerginWebApiFactory<Program> factor
         AggregateViewModel model = factory.Services.GetRequiredService<AggregateViewRegistry>().For<Device>();
         CommandView readProfile = Assert.Single(model.Commands, command => command.Request == typeof(ReadDeviceProfileCommand));
         Assert.True(readProfile.Selectable);
-        Assert.NotNull(readProfile.ScheduleName);
+        Assert.True(readProfile.Task?.Schedulable);
 
         GetDeviceListItem[] items =
         [
@@ -251,6 +253,37 @@ public sealed class GeneratedDeviceViewTests(SerginWebApiFactory<Program> factor
             validator, model.Create.Build(Guid.Empty, values), nameof(CreateDeviceCommand.DeviceId));
 
         Assert.Contains("'Device ID' is already in use.", messages);
+    }
+
+    [Fact]
+    public async Task ReadProfile_StillStartsOnClick()
+    {
+        await using AsyncServiceScope scope = factory.Services.CreateAsyncScope();
+        Guid device = (await GeneratedTaskViewTests.DevicesAsync(scope.ServiceProvider.GetRequiredService<ISerginDispatcher>(), 1))[0];
+        CommandView readProfile = Assert.Single(
+            factory.Services.GetRequiredService<AggregateViewRegistry>().For<Device>().Commands,
+            command => command.Request == typeof(ReadDeviceProfileCommand));
+
+        await GeneratedViewRendering.RenderAsync<SerginGeneratedDetailView<Device>>(
+            scope,
+            $"/dm/devices/{device}",
+            new Dictionary<string, object?>(StringComparer.Ordinal) { ["Id"] = device },
+            async (_, view) =>
+            {
+                SerginPageAction action = Assert.Single(
+                    ((SerginGeneratedDetailView<Device>)view).Actions, candidate => candidate.Label == readProfile.Label);
+
+                // No form and no page: a click starts the run over the record.
+                Assert.Null(action.Href);
+                await action.OnClick.InvokeAsync();
+            });
+
+        Assert.Equal(
+            1L,
+            await GeneratedTaskViewTests.ScalarAsync(
+                factory,
+                "SELECT count(*) FROM dm.task_run_items i JOIN dm.task_runs r ON r.id = i.run_id WHERE i.target_id = @id AND r.\"trigger\" = 'Manual'",
+                device));
     }
 
     private async Task<string> GetAsync(string path)
