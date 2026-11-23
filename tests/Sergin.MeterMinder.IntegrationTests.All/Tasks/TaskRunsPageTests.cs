@@ -51,6 +51,7 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
     private const string Dm = "dm";
     private const string ReadProfile = "dm.device.read-device-profile";
     private const string Cron = "0 9 * * *";
+    private const string CronWithZone = Cron + " UTC";
     private const string ModuleSelector = "id=\"sergin-task-runs-module\"";
 
     private readonly List<Guid> seededRuns = [];
@@ -94,8 +95,8 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
     {
         Assert.Equal((TaskUiTexts.RunList.TriggerManual, null), TaskRunRows.StartedByLine(Run(TaskRunTrigger.Manual, cron: null)));
         Assert.Equal((TaskUiTexts.RunList.TriggerOnce, null), TaskRunRows.StartedByLine(Run(TaskRunTrigger.Once, cron: null)));
-        Assert.Equal((TaskUiTexts.RunList.TriggerScheduleNow, Cron), TaskRunRows.StartedByLine(Run(TaskRunTrigger.ScheduleNow, Cron)));
-        Assert.Equal((TaskUiTexts.RunList.TriggerSchedule, Cron), TaskRunRows.StartedByLine(Run(TaskRunTrigger.Schedule, Cron)));
+        Assert.Equal((TaskUiTexts.RunList.TriggerScheduleNow, CronWithZone), TaskRunRows.StartedByLine(Run(TaskRunTrigger.ScheduleNow, Cron)));
+        Assert.Equal((TaskUiTexts.RunList.TriggerSchedule, CronWithZone), TaskRunRows.StartedByLine(Run(TaskRunTrigger.Schedule, Cron)));
 
         // A cron run whose schedule was deleted: the join finds no live schedule.
         Assert.Equal((TaskUiTexts.RunList.TriggerSchedule, null), TaskRunRows.StartedByLine(Run(TaskRunTrigger.Schedule, cron: null)));
@@ -242,7 +243,7 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
 
             string scheduledRow = RowOf(html(), scheduled);
             Assert.Contains("12 records", scheduledRow, StringComparison.Ordinal);
-            Assert.Matches($@"{Regex.Escape(name)}</p>\s*<span[^>]*>Schedule · {Regex.Escape(Cron)}</span>", scheduledRow);
+            Assert.Matches($@"{Regex.Escape(name)}</p>\s*<span[^>]*>Schedule · {Regex.Escape(CronWithZone)}</span>", scheduledRow);
             Assert.Contains("Partly failed", scheduledRow, StringComparison.Ordinal);
             Assert.Contains("11 of 12 succeeded, 1 failed", scheduledRow, StringComparison.Ordinal);
             Assert.DoesNotContain("Completed", scheduledRow, StringComparison.Ordinal);
@@ -268,6 +269,45 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
             Assert.True(view.IsPolling);
             await view.DisposeAsync();
             Assert.False(view.IsPolling);
+        });
+    }
+
+    [Fact]
+    public async Task PollTick_ReloadsOnlyWhileTheLastLoadHeldARunningRow_AndStopsAfterAFailedLoad()
+    {
+        DateTime now = AheadOfEveryOtherRun();
+        await AddRunAsync(new RunSeed(TaskRunTrigger.Manual, now) { Labels = ["MTR-TICK"], Succeeded = 1 });
+        SendLog sent = new();
+
+        await RenderViewAsync(catalog: null, sent, async (view, html) =>
+        {
+            await LoadAsync(view, html, "MTR-TICK");
+            Assert.False(view.HasRunning);
+
+            int before = sent.Of<GetTaskRunsQuery>().Count;
+            await view.TickAsync();
+            await Task.Delay(300);
+            Assert.Equal(before, sent.Of<GetTaskRunsQuery>().Count);
+
+            await AddRunAsync(new RunSeed(TaskRunTrigger.Manual, now.AddSeconds(1)) { Labels = ["MTR-TICK2"] });
+            await LoadAsync(view, html, "MTR-TICK2");
+            Assert.True(view.HasRunning);
+
+            before = sent.Of<GetTaskRunsQuery>().Count;
+            await view.TickAsync();
+            await WaitForCountAsync(sent, before + 1);
+            Assert.Equal(before + 1, sent.Of<GetTaskRunsQuery>().Count);
+
+            // A refused load clears the gate, so the next ticks send nothing more (and raise no further snackbar).
+            sent.RefuseRuns = true;
+            await view.TickAsync();
+            await WaitForCountAsync(sent, before + 2);
+            Assert.False(view.HasRunning);
+
+            before = sent.Of<GetTaskRunsQuery>().Count;
+            await view.TickAsync();
+            await Task.Delay(300);
+            Assert.Equal(before, sent.Of<GetTaskRunsQuery>().Count);
         });
     }
 
@@ -317,6 +357,14 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
         Assert.False(row.Length == 0, $"no row for run {run} among {Regex.Count(html, "data-run=")} rows shown");
 
         return row;
+    }
+
+    private static async Task WaitForCountAsync(SendLog sent, int count)
+    {
+        for (int attempt = 0; attempt < 50 && sent.Of<GetTaskRunsQuery>().Count < count; attempt++)
+        {
+            await Task.Delay(100);
+        }
     }
 
     private static async Task LoadAsync(SerginTaskRunsView view, Func<string> html, string expected)
@@ -524,6 +572,9 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
 
         public int Count => sends.Count;
 
+        /// <summary>When set, the run list is refused (as a revoked Manage grant would).</summary>
+        public bool RefuseRuns { get; set; }
+
         public void Add(object request, bool failed) => sends.Enqueue((request, failed));
 
         public IReadOnlyList<(TRequest Request, bool Failed)> Of<TRequest>() =>
@@ -544,7 +595,9 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
         public async Task<ErrorOr.ErrorOr<TResponse>> SendAsync<TResponse>(
             IRequest<ErrorOr.ErrorOr<TResponse>> request, CancellationToken cancellationToken = default)
         {
-            ErrorOr.ErrorOr<TResponse> answer = await inner.SendAsync(request, cancellationToken);
+            ErrorOr.ErrorOr<TResponse> answer = log.RefuseRuns && request is GetTaskRunsQuery
+                ? ErrorOr.Error.Forbidden()
+                : await inner.SendAsync(request, cancellationToken);
             log.Add(request, answer.IsError);
 
             return answer;

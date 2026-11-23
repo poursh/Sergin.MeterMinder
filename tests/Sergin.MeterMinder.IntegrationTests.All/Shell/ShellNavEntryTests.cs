@@ -56,11 +56,13 @@ public sealed class ShellNavEntryTests(SerginWebApiFactory<Program> factory)
         Assert.Empty(SerginWebUiExtensions.RouteViolations(catalog, typeof(SerginUiModuleCatalog).Assembly));
     }
 
-    [Fact]
-    public void ModuleWithSchemaSys_IsRefused()
+    [Theory]
+    [InlineData("sys")]
+    [InlineData("Sys")]
+    public void ModuleWithSchemaSys_IsRefused(string schema)
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            CreateBuilder().AddSerginCore([new SysModule()]));
+            CreateBuilder().AddSerginCore([new SysModule(schema)]));
 
         Assert.Contains(nameof(SysModule), error.Message, StringComparison.Ordinal);
         Assert.Contains("sys", error.Message, StringComparison.Ordinal);
@@ -100,11 +102,11 @@ public sealed class ShellNavEntryTests(SerginWebApiFactory<Program> factory)
         return builder;
     }
 
-    private sealed class SysModule : ISerginModule
+    private sealed class SysModule(string schema) : ISerginModule
     {
         public string Name => "Sys";
 
-        public string Schema => "sys";
+        public string Schema => schema;
 
         public Assembly ApplicationAssembly => typeof(SysModule).Assembly;
 
