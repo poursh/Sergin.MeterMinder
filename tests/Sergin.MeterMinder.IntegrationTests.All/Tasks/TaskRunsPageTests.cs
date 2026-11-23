@@ -162,7 +162,7 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
     public async Task AppliedFilters_PassTheRunListQuery()
     {
         UserId person = DevUserId();
-        DateTime startedAt = DateTime.UtcNow;
+        DateTime startedAt = AheadOfEveryOtherRun();
         Guid run = await AddRunAsync(new RunSeed(TaskRunTrigger.Manual, startedAt) { Labels = ["MTR-0201"] });
         IReadOnlyList<SerginAppliedFilter> filters = [];
 
@@ -218,7 +218,7 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
     public async Task Rows_RenderTheirCells()
     {
         UserId person = DevUserId();
-        DateTime now = DateTime.UtcNow;
+        DateTime now = AheadOfEveryOtherRun();
         var device = Guid.CreateVersion7();
         TaskScheduleId schedule = await AddScheduleAsync(person, targets: 12);
 
@@ -275,7 +275,7 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
     public async Task TaskLink_OpensTheRecordsDialog_WithTheStoredLabels()
     {
         UserId person = DevUserId();
-        Guid run = await AddRunAsync(new RunSeed(TaskRunTrigger.Manual, DateTime.UtcNow) { Items = 3, Labels = ["MTR-0101", "MTR-0102", "MTR-0103"], Succeeded = 2, Failed = 1 });
+        Guid run = await AddRunAsync(new RunSeed(TaskRunTrigger.Manual, AheadOfEveryOtherRun()) { Items = 3, Labels = ["MTR-0101", "MTR-0102", "MTR-0103"], Succeeded = 2, Failed = 1 });
         string name = await DisplayNameAsync(person);
         TaskRunsListItem listed = await ListedAsync(run);
 
@@ -314,7 +314,7 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
         string marker = $"data-run=\"{run}\"";
         string row = html.Split("<tr", StringSplitOptions.None).SingleOrDefault(part => part.Contains(marker, StringComparison.Ordinal)) ?? string.Empty;
 
-        Assert.False(row.Length == 0, $"no row for run {run}");
+        Assert.False(row.Length == 0, $"no row for run {run} among {Regex.Count(html, "data-run=")} rows shown");
 
         return row;
     }
@@ -328,6 +328,13 @@ public sealed partial class TaskRunsPageTests(SerginWebApiFactory<Program> facto
             await Task.Delay(100);
         }
     }
+
+    /// <summary>
+    /// A start time a day ahead. The suite shares one database and many tests leave dm runs started just now; the list is
+    /// newest first and pages by ten, so runs seeded at the real time can fall off the first page. Seeded a day ahead, this
+    /// class's runs are the newest whatever ran before it (they are deleted again in <see cref="DisposeAsync"/>).
+    /// </summary>
+    private static DateTime AheadOfEveryOtherRun() => DateTime.UtcNow.AddDays(1);
 
     private UserId DevUserId()
     {
