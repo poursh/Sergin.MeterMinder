@@ -170,10 +170,10 @@ public sealed class GeneratedTaskViewTests(SerginWebApiFactory<Program> factory)
             Assert.DoesNotContain(Spinner, Html(), StringComparison.Ordinal);
 
             // A run of the command on another record, and a finished one on this record, show nothing.
-            activity.SetRows([EntityRow(commandName, Guid.CreateVersion7(), ActivityState.Running), EntityRow(commandName, device, ActivityState.Succeeded)]);
+            activity.SetRows([EntityRow(commandName, Guid.CreateVersion7(), RunOutcome.Running), EntityRow(commandName, device, RunOutcome.Succeeded)]);
             Assert.DoesNotContain(Spinner, Html(), StringComparison.Ordinal);
 
-            activity.SetRows([EntityRow(commandName, device, ActivityState.Running)]);
+            activity.SetRows([EntityRow(commandName, device, RunOutcome.Running)]);
             Assert.Contains(Spinner, Html(), StringComparison.Ordinal);
 
             // The action stays clickable while its run is going.
@@ -311,14 +311,14 @@ public sealed class GeneratedTaskViewTests(SerginWebApiFactory<Program> factory)
             // Its run in another scope, a finished run here, and a record's run of the same name show nothing.
             activity.SetRows(
             [
-                CollectionRow(RefreshName, Guid.CreateVersion7(), ActivityState.Running),
-                CollectionRow(RefreshName, current, ActivityState.Succeeded),
-                EntityRow(RefreshName, Guid.CreateVersion7(), ActivityState.Running),
+                CollectionRow(RefreshName, Guid.CreateVersion7(), RunOutcome.Running),
+                CollectionRow(RefreshName, current, RunOutcome.Succeeded),
+                EntityRow(RefreshName, Guid.CreateVersion7(), RunOutcome.Running),
             ]);
             Assert.False(Busy());
             Assert.DoesNotContain(Spinner, Html(), StringComparison.Ordinal);
 
-            activity.SetRows([CollectionRow(RefreshName, current, ActivityState.Running)]);
+            activity.SetRows([CollectionRow(RefreshName, current, RunOutcome.Running)]);
             Assert.True(Busy());
             Assert.Contains(Spinner, Html(), StringComparison.Ordinal);
             Assert.DoesNotMatch(@"<button[^>]*disabled[^>]*>\s*(<[^>]*>\s*)*Refresh probes", Html());
@@ -430,10 +430,10 @@ public sealed class GeneratedTaskViewTests(SerginWebApiFactory<Program> factory)
             factory.Services.GetRequiredService<AggregateViewRegistry>().For<Device>().Commands,
             command => command.Request == typeof(ReadDeviceProfileCommand));
 
-    private static ActivityRow EntityRow(string commandName, Guid target, ActivityState state) =>
+    private static ActivityRow EntityRow(string commandName, Guid target, RunOutcome state) =>
         new(new TaskRunRef("dm", Guid.CreateVersion7()), null, commandName, "DEV", null, state, DateTime.UtcNow, null, 0, 1, null, null, target, null, null, 0);
 
-    private static ActivityRow CollectionRow(string commandName, Guid scope, ActivityState state) =>
+    private static ActivityRow CollectionRow(string commandName, Guid scope, RunOutcome state) =>
         new(new TaskRunRef("tst", Guid.CreateVersion7()), null, commandName, "Scope", null, state, DateTime.UtcNow, null, 0, 1, null, null, null, null, null, 0, ScopeId: scope);
 
     private async Task GrantAsync(params PermissionDefinition[] permissions)

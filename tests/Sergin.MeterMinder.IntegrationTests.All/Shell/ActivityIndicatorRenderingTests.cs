@@ -524,7 +524,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
 
             // The popover's row (not prerendered by this harness) is the one the panel state holds.
             ActivityRow row = Assert.Single(services.GetRequiredService<ActivityPanelState>().Rows);
-            Assert.Equal(ActivityState.Cancelled, row.State);
+            Assert.Equal(RunOutcome.Cancelled, row.State);
         });
     }
 
@@ -540,7 +540,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
 
             // The run's counts are written only when it completes: the bar counts the item that no longer waits.
             ActivityRow row = Assert.Single(services.GetRequiredService<ActivityPanelState>().Rows, found => found.Ref.RunId == run);
-            Assert.Equal(ActivityState.Running, row.State);
+            Assert.Equal(RunOutcome.Running, row.State);
             Assert.Equal((1, 3), (row.Done, row.Total));
         });
     }
@@ -565,7 +565,7 @@ public sealed class ActivityIndicatorRenderingTests(SerginWebApiFactory<Program>
             Assert.Equal(Severity.Normal, shown.Severity);
 
             ActivityRow row = Assert.Single(services.GetRequiredService<ActivityPanelState>().Rows, found => found.Ref.RunId == run);
-            Assert.Equal(ActivityState.Cancelled, row.State);
+            Assert.Equal(RunOutcome.Cancelled, row.State);
             Assert.Equal((1, 2), (row.Done, row.Cancelled));
         });
     }

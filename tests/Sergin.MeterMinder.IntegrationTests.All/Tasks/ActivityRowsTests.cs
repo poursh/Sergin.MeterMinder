@@ -95,7 +95,7 @@ public sealed class ActivityRowsTests(SerginWebApiFactory<Program> factory)
             ReadProfile, total: 1, unfinished: 0, failed: 1, targetId: Guid.CreateVersion7(), label: "MTR-1",
             errorCode: "Tasks.TimedOut", errorDescription: "Timed out after 00:10:00 without progress."));
 
-        Assert.Equal(ActivityState.Failed, row.State);
+        Assert.Equal(RunOutcome.Failed, row.State);
         Assert.Equal("Tasks.TimedOut", row.FirstErrorCode);
         Assert.Equal("Timed out after 00:10:00 without progress.", row.FirstErrorDescription);
     }

@@ -89,12 +89,12 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
     /// them, ordered by entry: Users (200), Scopes (210), Languages (300).
     /// </summary>
     [Fact]
-    public void Drawer_AdministrationGroup_HoldsUsersScopesAndLanguages()
+    public void Drawer_AdministrationGroup_HoldsUsersScopesLanguagesAndTaskRuns()
     {
         SerginNavSection administration = factory.Services.GetRequiredService<SerginUiModuleCatalog>().NavSections
             .Single(section => section.Group == SerginNavGroups.Administration);
 
-        Assert.Equal(["/ua/users", "/ua/scopes", "/st/languages"], administration.Items.Select(item => item.Href));
+        Assert.Equal(["/ua/users", "/ua/scopes", "/st/languages", "/sys/tasks/runs"], administration.Items.Select(item => item.Href));
     }
 
     /// <summary>
@@ -108,7 +108,7 @@ public sealed partial class ModulePageRenderingTests(SerginWebApiFactory<Program
 
         string html = await client.GetStringAsync("/");
 
-        Assert.Equal(["User Access", "Settings"], NavCaption().Matches(html).Select(match => match.Groups["caption"].Value.Trim()));
+        Assert.Equal(["User Access", "Settings", "Tasks"], NavCaption().Matches(html).Select(match => match.Groups["caption"].Value.Trim()));
     }
 
     /// <summary>
