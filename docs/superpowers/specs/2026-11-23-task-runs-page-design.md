@@ -132,7 +132,7 @@ The user picked 3. Only DeviceManagement opts in today, so in practice the page 
   so the panel is unchanged).
 - `RunOutcomes.Of(...)` holds it in C#; `ActivityRows.StateOf` calls it. The SQL `CASE` for the list (below) mirrors
   it, and a test runs one run of each outcome through both and requires the same answer.
-- Value texts: `TaskTexts.Runs.Outcomes = category.Values<RunOutcome>(...)`; the activity panel keeps its own existing
+- Value texts: `TaskTexts.RunList.Outcomes = Category.Values(...)`; the activity panel keeps its own existing
   wording, and the page uses these.
 
 ### 3. The read (SharedKernel `Application` + `Infrastructure.Data.EFCore`)
@@ -140,7 +140,7 @@ The user picked 3. Only DeviceManagement opts in today, so in practice the page 
 - `GetTaskRunsQuery(string Schema, Paggination, Term?, Filtering?, Sorting?)`, a `sealed record` deriving from
   `ListQuery<TaskRunsListItem>` (explicit constructor calling `base(...)`), handled through `IListQueryHandler`.
   Configuration: `RequirePermissions(TaskPermissions.Manage)`, `NotShown(x => x.Schema)`,
-  `Texts(TaskTexts.Runs.Category)`. Untyped, so checked on the current scope, and the `ScopeFilter` is filled from the
+  `Texts(TaskTexts.RunList.Category)`. Untyped, so checked on the current scope, and the `ScopeFilter` is filled from the
   Manage permission's reach, like the other task reads. Registered by `AddSerginTasks` with the other task handlers
   and configurations.
 - `TaskRunListFields : ListFieldSet`, every filter single-valued:
@@ -205,7 +205,7 @@ The user picked 3. Only DeviceManagement opts in today, so in practice the page 
 
 ### 5. Texts
 
-- `TaskTexts.Runs` (Application, under `common.tasks.runs.*`): the category, a `FieldText` per list field, the
+- `TaskTexts.RunList` (Application, under `common.tasks.run-list.*`, apart from the existing `TaskUiTexts.Runs` keys): the category, a `FieldText` per list field, the
   `RunOutcome` value texts.
 - `TaskUiTexts` (Presentation.Blazor): `Navigation.Caption` "Tasks", `Navigation.Runs` "Task runs", the page title, the
   column headers, "Module", the trigger lines, the empty state. Reuse `CommonTexts` and existing `TaskUiTexts` texts
