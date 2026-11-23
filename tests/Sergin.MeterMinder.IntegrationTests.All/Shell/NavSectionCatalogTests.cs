@@ -61,6 +61,47 @@ public sealed class NavSectionCatalogTests
     }
 
     [Fact]
+    public void ShellEntry_JoinsItsGroupsSection_AsOneMoreSubsection_OrderedByLowestEntry()
+    {
+        SerginUiModuleCatalog catalog = new(
+            [new NavModule("cc", SharedGroup, [new(TestText.Of("B"), "/cc/b", string.Empty, Order: 210)], TestText.Of("Caption C"))],
+            [new SerginShellNavEntry(SharedGroup, TestText.Of("Tasks"), [new(TestText.Of("Runs"), "/sys/runs", string.Empty, Order: 400)])]);
+
+        SerginNavSection shared = Assert.Single(catalog.NavSections);
+        Assert.Equal(["Caption C", "Tasks"], shared.Subsections.Select(s => s.Caption?.Default));
+        Assert.Equal(["/cc/b", "/sys/runs"], shared.Items.Select(i => i.Href));
+        Assert.True(shared.ShowsCaptions);
+        Assert.Equal(SharedGroup, catalog.GroupOf("/sys/runs"));
+    }
+
+    [Fact]
+    public void ShellEntry_InAGroupNoModuleReturns_FormsItsOwnSection()
+    {
+        SerginNavGroup own = new(TestText.Of("Shell only"), string.Empty, Order: 40);
+        SerginUiModuleCatalog catalog = new(
+            [new NavModule("cc", SharedGroup, [new(TestText.Of("B"), "/cc/b", string.Empty)], TestText.Of("Caption C"))],
+            [new SerginShellNavEntry(own, TestText.Of("Tasks"), [new(TestText.Of("Runs"), "/sys/runs", string.Empty)])]);
+
+        Assert.Equal(2, catalog.NavSections.Count);
+        SerginNavSection section = catalog.NavSections.Single(s => s.Group == own);
+        Assert.Single(section.Subsections);
+        Assert.False(section.ShowsCaptions);
+        Assert.Equal(["/sys/runs"], section.Items.Select(i => i.Href));
+    }
+
+    [Fact]
+    public void ShellEntryWithNoItems_GetsNoSubsection()
+    {
+        SerginUiModuleCatalog catalog = new(
+            [new NavModule("cc", SharedGroup, [new(TestText.Of("B"), "/cc/b", string.Empty)], TestText.Of("Caption C"))],
+            [new SerginShellNavEntry(SharedGroup, TestText.Of("Tasks"), [])]);
+
+        SerginNavSection shared = Assert.Single(catalog.NavSections);
+        Assert.Single(shared.Subsections);
+        Assert.False(shared.ShowsCaptions);
+    }
+
+    [Fact]
     public void AGroupOfOneModule_ShowsNoCaptions()
         => Assert.False(SharedCatalog.NavSections.Single(section => section.Group.Title.Default == "Own").ShowsCaptions);
 
