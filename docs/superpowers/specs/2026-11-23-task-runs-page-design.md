@@ -268,6 +268,12 @@ Agreed after the first build, before merge.
   and page alike. A task renamed with `Name("<old>")` therefore still matches. A value naming no aggregate of the module
   is a validation error coded `Filtering`. With an aggregate chosen, the Task filter lists only its tasks.
 
+- **Default filter: Running.** The page opens filtered to Status = Running: the Status field shows Running, its chip
+  is shown and removable, and the first load already sends it. `SerginAggregateList` gains `ApplyFiltersAtStart`
+  (default `false`): when set, it seeds its applied filters from `BuildFilters()` before the first load. A module change
+  starts the new module's list with the default again; Reset and removing the chip clear it (every run shown), as any
+  filter.
+
 Approaches considered for the filter: parsing the root out of the stored name (`split_part`), rejected because a
 `Name(...)` override breaks it; a per-request SQL `CASE` over the catalogue, rejected because `ListQueryColumns` is
 static by design.

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** The Task runs page opens with its filter panel shown, and lists each run's module and aggregate, filterable by aggregate.
+**Goal:** The Task runs page opens with its filter panel shown and filtered to running runs, and lists each run's module and aggregate, filterable by aggregate.
 
 **Architecture:** A new opt-in parameter on the shared list; a new `aggregate` list field that the query handler resolves to task names through `TaskCatalog`, passed to the repository as an extra `ANY` predicate; two new columns in `SerginTaskRunsView`.
 
@@ -64,8 +64,10 @@
   - `FilterPanel_IsOpenOnFirstRender`: the rendered page holds `.sergin-filter-panel` with no click.
   - `Rows_ShowModuleAndAggregate`: a seeded `dm.device.read-device-profile` run's row shows the Device Management caption and the Device name.
   - `AppliedFilters_CarryTheAggregate`: `AggregateFilter = "device"` → `BuildFilters()` holds `aggregate equals "device"` with a chip.
+  - `DefaultFilter_IsRunning`: the first load (recorded dispatcher) sends `status equals "Running"`, the Running chip is rendered, and a finished seeded run is not listed while a running one is.
+  - `DefaultFilter_ReturnsOnModuleChange_NotOnReset`: after Reset the next load sends no filter; a module change sets `StatusFilter` back to `Running`.
 - [ ] **Step 2: Run them; they fail.**
-- [ ] **Step 3: Implement.** `SerginAggregateList`: `filterPanelOpen = FilterPanelInitiallyOpen` on init; after the first render, invoke `OnFilterPanelOpened` once when it starts open. The view: columns Module, then Aggregate, before Task; a filter select of the module's roots, cleared by chip removal, reset and module change; with an aggregate chosen, the Task filter lists only tasks on that root.
+- [ ] **Step 3: Implement.** `SerginAggregateList`: `filterPanelOpen = FilterPanelInitiallyOpen` on init; after the first render, invoke `OnFilterPanelOpened` once when it starts open. New `[Parameter] bool ApplyFiltersAtStart`: when set, the applied filters are seeded from `BuildFilters()` before the first load. The view sets `StatusFilter = RunOutcome.Running` wherever it starts a module's list (`OnParametersSet` on a module change, first one included), and passes both parameters. The view: columns Module, then Aggregate, before Task; a filter select of the module's roots, cleared by chip removal, reset and module change; with an aggregate chosen, the Task filter lists only tasks on that root.
 - [ ] **Step 4: Run the Tasks and Localization tests; they pass.**
 - [ ] **Step 5: Commit** in `src/SharedKernel`, then in the host repo.
 
