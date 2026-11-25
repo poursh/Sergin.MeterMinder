@@ -84,8 +84,8 @@ public sealed class PermissionModuleLabelTests(SerginWebApiFactory<Program> fact
     }
 
     [Theory]
-    [InlineData("/ua/roles/new?scopeId=01920000-0000-7000-8000-0000000000b1")]
-    [InlineData("/ua/roles/01920000-0000-7000-8000-0000000000a2")]
+    [InlineData("/ua/scopes/01920000-0000-7000-8000-0000000000b1/roles/new")]
+    [InlineData("/ua/scopes/01920000-0000-7000-8000-0000000000b1/roles/01920000-0000-7000-8000-0000000000a2")]
     public async Task RolePages_ShowNoRawLocalizerKey(string path)
     {
         using HttpClient client = factory.CreateClient();

@@ -57,7 +57,7 @@ public sealed class GeneratedRoleViewTests(SerginWebApiFactory<Program> factory)
         BelongsToView belongsTo = Assert.IsType<BelongsToView>(Model().BelongsTo);
         Assert.Equal(typeof(Scope), belongsTo.Parent);
 
-        string html = await GetAsync($"/ua/roles/{role}");
+        string html = await GetAsync($"/ua/scopes/{scenario.North}/roles/{role}");
 
         // The list step, the owner as stored (a link), then the role: in that order.
         int scopes = html.IndexOf("href=\"/ua/scopes\"", StringComparison.Ordinal);
@@ -82,7 +82,7 @@ public sealed class GeneratedRoleViewTests(SerginWebApiFactory<Program> factory)
         RbacScenario scenario = await RbacScenario.BuildAsync(factory);
         Guid role = await scenario.CreateRoleAsync(scenario.North, $"inline-{Guid.NewGuid():N}"[..16], inheritable: true, RbacScenario.Read);
 
-        string html = await GetAsync($"/ua/roles/{role}");
+        string html = await GetAsync($"/ua/scopes/{scenario.North}/roles/{role}");
 
         Assert.Contains(">Inheritable<", html, StringComparison.Ordinal);
         Assert.Contains("mud-switch", html, StringComparison.Ordinal);
@@ -289,7 +289,7 @@ public sealed class GeneratedRoleViewTests(SerginWebApiFactory<Program> factory)
         Assert.Equal(RoleUiTexts.InheritableOnCreate, inheritable.Label.Label);
         Assert.DoesNotContain(model.CreateFields, field => field.Name == nameof(CreateRoleCommand.OwnerScopeId));
 
-        string html = await GetAsync($"/ua/roles/new?scopeId={Scope.RootId.Value}");
+        string html = await GetAsync($"/ua/scopes/{Scope.RootId.Value}/roles/new");
 
         Assert.Contains(RoleUiTexts.InheritableOnCreate.Default, html, StringComparison.Ordinal);
         Assert.Contains(">Permissions<", html, StringComparison.Ordinal);
@@ -315,7 +315,7 @@ public sealed class GeneratedRoleViewTests(SerginWebApiFactory<Program> factory)
 
         Assert.False(sent.IsError, sent.IsError ? sent.Errors[0].Description : string.Empty);
         Guid created = Assert.IsType<CreateRoleCommandResponse>(sent.Value).Id;
-        Assert.Equal($"/ua/roles/{created}", model.Routes.Detail!(created));
+        Assert.Equal($"/ua/scopes/{Scope.RootId.Value}/roles/{created}", model.Routes.DetailUnderParent!(Scope.RootId.Value, created));
 
         RoleQueryResponse role = await LoadRoleAsync(created);
         Assert.Equal(Scope.RootId.Value, role.OwnerScopeId);

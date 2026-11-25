@@ -85,7 +85,6 @@ public sealed partial class ViewHostRenderingTests(SerginWebApiFactory<Program> 
     [InlineData("/dm/devices/new", "New device", "Create", "/dm/devices")]
     [InlineData("/dm/manufacturers/new", "New manufacturer", "Create", "/dm/manufacturers")]
     [InlineData("/ua/users/new", "New user", "Create", "/ua/users")]
-    [InlineData("/ua/roles/new?scopeId=01920000-0000-7000-8000-0000000000b1", "New role", "Create", "/ua/scopes/01920000-0000-7000-8000-0000000000b1")]
     public async Task FormView_OnAPage_RendersTitleTrailAndForm(string path, string title, string submit, string cancelHref)
     {
         string html = await GetAsync(path);

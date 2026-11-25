@@ -61,7 +61,6 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
         "/st/languages",
         "/sys/tasks/runs",
         "/st/languages/new",
-        "/ua/roles/new",
         "/ua/scopes",
         "/ua/scopes/new",
         "/ua/users",
@@ -105,7 +104,8 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
                 $"/dm/manufacturers/{manufacturer.Value}/models/{model.Value}/edit",
                 $"/st/languages/{language}",
                 $"/st/languages/{language}/translations",
-                $"/ua/roles/{ViewerRoleId}",
+                $"/ua/scopes/{Scope.RootId.Value}/roles/new",
+                $"/ua/scopes/{Scope.RootId.Value}/roles/{ViewerRoleId}",
                 $"/ua/scopes/{Scope.RootId.Value}",
                 $"/ua/users/{user}",
             ];
@@ -239,7 +239,7 @@ public sealed class PseudoLocaleSweepTests(SerginWebApiFactory<Program> factory)
     {
         List<string> values = [];
 
-        if (route == $"/ua/roles/{ViewerRoleId}")
+        if (route == $"/ua/scopes/{Scope.RootId.Value}/roles/{ViewerRoleId}")
         {
             values.AddRange(await NamesAsync("SELECT name FROM ua.roles WHERE id = @Id;", Guid.Parse(ViewerRoleId)));
         }
