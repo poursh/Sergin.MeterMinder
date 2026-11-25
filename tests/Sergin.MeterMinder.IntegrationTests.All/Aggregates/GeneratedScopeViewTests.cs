@@ -250,7 +250,7 @@ public sealed class GeneratedScopeViewTests(SerginWebApiFactory<Program> factory
         string html = await GetAsync($"/ua/scopes/{scenario.North}");
 
         Assert.Contains($"href=\"/ua/scopes/new?parentId={scenario.North}\"", html, StringComparison.Ordinal);
-        Assert.Contains($"href=\"/ua/roles/new?scopeId={scenario.North}\"", html, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/ua/scopes/{scenario.North}/roles/new\"", html, StringComparison.Ordinal);
         Assert.Contains("New role here", html, StringComparison.Ordinal);
     }
 

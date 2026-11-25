@@ -76,6 +76,41 @@ public sealed partial class TreePageRenderingTests(SerginWebApiFactory<Program> 
     }
 
     [Fact]
+    public async Task RoleDetail_SelectsTheOwnerScope_AndMountsTheViewInThePane()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+        string roleName = $"pane-{Guid.NewGuid():N}"[..16];
+        Guid role = await scenario.CreateRoleAsync(scenario.North, roleName, inheritable: false, RbacScenario.Read);
+
+        string html = await GetAsync($"/ua/scopes/{scenario.North}/roles/{role}");
+
+        // The owner is the selected node; the strip runs through it, now a link, to the role as stored.
+        Assert.Contains("role=\"tree\"", html, StringComparison.Ordinal);
+        Assert.Matches($"aria-selected=\"true\"[^>]*data-node=\"{scenario.North}\"", html);
+        Assert.Single(BreadcrumbNav().Matches(html));
+        string trail = BreadcrumbNav().Match(html).Value;
+        Assert.Contains($"href=\"/ua/scopes/{scenario.North}\"", trail, StringComparison.Ordinal);
+        Assert.Matches($"aria-current=\"page\"[^>]*>{roleName}<", trail);
+        Assert.Equal("Scopes", PageTitle().Match(html).Groups[1].Value.Trim());
+    }
+
+    [Fact]
+    public async Task RoleCreate_SelectsTheOwnerScope_AndMountsTheFormInThePane()
+    {
+        RbacScenario scenario = await RbacScenario.BuildAsync(factory);
+
+        string html = await GetAsync($"/ua/scopes/{scenario.North}/roles/new");
+
+        Assert.Contains("role=\"tree\"", html, StringComparison.Ordinal);
+        Assert.Matches($"aria-selected=\"true\"[^>]*data-node=\"{scenario.North}\"", html);
+        Assert.Contains($"href=\"/ua/scopes/{scenario.North}\"", BreadcrumbNav().Match(html).Value, StringComparison.Ordinal);
+        Assert.Matches("aria-current=\"page\"[^>]*>New role<", BreadcrumbNav().Match(html).Value);
+        Assert.Matches("<button[^>]*type=\"submit\"[^>]*>(?:(?!</button>).)*Create", html);
+        Assert.Single(BreadcrumbNav().Matches(html));
+        Assert.Equal("Scopes", PageTitle().Match(html).Groups[1].Value.Trim());
+    }
+
+    [Fact]
     public async Task Create_WithoutAParent_SelectsTheRoot()
     {
         string html = await GetAsync("/ua/scopes/new");

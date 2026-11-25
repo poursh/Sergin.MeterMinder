@@ -438,6 +438,20 @@ public sealed class AggregateViewGuardTests
             nameof(BelongsToWrongResponseViewConfiguration), nameof(ParentProbeResponse), nameof(ChildProbeResponse));
 
     [Fact]
+    public void Guard_DetailUnderParent_Refusals()
+    {
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(DetailUnderParentWithoutBelongsToViewConfiguration)),
+            nameof(DetailUnderParentWithoutBelongsToViewConfiguration), "DetailUnderParent", "BelongsTo<TParent");
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration), typeof(DetailUnderParentAndDetailViewConfiguration)),
+            nameof(DetailUnderParentAndDetailViewConfiguration), "Routes(detail:", "DetailUnderParent");
+        AssertRefused(
+            () => AggregateViewTestRegistry.Build(typeof(ParentProbeViewConfiguration), typeof(DetailUnderParentDropsParentViewConfiguration)),
+            nameof(DetailUnderParentDropsParentViewConfiguration), "/tst/children/", "carry both");
+    }
+
+    [Fact]
     public void Guard_FormParent_UnknownOrNonGuidProperty_Refuses()
     {
         AssertRefused(

@@ -15,6 +15,7 @@ namespace Sergin.MeterMinder.IntegrationTests.All.Shell;
 public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> factory)
 {
     private const string ViewerRoleId = "01920000-0000-7000-8000-0000000000a2";
+    private const string RootScopeId = "01920000-0000-7000-8000-0000000000b1";
 
     [Fact]
     public async Task ScopeTree_ListsTheRoot()
@@ -31,7 +32,7 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
         string html = await GetAsync($"/ua/scopes/{Scope.RootId.Value}");
 
         Assert.Contains("The root of the tree", html, StringComparison.Ordinal);
-        Assert.Contains($"href=\"/ua/roles/{ViewerRoleId}\"", html, StringComparison.Ordinal);
+        Assert.Contains($"href=\"/ua/scopes/{RootScopeId}/roles/{ViewerRoleId}\"", html, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -59,7 +60,7 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
     [Fact]
     public async Task ViewerRoleDetail_ShowsItsPermissions()
     {
-        string html = await GetAsync($"/ua/roles/{ViewerRoleId}");
+        string html = await GetAsync($"/ua/scopes/{RootScopeId}/roles/{ViewerRoleId}");
 
         // The seeded viewer holds only UserAccess's own read; the migration names no other module's permission.
         Assert.Contains(UserPermissions.Read.Label, html, StringComparison.Ordinal);
@@ -72,7 +73,7 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
         RbacScenario scenario = await RbacScenario.BuildAsync(factory);
         Guid role = await scenario.CreateRoleAsync(scenario.North, "scope-keeper", inheritable: false, ScopePermissions.Manage.Permission);
 
-        string html = await GetAsync($"/ua/roles/{role}");
+        string html = await GetAsync($"/ua/scopes/{scenario.North}/roles/{role}");
 
         Assert.Contains("Create, rename, move and delete scopes", html, StringComparison.Ordinal);
     }
@@ -83,7 +84,7 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
         RbacScenario scenario = await RbacScenario.BuildAsync(factory);
         Guid role = await new Permissions.UserAccessPermissionCatalogTests(factory).SeedRoleWithUnknownPermissionAsync(scenario);
 
-        string html = await GetAsync($"/ua/roles/{role}");
+        string html = await GetAsync($"/ua/scopes/{scenario.North}/roles/{role}");
 
         Assert.Contains("Unknown", html, StringComparison.Ordinal);
         Assert.Contains("permission.ua.nothing.here", html, StringComparison.Ordinal);
@@ -95,7 +96,7 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
         RbacScenario scenario = await RbacScenario.BuildAsync(factory);
         Guid role = await new Permissions.UserAccessPermissionCatalogTests(factory).SeedRoleWithMalformedPermissionAsync(scenario, "Not A Permission!");
 
-        string html = await GetAsync($"/ua/roles/{role}");
+        string html = await GetAsync($"/ua/scopes/{scenario.North}/roles/{role}");
 
         Assert.Contains("Unknown", html, StringComparison.Ordinal);
         Assert.Contains("Not A Permission!", html, StringComparison.Ordinal);
@@ -103,7 +104,7 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
 
     [Theory]
     [InlineData("/ua/scopes/new")]
-    [InlineData("/ua/roles/new?scopeId=01920000-0000-7000-8000-0000000000b1")]
+    [InlineData("/ua/scopes/01920000-0000-7000-8000-0000000000b1/roles/new")]
     public async Task CreatePages_Render(string path)
     {
         string html = await GetAsync(path);
@@ -116,8 +117,8 @@ public sealed class ScopedRbacPageRenderingTests(SerginWebApiFactory<Program> fa
     /// the copy <c>MudSelect</c> renders to register its items, leaking under the field.
     /// </summary>
     [Theory]
-    [InlineData($"/ua/roles/{ViewerRoleId}")]
-    [InlineData("/ua/roles/new?scopeId=01920000-0000-7000-8000-0000000000b1")]
+    [InlineData($"/ua/scopes/{RootScopeId}/roles/{ViewerRoleId}")]
+    [InlineData("/ua/scopes/01920000-0000-7000-8000-0000000000b1/roles/new")]
     public async Task RolePages_DoNotLeakThePickerHeadingsOntoThePage(string path)
     {
         string html = await GetAsync(path);

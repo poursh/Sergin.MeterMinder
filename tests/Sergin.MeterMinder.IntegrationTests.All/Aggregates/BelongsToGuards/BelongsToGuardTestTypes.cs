@@ -61,6 +61,53 @@ internal sealed class BelongsToWrongResponseViewConfiguration : IAggregateViewCo
     }
 }
 
+// ---- Refusals: DetailUnderParent ----
+
+/// <summary>Builds its detail route from a parent it never declares with BelongsTo.</summary>
+internal sealed class DetailUnderParentWithoutBelongsToViewConfiguration : IAggregateViewConfiguration<ChildProbe>
+{
+    public void Configure(AggregateViewBuilder<ChildProbe> view)
+    {
+        view.DetailUnderParent((parent, id) => $"/tst/parent-probes/{parent}/children/{id}");
+        view.Form<CreateChildProbeCommand>(form =>
+        {
+            form.Parent(command => command.OwnerId);
+            form.Field(command => command.Tags).Component<ChildProbeTagsInput>();
+        });
+    }
+}
+
+/// <summary>Names its detail route twice, once plain and once under the parent.</summary>
+internal sealed class DetailUnderParentAndDetailViewConfiguration : IAggregateViewConfiguration<ChildProbe>
+{
+    public void Configure(AggregateViewBuilder<ChildProbe> view)
+    {
+        view.Routes(detail: id => $"/tst/children/{id}");
+        view.DetailUnderParent((parent, id) => $"/tst/parent-probes/{parent}/children/{id}");
+        view.BelongsTo<ParentProbe, ChildProbeResponse>(child => child.OwnerId, child => child.OwnerName);
+        view.Form<CreateChildProbeCommand>(form =>
+        {
+            form.Parent(command => command.OwnerId);
+            form.Field(command => command.Tags).Component<ChildProbeTagsInput>();
+        });
+    }
+}
+
+/// <summary>A detail route under the parent that drops the parent's id.</summary>
+internal sealed class DetailUnderParentDropsParentViewConfiguration : IAggregateViewConfiguration<ChildProbe>
+{
+    public void Configure(AggregateViewBuilder<ChildProbe> view)
+    {
+        view.DetailUnderParent((_, id) => $"/tst/children/{id}");
+        view.BelongsTo<ParentProbe, ChildProbeResponse>(child => child.OwnerId, child => child.OwnerName);
+        view.Form<CreateChildProbeCommand>(form =>
+        {
+            form.Parent(command => command.OwnerId);
+            form.Field(command => command.Tags).Component<ChildProbeTagsInput>();
+        });
+    }
+}
+
 // ---- Refusals: a form's Parent(...) ----
 
 /// <summary>Names the string Name as the parent, which wraps no Guid.</summary>
